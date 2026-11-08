@@ -1,0 +1,5 @@
+ok: false
+errors:
+  - { code: invalid_workflow, path: "/inputSchema/$defs" }
+  - { code: invalid_workflow, path: "/inputSchema/properties/topic/$ref" }
+warnings: []

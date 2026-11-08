@@ -1,0 +1,7 @@
+{
+  "steps": {
+    "first": { "uses": "test/echo@1.0.0", "with": { "text": "hi" } },
+    "first": { "uses": "test/echo@1.0.0", "with": { "text": "again" } }
+  },
+  "outputs": { "text": { "from": "steps.first.outputs.text" } }
+}

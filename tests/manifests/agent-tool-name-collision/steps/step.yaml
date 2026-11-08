@@ -1,0 +1,7 @@
+name: test/m15
+version: 1.0.0
+description: An agent offered two versions of one step that would share a tool name.
+inputSchema: { type: object, properties: {} }
+outputSchema: { type: object, properties: {} }
+effects: reads
+runtime: { agent: { model: claude-sonnet-5-5, instructions: prompts/m15.md, tools: [acme/fetch-ci-logs@2.1.0, acme/fetch-ci-logs@2.0.0] } }

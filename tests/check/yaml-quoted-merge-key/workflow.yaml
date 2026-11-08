@@ -1,0 +1,7 @@
+# The key "<<" is refused even when quoted, since YAML 1.1 parsers read it as a merge.
+steps:
+  take:
+    uses: test/take-values@1.0.0
+    "<<": { text: hi }
+outputs:
+  done: { from: steps.take.outputs.done }

@@ -8,7 +8,16 @@ import sys
 from pathlib import Path
 
 from .check import check
-from .documents import EFFECT_ORDER, Issue, ParseError, agent_tool_issues, load_catalog, load_document, manifest_issues
+from .documents import (
+    EFFECT_ORDER,
+    Issue,
+    ParseError,
+    agent_tool_issues,
+    load_catalog,
+    load_document,
+    manifest_issues,
+    workflow_runtime_issues,
+)
 from .publish import as_step, lock, mcp_tool
 
 
@@ -72,6 +81,8 @@ def _check(args) -> int:
 def _check_step(args) -> int:
     manifest = load_document(args.manifest)
     found = manifest_issues(manifest)
+    if not found:
+        found = workflow_runtime_issues(manifest, str(args.manifest))
     if not found and args.catalog:
         found = agent_tool_issues(manifest, load_catalog(args.catalog))
     issues = [i.to_dict() for i in found]

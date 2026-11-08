@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import hashlib
 import json
 import math
 from dataclasses import asdict, dataclass, field
@@ -78,18 +79,27 @@ def _unique_pairs(pairs: list[tuple[str, object]]) -> dict:
     return out
 
 
+SAFE_INTEGER = 2**53 - 1  # I-JSON (RFC 7493): whole numbers every JSON parser reads exactly
+
+
 def _json_only(node, path: tuple = ()) -> None:
-    """Refuse what JSON can't hold: keys that aren't text, and NaN or infinite numbers."""
+    """Refuse what I-JSON (RFC 7493) can't hold, since digests use RFC 8785, which needs it:
+    keys that aren't text, the key "<<", NaN, infinities, and whole numbers beyond 2**53 - 1."""
+    where = pointer(*path) or "/"
     if isinstance(node, dict):
         for key, value in node.items():
             if not isinstance(key, str):
-                raise ParseError(f"at {pointer(*path) or '/'}: the key {key!r} must be text; put it in quotes")
+                raise ParseError(f"at {where}: the key {key!r} must be text; put it in quotes")
+            if key == "<<":
+                raise ParseError(f"at {where}: the key '<<' isn't allowed; YAML 1.1 parsers read it as a merge")
             _json_only(value, (*path, key))
     elif isinstance(node, list):
         for i, value in enumerate(node):
             _json_only(value, (*path, i))
     elif isinstance(node, float) and not math.isfinite(node):
-        raise ParseError(f"at {pointer(*path) or '/'}: {node} isn't a JSON number")
+        raise ParseError(f"at {where}: {node} isn't a JSON number")
+    elif isinstance(node, int) and not isinstance(node, bool) and abs(node) > SAFE_INTEGER:
+        raise ParseError(f"at {where}: {node} is beyond ±(2**53 - 1), which not every JSON parser reads exactly")
 
 
 def load_document(path: Path):
@@ -144,6 +154,21 @@ def value_problem(schema: dict, value) -> str | None:
     except Unresolvable as exc:
         return f"the schema refers to something that can't be found: {exc}"
     return None if error is None else error.message
+
+
+MCP_NAME_LIMIT = 64
+
+
+def mcp_name(name: str, version: str) -> str:
+    """owner_name_v<major>: letters, digits, _ and -, which MCP and model tool APIs all accept.
+
+    Step names can't contain _, so the separators are unambiguous. Names over 64 characters
+    are cut and given 8 hex characters of the full name's SHA-256, so they stay unique."""
+    owner, short = name.split("/")
+    full = f"{owner}_{short}_v{version.split('.')[0]}"
+    if len(full) <= MCP_NAME_LIMIT:
+        return full
+    return full[: MCP_NAME_LIMIT - 9] + "_" + hashlib.sha256(full.encode()).hexdigest()[:8]
 
 
 def reference_issues(schema, path: tuple) -> list[tuple[str, str]]:
@@ -229,7 +254,36 @@ def manifest_issues(doc, file: str | None = None) -> list[Issue]:
         for flag in ("idempotent", "destructive"):
             if flag in doc:
                 problem(pointer(flag), f"{flag!r} only applies to steps whose effects are 'writes'")
+    outputs = doc["outputSchema"]["properties"]
+    for flag, answer in (("maySkip", "skip"), ("mayPlan", "plan")):
+        allowed = doc.get(flag) or doc["runtime"].get("agent", {}).get(flag)
+        if allowed and answer in outputs:
+            problem(pointer("outputSchema", "properties", answer), f"with {flag}, no output may be named {answer!r}: an answer {{{answer}: ...}} would be ambiguous")
+    seen: dict[str, str] = {}
+    for i, tool in enumerate(doc["runtime"].get("agent", {}).get("tools", [])):
+        name = mcp_name(*tool.split("@"))
+        if name in seen:
+            problem(pointer("runtime", "agent", "tools", i), f"{tool} and {seen[name]} would both be offered as {name}; list one version per major version")
+        seen.setdefault(name, tool)
     return issues
+
+
+def workflow_runtime_issues(manifest: dict, file: str | None) -> list[Issue]:
+    """A workflow step's file must exist next to its manifest and be a workflow."""
+    runtime = manifest["runtime"].get("workflow")
+    if not runtime or file is None:
+        return []
+    where = pointer("runtime", "workflow", "path")
+    target = Path(file).parent / runtime["path"]
+    if not target.is_file():
+        return [Issue("invalid_manifest", where, f"there is no workflow file at {target}", file=file)]
+    try:
+        doc = load_document(target)
+    except ParseError as exc:
+        return [Issue("invalid_manifest", where, f"{target} can't be read: {exc}", file=file)]
+    if schema_issues(doc, "urn:wfspec:schema:workflow", "invalid_workflow"):
+        return [Issue("invalid_manifest", where, f"{target} isn't a valid workflow; check it with wfspec check", file=file)]
+    return []
 
 
 def agent_tool_issues(manifest: dict, catalog: Catalog, file: str | None = None) -> list[Issue]:
@@ -277,6 +331,8 @@ def load_catalog(dirs: list[Path]) -> Catalog:
                 catalog.problems.append(Issue("parse_error", "", str(exc), file=file))
                 continue
             issues = manifest_issues(doc, file)
+            if not issues:
+                issues = workflow_runtime_issues(doc, file)
             ref = _ref_of(doc)
             if issues:
                 if ref and ref not in catalog.steps:

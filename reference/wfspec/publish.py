@@ -10,9 +10,9 @@ import rfc8785
 
 from .check import check, closure
 from .documents import EFFECT_ORDER, FILE_REF, REGISTRY, Catalog, load_document
+from .documents import mcp_name as tool_name
 
 _FILE_SCHEMA = {k: v for k, v in REGISTRY.contents(FILE_REF).items() if k not in ("$schema", "$id", "title", "description")}
-MCP_NAME_LIMIT = 64
 
 
 def canonical_json(doc) -> bytes:
@@ -73,7 +73,10 @@ def _all_refs(start: list[str], catalog: Catalog) -> set[str]:
         if "agent" in runtime:
             stack.extend(runtime["agent"].get("tools", []))
         if "workflow" in runtime:
-            inner = load_document(Path(catalog.files[ref]).parent / runtime["workflow"]["path"])
+            target = Path(catalog.files[ref]).parent / runtime["workflow"]["path"]
+            if not target.is_file():
+                raise ValueError(f"{ref}: there is no workflow file at {target}")
+            inner = load_document(target)
             stack.extend(step["uses"] for step in inner["steps"].values())
     return seen
 
@@ -126,15 +129,8 @@ def as_step(workflow: dict, catalog: Catalog, path: str) -> dict:
 
 
 def mcp_name(manifest: dict) -> str:
-    """owner_name_v<major>: letters, digits, _ and -, which MCP and model tool APIs all accept.
-
-    Step names can't contain _, so the separators are unambiguous. Names over 64 characters
-    are cut and given 8 hex characters of the full name's SHA-256, so they stay unique."""
-    owner, name = manifest["name"].split("/")
-    full = f"{owner}_{name}_v{manifest['version'].split('.')[0]}"
-    if len(full) <= MCP_NAME_LIMIT:
-        return full
-    return full[: MCP_NAME_LIMIT - 9] + "_" + hashlib.sha256(full.encode()).hexdigest()[:8]
+    """The MCP tool name of a step (SPEC.md, section 9.1)."""
+    return tool_name(manifest["name"], manifest["version"])
 
 
 def mcp_tool(manifest: dict) -> dict:

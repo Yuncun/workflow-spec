@@ -1,0 +1,7 @@
+ok: false
+errors:
+  - { code: type_mismatch, path: "/steps/take/with/label" }
+  - { code: type_mismatch, path: "/steps/take/with/never" }
+  - { code: type_mismatch, path: "/steps/take/with/text" }
+warnings:
+  - { code: type_unchecked, path: "/steps/take/with/optional_text" }

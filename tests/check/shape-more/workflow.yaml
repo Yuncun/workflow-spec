@@ -1,0 +1,13 @@
+# More shapes: a non-file where a file is expected, constants, and objects with loose schemas.
+steps:
+  emit: { uses: test/emit-shapes@1.0.0 }
+  take:
+    uses: test/take-shapes@1.0.0
+    with:
+      textfile: { from: steps.emit.outputs.big }           # a number where a file is expected
+      only_a: { from: steps.emit.outputs.letter_b }        # the constant b where only a is allowed
+      record: { from: steps.emit.outputs.loose_object }    # the source declares no properties
+      closed: { from: steps.emit.outputs.small_record }    # the source doesn't rule out extra properties
+      optional_text: { from: steps.emit.outputs.letter_a } # a constant text value fits a text input
+outputs:
+  done: { from: steps.take.outputs.done }

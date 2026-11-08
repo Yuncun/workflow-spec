@@ -1,0 +1,8 @@
+name: test/m13
+version: 1.0.0
+description: A step that may skip, with an output named skip.
+inputSchema: { type: object, properties: {} }
+outputSchema: { type: object, properties: { skip: { type: string } } }
+effects: none
+maySkip: true
+runtime: { container: { image: example.test/x:1.0.0 } }

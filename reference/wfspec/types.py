@@ -102,6 +102,8 @@ def assignable(src, dst, where: str = "") -> list[Finding]:
     if _is_file(src) or _is_file(dst):
         return _files(src, dst, where)
     if "$ref" in src or "$ref" in dst:
+        # Files that pass the manifest and workflow rules never get here (section 4.1); this keeps a
+        # direct caller with other schemas from getting a wrong "fits".
         return [Finding(False, where, "the checker doesn't follow $ref, other than to files")]
     if any(k in dst for k in _COMPOSITION):
         return [Finding(False, where, "the input's schema combines schemas (anyOf, oneOf...), which the checker doesn't compare")]

@@ -1,0 +1,7 @@
+name: test/m14
+version: 1.0.0
+description: An agent that may plan, with an output named plan.
+inputSchema: { type: object, properties: {} }
+outputSchema: { type: object, properties: { plan: { type: string } } }
+effects: reads
+runtime: { agent: { model: claude-sonnet-5-5, instructions: prompts/m14.md, mayPlan: true } }

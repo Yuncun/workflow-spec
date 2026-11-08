@@ -14,7 +14,15 @@ outputSchema:
     big: { type: integer, minimum: 2 }
     flag: { enum: [true] }
     maybe_text: { type: string }
-  required: [words, bag, open_record, anything, note_file, raw_file, big, flag]
+    loose_object: { type: object }
+    small_record: { type: object, properties: { a: { type: string } }, required: [a] }
+    letter_a: { const: a }
+    letter_b: { const: b }
+    nullable_text: { type: [string, "null"] }
+    mixed: { enum: [null, 1.5, 2.0, [1], { a: 1 }] }
+    pattern_only: { pattern: "^a" }
+    a_or_b: { enum: [a, b] }
+  required: [words, bag, open_record, anything, note_file, raw_file, big, flag, loose_object, small_record, letter_a, letter_b, nullable_text, mixed, pattern_only, a_or_b]
 effects: none
 deterministic: true
 runtime: { container: { image: example.test/emit-shapes:1.0.0 } }

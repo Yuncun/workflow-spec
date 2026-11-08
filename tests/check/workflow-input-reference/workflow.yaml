@@ -1,0 +1,14 @@
+# A workflow's own inputSchema follows the same rule as a manifest: only file references.
+inputSchema:
+  type: object
+  $defs:
+    word: { type: string }
+  properties:
+    topic: { $ref: "#/$defs/word" }
+  required: [topic]
+steps:
+  take:
+    uses: test/take-values@1.0.0
+    with: { text: { from: inputs.topic } }
+outputs:
+  done: { from: steps.take.outputs.done }

@@ -202,6 +202,16 @@
         "digest": {
           "$ref": "urn:wfspec:schema:lock#/$defs/digest"
         },
+        "cacheKey": {
+          "$ref": "urn:wfspec:schema:lock#/$defs/digest"
+        },
+        "cacheHit": {
+          "type": "boolean"
+        },
+        "attempts": {
+          "type": "integer",
+          "minimum": 0
+        },
         "inputs": {
           "type": "object"
         },
@@ -211,8 +221,13 @@
         "status": {
           "enum": [
             "succeeded",
-            "failed"
+            "failed",
+            "skipped"
           ]
+        },
+        "reason": {
+          "description": "Why the call was skipped.",
+          "type": "string"
         },
         "started": {
           "type": "string",
@@ -221,9 +236,16 @@
         "ended": {
           "type": "string",
           "format": "date-time"
+        },
+        "error": {
+          "$ref": "#/$defs/stepRun/properties/error"
+        },
+        "logs": {
+          "$ref": "urn:wfspec:file"
         }
       },
-      "additionalProperties": false
+      "additionalProperties": false,
+      "description": "A step an agent step called as a tool. It ran as a step, so it records the same facts."
     }
   }
 }

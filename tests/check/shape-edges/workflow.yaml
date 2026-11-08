@@ -1,0 +1,16 @@
+# Edge shapes: inputs that accept anything or nothing, nullable types, mixed-value enums.
+steps:
+  emit: { uses: test/emit-shapes@1.0.0 }
+  take:
+    uses: test/take-shapes@1.0.0
+    with:
+      anything_in: { from: steps.emit.outputs.words }     # an input that accepts anything
+      never: { from: steps.emit.outputs.big }             # an input whose schema is false
+      text: { from: steps.emit.outputs.nullable_text }    # null can't be given where text is expected
+      label: { from: steps.emit.outputs.mixed }           # an enum of mixed types into text
+      any_object: { from: steps.emit.outputs.note_file }  # a file fits a plain object
+      any_file: { from: steps.emit.outputs.note_file }    # a typed file fits an untyped file input
+      a_b_or_c: { from: steps.emit.outputs.a_or_b }       # a smaller enum fits a larger one
+      optional_text: { from: steps.emit.outputs.pattern_only }  # the source has a limit but no type
+outputs:
+  done: { from: steps.take.outputs.done }

@@ -9,7 +9,7 @@ from dataclasses import dataclass, field
 from jsonschema import Draft202012Validator
 from jsonschema.exceptions import SchemaError
 
-from .documents import EFFECT_ORDER, Catalog, Issue, pointer, schema_issues, value_problem
+from .documents import EFFECT_ORDER, Catalog, Issue, pointer, reference_issues, schema_issues, value_problem
 from .types import Finding, assignable
 
 INPUT_REF = re.compile(r"^inputs\.([A-Za-z_][A-Za-z0-9_-]*)$")
@@ -109,11 +109,18 @@ class _Checker:
         return self.result
 
     def _check_inputs(self):
+        self.inputs_usable = False  # whether values can be compared with the input schemas
         try:
             Draft202012Validator.check_schema(self.inputs)
         except SchemaError as exc:
             self.error("invalid_workflow", pointer("inputSchema", *exc.path), f"not a valid JSON Schema: {exc.message}")
             return
+        references = reference_issues(self.inputs, ("inputSchema",))
+        for path, message in references:
+            self.error("invalid_workflow", path, message)
+        if references:
+            return
+        self.inputs_usable = True
         props = self.inputs["properties"]
         for name in self.inputs.get("required", []):
             if name not in props:
@@ -180,7 +187,7 @@ class _Checker:
                 return None
             schema = props[input_name] if isinstance(props[input_name], dict) else {}
             optional = input_name not in self.inputs.get("required", []) and not _has_default(schema)
-            return Source(None, input_name, schema, optional)
+            return Source(None, input_name, schema if self.inputs_usable else None, optional)
         match = OUTPUT_REF.match(ref)
         if match:
             upstream, output = match.groups()

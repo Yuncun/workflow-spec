@@ -15,6 +15,14 @@ inputSchema:
     one: { enum: [1] }
     optional_text: { type: string }
     defaulted: { type: string, default: x }
+    only_a: { const: a }
+    record: { type: object, properties: { a: { type: string } }, required: [a] }
+    anything_in: {}
+    never: false
+    any_object: { type: object }
+    any_file: { $ref: urn:wfspec:file }
+    a_b_or_c: { enum: [a, b, c] }
+    label: { type: string }
   required: [defaulted]
 outputSchema:
   type: object

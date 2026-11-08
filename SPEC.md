@@ -23,7 +23,8 @@ Manifests and workflows are YAML 1.2 or JSON, and every value must be one JSON c
 - `yes`, `no`, `on` and `off` are text, not booleans. GitHub Actions files rely on this.
 - A key that appears twice is an error, not "the last one wins".
 - Keys are text, and a date stays the text that was written.
-- Merge keys (`<<`) aren't allowed, and numbers must be finite (no `.nan` or `.inf`).
+- The key `<<` isn't allowed, whether as a YAML 1.1 merge key or quoted.
+- Numbers follow I-JSON (RFC 7493): finite, and whole numbers within ±(2^53 − 1), so every JSON parser reads them exactly and digests agree (section 8.1).
 
 ## 1. The parts
 
@@ -135,8 +136,11 @@ Checking reports `invalid_manifest` when any of these hold:
 - An example's `inputs` or `outputs` don't fit the manifest's schemas.
 - `idempotent` or `destructive` appears on a step that isn't `writes`.
 - A schema uses `$ref` for anything but `urn:wfspec:file`, or uses `$defs`, `$id`, `$anchor` or `$dynamicRef` (section 4.1).
+- A step with `maySkip` has an output named `skip`, or an agent with `mayPlan` has an output named `plan`. An answer `{"skip": ...}` or `{"plan": ...}` would then be ambiguous.
+- An agent lists two versions of a step that would get the same tool name (section 9.1). List one version per major version.
 - An agent's `effects` are lower than those of a tool it can call.
 - An agent's `secrets` leave out a secret one of its tools needs.
+- A `workflow` step's file is missing, can't be read, or isn't a workflow.
 
 An agent's tool that isn't in the catalog is reported as `unknown_step`.
 
@@ -179,7 +183,7 @@ Inputs and outputs are described with JSON Schema 2020-12, the version MCP uses.
 
 Two limits keep every implementation in agreement:
 - **`format` is an annotation.** Checking ignores it and platforms don't enforce it, as in JSON Schema 2020-12 by default. Whether a validator enforces `format` otherwise depends on which libraries are installed. A step that needs, say, a valid URI checks it itself.
-- **The only reference is `{"$ref": "urn:wfspec:file"}`.** `$defs`, `$id`, `$anchor`, `$dynamicRef` and other `$ref` targets are left for a later version, so a schema can always be checked on its own.
+- **The only reference is `{"$ref": "urn:wfspec:file"}`.** `$defs`, `$id`, `$anchor`, `$dynamicRef` and other `$ref` targets are left for a later version, so a schema can always be checked on its own. This holds for a workflow's own `inputSchema` too; there a break is `invalid_workflow`.
 
 ### 4.2 Files
 
@@ -302,7 +306,8 @@ A workflow has no conditions, loops or expressions. Where one is needed:
 ```text
 check(W, catalog, policy):
   W breaks workflow.schema.json                       -> invalid_workflow (stop here)
-  W.inputSchema invalid, or required names undeclared -> invalid_workflow
+  W.inputSchema invalid, uses a reference other than a file,
+    or lists required names it doesn't declare       -> invalid_workflow
   a workflow input's default doesn't fit              -> invalid_value
   for each step s:
     s.uses not in the catalog                         -> unknown_step  (message lists the versions it has,
@@ -351,7 +356,7 @@ check(W, catalog, policy):
 
 - A code keeps its meaning across versions of this spec, and new checks get new codes.
 - Messages are for people and may change.
-- For `parse_error`, the file couldn't be read: the YAML or JSON is invalid, a key appears twice, or a key isn't text. Many YAML parsers keep the last copy of a repeated key without saying so, so the checker must reject it.
+- For `parse_error`, the file couldn't be read. That covers four things: invalid YAML or JSON, a key that appears twice, a key that isn't text or is `<<`, and a number outside I-JSON. Many YAML parsers keep the last copy of a repeated key without saying so, and many accept `<<` or huge numbers, so a checker must test for these itself.
 
 ### 6.3 Output
 
@@ -381,7 +386,7 @@ The platform decides each caller's policy. The checker applies it, so an agent f
 
 ### 6.5 Test cases
 
-- `tests/check/<case>/` holds a `workflow.yaml`, an `expected.yaml` and, optionally, a `policy.yaml`. The catalog for these cases is `examples/steps/` plus `tests/catalog/`.
+- `tests/check/<case>/` holds a `workflow.yaml` or `workflow.json`, an `expected.yaml` and, optionally, a `policy.yaml`. The catalog for these cases is `examples/steps/` plus `tests/catalog/`, plus the case's own `catalog/` folder when it has one. A case's own catalog may hold manifests that are meant to be left out.
 - `tests/manifests/<case>/` holds a manifest in `steps/` and an `expected.yaml`.
 - An implementation passes a case when its errors and warnings have exactly the expected `(code, path)` pairs, as multisets.
 
@@ -466,6 +471,7 @@ Run-time error codes:
 - an OpenTelemetry trace id, so logs and traces can be found
 - for a run that failed or never started, an `error` with a message and a code, such as `check_failed`
 - for each step: its version and digest, cache key and whether the cache was hit, attempts, inputs, outputs, error, and an agent's calls and plan
+- for each call an agent made: the same facts as for a step, since each call runs as a step
 
 Examples are in `examples/runs/`.
 

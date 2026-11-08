@@ -1,0 +1,9 @@
+# A constant fits an input that allows only that constant.
+steps:
+  emit: { uses: test/emit-shapes@1.0.0 }
+  take:
+    uses: test/take-shapes@1.0.0
+    with:
+      only_a: { from: steps.emit.outputs.letter_a }
+outputs:
+  done: { from: steps.take.outputs.done }
