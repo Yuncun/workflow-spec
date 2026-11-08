@@ -134,26 +134,39 @@ def manifest_issues(doc, file: str | None = None) -> list[Issue]:
     issues = schema_issues(doc, "urn:wfspec:schema:step", "invalid_manifest", file)
     if issues:
         return issues
+
+    def problem(path: str, message: str) -> None:
+        issues.append(Issue("invalid_manifest", path, message, file=file))
+
+    usable = set()  # the schemas that are valid, so values can be checked against them
     for key in ("inputSchema", "outputSchema"):
         try:
             Draft202012Validator.check_schema(doc[key])
         except SchemaError as exc:
-            issues.append(Issue("invalid_manifest", pointer(key, *exc.path), f"not a valid JSON Schema: {exc.message}", file=file))
+            problem(pointer(key, *exc.path), f"not a valid JSON Schema: {exc.message}")
             continue
         declared = doc[key]["properties"]
-        for name in doc[key].get("required", []):
-            if name not in declared:
-                issues.append(Issue("invalid_manifest", pointer(key, "required"), f"{name!r} is required but not declared in properties", file=file))
-    if not any(i.path.startswith("/inputSchema") for i in issues):
+        undeclared = [name for name in doc[key].get("required", []) if name not in declared]
+        for name in undeclared:
+            problem(pointer(key, "required"), f"{name!r} is required but not declared in properties")
+        if not undeclared:
+            usable.add(key)
+    if "inputSchema" in usable:
         for name, schema in doc["inputSchema"]["properties"].items():
             if isinstance(schema, dict) and "default" in schema:
-                problem = value_problem(schema, schema["default"])
-                if problem:
-                    issues.append(Issue("invalid_manifest", pointer("inputSchema", "properties", name, "default"), f"the default doesn't fit the input: {problem}", file=file))
+                why = value_problem(schema, schema["default"])
+                if why:
+                    problem(pointer("inputSchema", "properties", name, "default"), f"the default doesn't fit the input: {why}")
+    for n, example in enumerate(doc.get("examples", [])):
+        for part, key in (("inputs", "inputSchema"), ("outputs", "outputSchema")):
+            if part in example and key in usable:
+                why = value_problem(doc[key], example[part])
+                if why:
+                    problem(pointer("examples", n, part), f"the example's {part} don't fit {key}: {why}")
     if doc["effects"] != "writes":
         for flag in ("idempotent", "destructive"):
             if flag in doc:
-                issues.append(Issue("invalid_manifest", pointer(flag), f"{flag!r} only applies to steps whose effects are 'writes'", file=file))
+                problem(pointer(flag), f"{flag!r} only applies to steps whose effects are 'writes'")
     return issues
 
 

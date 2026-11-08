@@ -1,0 +1,13 @@
+name: test/m6
+version: 1.0.0
+description: A test step whose example leaves out a required input.
+runtime: { container: { image: example.test/x:1.0.0 } }
+inputSchema:
+  type: object
+  properties:
+    a: { type: string }
+  required: [a]
+outputSchema: { type: object, properties: {} }
+effects: none
+examples:
+  - inputs: { b: 1 }
