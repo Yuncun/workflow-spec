@@ -1,0 +1,2 @@
+errors:
+  - { code: duplicate_step, path: "" }

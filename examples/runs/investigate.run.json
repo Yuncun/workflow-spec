@@ -9,8 +9,14 @@
     "lockVersion": 1,
     "workflow": "acme/investigate@0.1.0",
     "steps": {
+      "acme/fetch-ci-logs@2.1.0": {
+        "digest": "sha256:c5a48d74a450852979d4d718498e3e81e2913d4272ed60c5c6e31356b8dbcbeb"
+      },
       "acme/investigate-failure@0.1.0": {
         "digest": "sha256:de1191940088019f244c8d172466ee0f5ba06f4cb513aae751f3b04d857d00d2"
+      },
+      "acme/open-issue@1.0.3": {
+        "digest": "sha256:6f51a39faa93321d62993649e6c0cd9f8d33df655fba2a51c7d19c060952c104"
       }
     }
   },

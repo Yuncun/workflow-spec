@@ -1,6 +1,6 @@
 """Runs the language-neutral test cases in ../../tests against the reference checker.
 
-tests/check/<case>/      workflow.yaml, expected.yaml, optional policy.yaml
+tests/check/<case>/      workflow.yaml, expected.yaml, optional policy.yaml and catalog/
 tests/manifests/<case>/  steps/*.yaml, expected.yaml
 A case passes when the (code, path) pairs match exactly; messages aren't compared.
 """
@@ -30,8 +30,9 @@ def test_catalog_is_clean():
 def test_check_case(case: Path):
     expected = load_document(case / "expected.yaml")
     policy = load_document(case / "policy.yaml") if (case / "policy.yaml").exists() else None
+    dirs = CATALOG_DIRS + ([case / "catalog"] if (case / "catalog").is_dir() else [])
     try:
-        result = check(load_document(case / "workflow.yaml"), load_catalog(CATALOG_DIRS), policy)
+        result = check(load_document(case / "workflow.yaml"), load_catalog(dirs), policy)
         errors, warnings, ok = result.errors, result.warnings, result.ok
     except ParseError as exc:
         errors, warnings, ok = [Issue("parse_error", "", str(exc))], [], False

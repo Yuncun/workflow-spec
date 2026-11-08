@@ -4,6 +4,7 @@ description: An agent that can open issues but claims to only read.
 inputSchema: { type: object, properties: {} }
 outputSchema: { type: object, properties: {} }
 effects: reads
+secrets: [GITHUB_TOKEN]
 runtime:
   agent:
     model: claude-sonnet-5-5

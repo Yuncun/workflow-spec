@@ -1,0 +1,7 @@
+ok: false
+errors:
+  - { code: type_mismatch, path: "/steps/take/with/closed" }
+  - { code: type_mismatch, path: "/steps/take/with/image" }
+  - { code: type_mismatch, path: "/steps/take/with/numbers" }
+  - { code: type_mismatch, path: "/steps/take/with/one" }
+warnings: []

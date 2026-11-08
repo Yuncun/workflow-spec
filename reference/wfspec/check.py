@@ -42,7 +42,9 @@ class Result:
     errors: list[Issue] = field(default_factory=list)
     warnings: list[Issue] = field(default_factory=list)
     needed: list[str] = field(default_factory=list)  # steps a run would execute, in file order
+    order: list[str] = field(default_factory=list)  # the needed steps, each after what it references
     outputs: dict[str, Source] = field(default_factory=dict)  # the workflow's outputs, resolved
+    deps: dict[str, set[str]] = field(default_factory=dict)  # step -> steps it references
 
     @property
     def ok(self) -> bool:
@@ -56,18 +58,17 @@ class Result:
         }
 
 
-def reference_of(value):
-    """The path a value refers to ({from: path}), or None when the value is a literal."""
-    if isinstance(value, dict) and len(value) == 1 and "from" in value:
-        return value["from"]
-    return None
+def split_value(value) -> tuple[str, object]:
+    """("reference", path) for {from: path}; ("literal", x) for {literal: x} or any other value.
 
-
-def literal_of(value):
-    """The literal a value stands for; {literal: x} stands for x."""
-    if isinstance(value, dict) and len(value) == 1 and "literal" in value:
-        return value["literal"]
-    return value
+    An object whose only key is `from` is a reference whatever its value; a path that isn't
+    text is a bad_reference (SPEC.md, section 5.2)."""
+    if isinstance(value, dict) and len(value) == 1:
+        if "from" in value:
+            return "reference", value["from"]
+        if "literal" in value:
+            return "literal", value["literal"]
+    return "literal", value
 
 
 def check(workflow, catalog: Catalog, policy: dict | None = None) -> Result:
@@ -129,7 +130,9 @@ class _Checker:
         if manifest is None:
             name, version = uses.split("@", 1)
             versions = self.catalog.versions(name)
-            if versions:
+            if uses in self.catalog.invalid:
+                message = f"{uses} is in the catalog, but its manifest is invalid: {self.catalog.invalid[uses]}"
+            elif versions:
                 message = f"{name} has no version {version}; the catalog has {', '.join(versions)}"
             else:
                 message = f"there is no step named {name} in the catalog" + _suggest(name, self.catalog.names())
@@ -147,13 +150,13 @@ class _Checker:
             known = manifest is not None and name in props
             if manifest is not None and not known:
                 self.error("unknown_input", where, f"{step['uses']} has no input {name!r}" + _suggest(name, props), sid, name)
-            ref = reference_of(value)
-            if ref is not None:
-                source = self._resolve(ref, where, sid, name)
+            kind, payload = split_value(value)
+            if kind == "reference":
+                source = self._resolve(payload, where, sid, name)
                 if known and source is not None and source.schema is not None:
                     self._check_types(source, props[name], name in required, where, sid, name)
             elif known:
-                problem = value_problem(props[name], literal_of(value))
+                problem = value_problem(props[name], payload)
                 if problem:
                     self.error("invalid_value", where, problem, sid, name)
         if manifest is None:
@@ -212,7 +215,13 @@ class _Checker:
         if errors:
             self.error("type_mismatch", where, _explain(source, name, errors), sid, name)
         elif findings:
-            self.warn("type_unchecked", where, _explain(source, name, findings) + "; the value is checked when the step runs", sid, name)
+            self.warn(
+                "type_unchecked",
+                where,
+                _explain(source, name, findings) + ". The value is checked when the step runs",
+                sid,
+                name,
+            )
 
     def _check_policy(self, sid: str, step: dict, manifest: dict):
         if not self.policy:
@@ -250,6 +259,9 @@ class _Checker:
         roots = {s.step for s in self.result.outputs.values() if s.step} | writes | unknown
         needed = _closure(roots, self.deps)
         self.result.needed = [sid for sid in order if sid in needed]
+        self.result.deps = self.deps
+        if not any(i.code == "cycle" for i in self.result.errors):
+            self.result.order = _run_order(self.result.needed, self.deps)
         for sid in order:
             if sid not in needed:
                 self.warn("step_never_runs", pointer("steps", sid), "no output uses this step and it doesn't write, so a run would skip it", step=sid)
@@ -285,6 +297,22 @@ def _closure(roots: set[str], deps: dict[str, set[str]]) -> set[str]:
             seen.add(sid)
             stack.extend(deps[sid] - seen)
     return seen
+
+
+def closure(roots: set[str], deps: dict[str, set[str]]) -> set[str]:
+    """The given steps and every step they reference, directly or not."""
+    return _closure(roots, deps)
+
+
+def _run_order(needed: list[str], deps: dict[str, set[str]]) -> list[str]:
+    """Each needed step after the steps it references; ties keep file order."""
+    done: list[str] = []
+    waiting = list(needed)
+    while waiting:
+        ready = next(s for s in waiting if deps[s] <= set(done))
+        done.append(ready)
+        waiting.remove(ready)
+    return done
 
 
 def _cycles(deps: dict[str, set[str]], order: list[str]) -> list[list[str]]:

@@ -1,21 +1,23 @@
-"""Publishing helpers (SPEC.md, sections 8 and 9): content digests, lock files, the manifest a
-workflow gets when it is published as a step, and MCP tool definitions."""
+"""Publishing helpers (SPEC.md, sections 7.3, 8 and 9): digests, cache keys, lock files, the
+manifest a workflow gets when it is published as a step, and MCP tool definitions."""
 
 from __future__ import annotations
 
 import hashlib
-import json
+from pathlib import Path
 
-from .check import check
-from .documents import EFFECT_ORDER, REGISTRY, Catalog
-from .types import FILE_REF
+import rfc8785
+
+from .check import check, closure
+from .documents import EFFECT_ORDER, FILE_REF, REGISTRY, Catalog, load_document
 
 _FILE_SCHEMA = {k: v for k, v in REGISTRY.contents(FILE_REF).items() if k not in ("$schema", "$id", "title", "description")}
+MCP_NAME_LIMIT = 64
 
 
 def canonical_json(doc) -> bytes:
-    """Sorted keys, no spaces, UTF-8: the bytes a digest is computed over."""
-    return json.dumps(doc, sort_keys=True, separators=(",", ":"), ensure_ascii=False).encode("utf-8")
+    """RFC 8785 (JSON Canonicalization Scheme): the bytes every digest is computed over."""
+    return rfc8785.dumps(doc)
 
 
 def digest(doc) -> str:
@@ -23,29 +25,81 @@ def digest(doc) -> str:
     return "sha256:" + hashlib.sha256(canonical_json(doc)).hexdigest()
 
 
+def cache_key(manifest: dict, inputs: dict) -> str:
+    """The cache key of one step call (SPEC.md, section 7.3).
+
+    `inputs` are the values the step receives, defaults filled in. Each file value counts only
+    by its digest and media type, so a file's name doesn't change the key."""
+    return digest({"step": digest(manifest), "inputs": _file_identities(inputs, manifest["inputSchema"])})
+
+
+def _file_identities(value, schema):
+    if not isinstance(schema, dict):
+        return value
+    if schema.get("$ref") == FILE_REF and isinstance(value, dict):
+        return {k: value[k] for k in ("digest", "mediaType") if k in value}
+    if isinstance(value, dict):
+        props = schema.get("properties", {})
+        return {k: _file_identities(v, props.get(k)) for k, v in value.items()}
+    if isinstance(value, list):
+        return [_file_identities(v, schema.get("items")) for v in value]
+    return value
+
+
 def lock(workflow: dict, catalog: Catalog) -> dict:
-    """The lock file for a workflow: the digest of every step version it uses."""
-    uses = sorted({step["uses"] for step in workflow["steps"].values()})
-    missing = [u for u in uses if u not in catalog.steps]
-    if missing:
-        raise ValueError("not in the catalog: " + ", ".join(missing))
+    """The lock file for a workflow: the digest of every step version it can run, directly or not.
+
+    That includes the tools of its agent steps and the steps inside workflows it uses as steps."""
+    refs = _all_refs([step["uses"] for step in workflow["steps"].values()], catalog)
     out: dict = {"lockVersion": 1}
     if workflow.get("name") and workflow.get("version"):
         out["workflow"] = f"{workflow['name']}@{workflow['version']}"
-    out["steps"] = {u: {"digest": digest(catalog.steps[u])} for u in uses}
+    out["steps"] = {ref: {"digest": digest(catalog.steps[ref])} for ref in sorted(refs)}
     return out
 
 
+def _all_refs(start: list[str], catalog: Catalog) -> set[str]:
+    seen: set[str] = set()
+    stack = list(start)
+    while stack:
+        ref = stack.pop()
+        if ref in seen:
+            continue
+        manifest = catalog.steps.get(ref)
+        if manifest is None:
+            raise ValueError(f"not in the catalog: {ref}")
+        seen.add(ref)
+        runtime = manifest["runtime"]
+        if "agent" in runtime:
+            stack.extend(runtime["agent"].get("tools", []))
+        if "workflow" in runtime:
+            inner = load_document(Path(catalog.files[ref]).parent / runtime["workflow"]["path"])
+            stack.extend(step["uses"] for step in inner["steps"].values())
+    return seen
+
+
 def as_step(workflow: dict, catalog: Catalog, path: str) -> dict:
-    """The manifest a checked workflow gets when it is published, so other workflows can use it."""
+    """The manifest a checked workflow gets when it is published, so other workflows can use it.
+
+    `path` is where the workflow file will sit, relative to the folder of the manifest."""
     result = check(workflow, catalog)
     if not result.ok:
         raise ValueError("the workflow has errors; run `wfspec check` first")
     missing = [key for key in ("name", "version", "description") if not workflow.get(key)]
     if missing:
         raise ValueError("a published workflow needs " + ", ".join(missing))
-    manifests = [catalog.steps[workflow["steps"][sid]["uses"]] for sid in result.needed]
-    effects = max((m["effects"] for m in manifests), key=EFFECT_ORDER.__getitem__, default="none")
+    steps = workflow["steps"]
+    manifests = {sid: catalog.steps[steps[sid]["uses"]] for sid in result.needed}
+    effects = max((m["effects"] for m in manifests.values()), key=EFFECT_ORDER.__getitem__, default="none")
+
+    def always_present(source) -> bool:
+        # A value is always there when its source always gives it and nothing upstream can skip.
+        if source.optional:
+            return False
+        if source.step is None:
+            return True
+        return not any(manifests[s].get("maySkip", False) for s in closure({source.step}, result.deps))
+
     manifest: dict = {"name": workflow["name"], "version": workflow["version"]}
     if "title" in workflow:
         manifest["title"] = workflow["title"]
@@ -55,20 +109,32 @@ def as_step(workflow: dict, catalog: Catalog, path: str) -> dict:
         "outputSchema": {
             "type": "object",
             "properties": {name: source.schema for name, source in result.outputs.items()},
-            "required": [name for name, source in result.outputs.items() if not source.optional],
+            "required": [name for name, source in result.outputs.items() if always_present(source)],
         },
         "effects": effects,
-        "deterministic": bool(manifests) and all(m.get("deterministic", False) for m in manifests),
+        "deterministic": bool(manifests) and all(m.get("deterministic", False) for m in manifests.values()),
     })
     if effects == "writes":
-        writers = [m for m in manifests if m["effects"] == "writes"]
+        writers = [m for m in manifests.values() if m["effects"] == "writes"]
         manifest["idempotent"] = all(m.get("idempotent", False) for m in writers)
         manifest["destructive"] = any(m.get("destructive", True) for m in writers)
-    secrets = sorted({s for m in manifests for s in m.get("secrets", [])})
+    secrets = sorted({s for m in manifests.values() for s in m.get("secrets", [])})
     if secrets:
         manifest["secrets"] = secrets
     manifest["runtime"] = {"workflow": {"path": path}}
     return manifest
+
+
+def mcp_name(manifest: dict) -> str:
+    """owner_name_v<major>: letters, digits, _ and -, which MCP and model tool APIs all accept.
+
+    Step names can't contain _, so the separators are unambiguous. Names over 64 characters
+    are cut and given 8 hex characters of the full name's SHA-256, so they stay unique."""
+    owner, name = manifest["name"].split("/")
+    full = f"{owner}_{name}_v{manifest['version'].split('.')[0]}"
+    if len(full) <= MCP_NAME_LIMIT:
+        return full
+    return full[: MCP_NAME_LIMIT - 9] + "_" + hashlib.sha256(full.encode()).hexdigest()[:8]
 
 
 def mcp_tool(manifest: dict) -> dict:
@@ -83,7 +149,7 @@ def mcp_tool(manifest: dict) -> dict:
         }
     else:
         hints = {"readOnlyHint": True, "openWorldHint": effects == "reads"}
-    tool = {"name": manifest["name"].replace("/", ".")}
+    tool = {"name": mcp_name(manifest)}
     if "title" in manifest:
         tool["title"] = manifest["title"]
     tool.update({

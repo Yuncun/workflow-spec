@@ -19,10 +19,11 @@ Two kinds of file sit next to it:
 
 "Must" and "should" carry their usual specification meaning: a "must" is required, and a "should" can be broken only for a stated reason.
 
-Manifests and workflows are YAML 1.2 or JSON, and every value must be one JSON can hold. Three consequences, because many YAML parsers default to YAML 1.1:
+Manifests and workflows are YAML 1.2 or JSON, and every value must be one JSON can hold. Many YAML parsers default to YAML 1.1, so these rules need stating:
 - `yes`, `no`, `on` and `off` are text, not booleans. GitHub Actions files rely on this.
 - A key that appears twice is an error, not "the last one wins".
 - Keys are text, and a date stays the text that was written.
+- Merge keys (`<<`) aren't allowed, and numbers must be finite (no `.nan` or `.inf`).
 
 ## 1. The parts
 
@@ -74,6 +75,7 @@ How the parts turn into each other:
 | `deterministic` | no, default false | the same input values always give the same outputs |
 | `idempotent` | no, default false | for `writes` steps: repeating a call with the same inputs changes nothing more |
 | `destructive` | no, default true | for `writes` steps: false when the step only adds things |
+| `maySkip` | no, default false | the step can finish by skipping when it has nothing to do (7.5) |
 | `secrets` | no | names of secrets the step needs, such as `GITHUB_TOKEN` |
 | `runtime` | yes | how it runs (3.3) |
 | `resources` | no | `timeout` (`30s`, `5m`, `2h`), `cpu`, `memory` (`512Mi`, `2Gi`) |
@@ -99,20 +101,25 @@ How the parts turn into each other:
 `runtime` has exactly one key.
 
 **`container`**: `image`, and optionally `command`. The contract between the platform and the container:
-- `WF_INPUTS` is the path of a JSON file holding the input values, with defaults filled in. Each file value also gets a `path` field: a local, read-only copy of the file.
-- The step writes a JSON object of its outputs to the path in `WF_OUTPUTS`. For a file output it writes `{"path": "...", "mediaType": "..."}`. The platform stores the file and replaces the value with a file value (section 4.2).
-- Each secret named in `secrets` is set as an environment variable with the same name.
-- Exit code 0 means success. stdout and stderr are the step's logs.
-- The outputs are checked against `outputSchema`. A mismatch fails the step with the error code `invalid_output`.
+- **`command`** replaces the image's entrypoint, as in Kubernetes. Without it, the image's own entrypoint and arguments run.
+- **Inputs.** The platform checks the input values against `inputSchema`, fills in defaults, and writes them as JSON to the file named by `WF_INPUTS`. Wherever `inputSchema` declares a file, at any depth through `properties` and `items`, the value also gets a `path` field: a local, read-only copy of the file. `path` is added after the check and isn't part of the file value.
+- **Outputs.** The step writes a JSON object of its outputs to the file named by `WF_OUTPUTS`. Wherever `outputSchema` declares a file, it writes `{"path": "...", "mediaType": "..."}`, and can leave out `mediaType` when the schema's `x-mediaType` names a single type. The platform stores each file, replaces it with a file value (section 4.2), and then checks the outputs against `outputSchema`. A mismatch fails the step with the error code `invalid_output`.
+- **Skipping.** A step whose manifest has `maySkip` and that has nothing to do writes a reason to the file named by `WF_SKIP` instead of writing outputs (section 7.5).
+- **Secrets.** Each secret named in `secrets` is set as an environment variable with the same name.
+- **Exit and logs.** Exit code 0 means success. stdout and stderr are the step's logs.
 
-**`agent`**: `model`, `instructions` (a file in the step's repository), and optionally `tools` (exact step versions), `maxTurns` and `mayPlan`.
-- The platform runs the model with the instructions and the input values.
-- The agent can call only the steps listed in `tools`, each offered as a tool.
-- Every call is recorded in the run record's `calls`.
-- The final answer must fit `outputSchema`. The platform may hand the validation error back to the agent to fix; each attempt counts toward `maxTurns`.
-- With `mayPlan`, the agent may return a plan instead of an answer (section 7.7).
+**`agent`**: `model`, `instructions`, and optionally `tools` (exact step versions), `maxTurns` and `mayPlan`.
+- **Instructions.** `instructions` is the path of a file, relative to the manifest's folder. Publishing pins it by its digest (section 8.1).
+- **Start.** The platform starts the model with the instructions as its system prompt and the input values, as JSON, as the first message. Every file input must be readable by the agent. Whether the platform puts its text in the message, attaches it, or offers a tool to read it is the platform's choice.
+- **Tools.** The agent can call only the steps listed in `tools`, each offered under its MCP tool name (section 9.1). Each call runs as a step under the same caller policy and is recorded in the run record's `calls`.
+- **Turns.** A turn is one model response, which may include tool calls. `maxTurns` limits the number of turns.
+- **Finish.** The agent finishes with one of three answers, and the platform may hand a validation error back for another turn:
+  - a JSON object that fits `outputSchema`
+  - `{"skip": "<reason>"}`, if the manifest has `maySkip` (section 7.5)
+  - `{"plan": <workflow>}`, if the manifest has `mayPlan` (section 7.7)
+- **Limits it must declare.** An agent's `effects` must be at least those of every tool it can call, and its `secrets` must include every secret those tools need. Otherwise the agent could do more than its manifest says (section 3.4).
 
-**`workflow`**: `path` to a workflow file. Section 8.3 says how its manifest is derived.
+**`workflow`**: `path` to a workflow file, relative to the manifest's folder. Section 8.3 says how its manifest is derived.
 
 **`mcp`**: `server` (a URL) and `tool`, for a tool on a remote MCP server. Its code can't be pinned by content hash, so the manifest's author vouches for `effects` and `deterministic`. A platform should treat such a step as not deterministic unless it trusts the server's owner.
 
@@ -127,9 +134,13 @@ Checking reports `invalid_manifest` when any of these hold:
 - An input's `default` doesn't fit that input's schema.
 - An example's `inputs` or `outputs` don't fit the manifest's schemas.
 - `idempotent` or `destructive` appears on a step that isn't `writes`.
+- A schema uses `$ref` for anything but `urn:wfspec:file`, or uses `$defs`, `$id`, `$anchor` or `$dynamicRef` (section 4.1).
 - An agent's `effects` are lower than those of a tool it can call.
+- An agent's `secrets` leave out a secret one of its tools needs.
 
-An agent's tool that isn't in the catalog is reported as `unknown_step`. Test cases: `tests/manifests/`.
+An agent's tool that isn't in the catalog is reported as `unknown_step`.
+
+A manifest with any of these problems is left out of the catalog. A workflow that names it gets `unknown_step`, with a message saying why the manifest was left out. `wfspec check-step` checks a manifest on its own; given `--catalog`, it also checks an agent's tools. Test cases: `tests/manifests/`.
 
 ### 3.5 Example
 
@@ -166,6 +177,10 @@ More examples are in `examples/steps/`:
 
 Inputs and outputs are described with JSON Schema 2020-12, the version MCP uses. Input and output names match `^[A-Za-z_][A-Za-z0-9_-]*$`, so they can appear in reference paths.
 
+Two limits keep every implementation in agreement:
+- **`format` is an annotation.** Checking ignores it and platforms don't enforce it, as in JSON Schema 2020-12 by default. Whether a validator enforces `format` otherwise depends on which libraries are installed. A step that needs, say, a valid URI checks it itself.
+- **The only reference is `{"$ref": "urn:wfspec:file"}`.** `$defs`, `$id`, `$anchor`, `$dynamicRef` and other `$ref` targets are left for a later version, so a schema can always be checked on its own.
+
 ### 4.2 Files
 
 Files never travel inline. A file value is:
@@ -186,8 +201,8 @@ When a reference connects an output (or a workflow input) to a step's input, the
 - **Warning, `type_unchecked`:** the shapes fit, but a limit on the input can't be proven from the source's schema. Examples of such limits are a range, a pattern or a list of allowed values. The value is then checked when the step runs, and a failure there has the error code `invalid_input`.
 
 ```text
-fits(src, dst):                                   # both with annotations removed
-  if dst accepts anything or src == dst: ok
+fits(src, dst):                                   # both with annotations (and format) removed
+  if dst accepts anything or src equals dst as JSON: ok          # true isn't 1; 1 is 1.0
   if either is a file:
      src must be a file (or dst a plain object); media types must match, "text/*" matching "text/plain"
      dst names a media type and src doesn't         -> warning
@@ -195,10 +210,12 @@ fits(src, dst):                                   # both with annotations remove
   types: every type src can have must be accepted by dst ("integer" is accepted by "number");
          an enum or const on src implies its types
          src declares no type                       -> warning
-  enum/const on dst: every value src can produce is allowed     -> else error
+  enum/const on dst: every value src can produce is allowed (JSON equality) -> else error
                      src doesn't limit its values               -> warning
-  limits on dst (minimum, maxLength, pattern, format, ...): proven by an equal or tighter
-                     limit on src                               -> else warning
+  limits on dst (minimum, maxLength, pattern, ...): proven by a limit on src at least as tight;
+                     an exclusive limit proves an inclusive one at the same value, and an
+                     inclusive one proves an exclusive one only when strictly inside it
+                                                                -> else warning
   objects: each property dst requires, src must require         -> else error
               (warning instead if src declares no properties)
            shared properties: fits(src.p, dst.p), recursively
@@ -207,7 +224,7 @@ fits(src, dst):                                   # both with annotations remove
   arrays:  fits(src.items, dst.items); src declares no item type -> warning
 ```
 
-A value that may be missing can't feed a required input. That covers two cases: an output the source step doesn't list as required, and an optional workflow input with no default. This is a `type_mismatch` error.
+A value may be missing when it is an output its step doesn't list as required, or an optional workflow input without a default. Such a value can't feed a required input that has no default: that is a `type_mismatch` error. When the value is missing at run time, the input it feeds is left unset, so the input's default applies (section 7.2).
 
 ## 5. Workflow file
 
@@ -234,6 +251,8 @@ Each input in `with` takes one of three forms:
 | wrapped literal | `extra: { literal: { from: x } }` | this value, for the rare literal shaped like a reference |
 
 A reference is either `inputs.<name>` or `steps.<id>.outputs.<name>`, and it passes the whole value. Picking a field out of an output isn't in version 0.1 (section 11).
+
+An object whose only key is `from` is always a reference, whatever its value; a `from` that isn't text is a `bad_reference`. An object whose only key is `literal` is always a wrapped literal.
 
 ### 5.3 Example
 
@@ -286,7 +305,8 @@ check(W, catalog, policy):
   W.inputSchema invalid, or required names undeclared -> invalid_workflow
   a workflow input's default doesn't fit              -> invalid_value
   for each step s:
-    s.uses not in the catalog                         -> unknown_step  (message lists the versions it has)
+    s.uses not in the catalog                         -> unknown_step  (message lists the versions it has,
+                                                                         or why the manifest was left out)
     for each name, value in s.with:
       name not an input of s.uses                     -> unknown_input (message suggests a close name)
       value is a reference:
@@ -378,17 +398,22 @@ Other steps don't run, and the checker warns about them (`step_never_runs`).
 
 ### 7.2 Order
 
-A needed step runs once all the values it references exist. Steps that don't depend on each other should run in parallel.
+A needed step runs once every step it references has finished. Steps that don't depend on each other should run in parallel.
+
+A referenced value can be missing: an optional output its step didn't produce, or an optional workflow input nobody gave. The input it feeds is then left unset, so the input's default applies. If the input has no default, the step runs without it, which section 4.3 allows only for optional inputs.
 
 ### 7.3 Cache
 
 ```text
 cacheable(s) := s.deterministic and s.effects != writes
-key(s)       := digest({ "step": digest of s's manifest, "inputs": s's input values, defaults filled in })
+key(s)       := digest({ "step": digest of s's manifest,
+                         "inputs": s's input values, defaults filled in,
+                                   each file value cut down to its digest and mediaType })
 ```
 
 - The key is computed just before a step would run, from the actual values it receives.
-- File values enter the key as their digests, so a large file costs nothing extra to hash.
+- A file counts by its content and type, not its name, and a large file costs nothing extra to hash.
+- `wfspec`'s `cache_key` function (in `reference/wfspec/publish.py`) computes it.
 - If the store has an entry for a cacheable step's key, the platform reuses its outputs. The run record shows `cacheHit: true`.
 - ComfyUI keys each node on its upstream nodes' keys instead. Keying on values means a non-deterministic step upstream, such as an agent, can't cause a stale cache hit downstream.
 
@@ -397,11 +422,19 @@ key(s)       := digest({ "step": digest of s's manifest, "inputs": s's input val
 - A failed step may be retried automatically when its effects aren't `writes`, or when it is idempotent.
 - `attempts` in the run record counts the tries; 0 means a cache hit.
 
-### 7.5 Failure
+### 7.5 Failure and skipping
 
+**Failure:**
 - When a step fails, every step that depends on it is marked `skipped`.
 - Independent steps still finish.
 - The run's status is `failed`, and finished outputs stay in the record.
+
+**Skipping.** A step whose manifest has `maySkip` can finish with a reason instead of outputs when it has nothing to do. For example, a step that picks the first failing test skips when no test failed. A container step writes the reason to `WF_SKIP`; an agent step answers `{"skip": "<reason>"}`. Then:
+- The step, and every step that depends on it, is marked `skipped`, with the reason in `reason`.
+- The run still succeeds.
+- Workflow outputs that depend on a skipped step are left out of the run's outputs.
+
+Skipping is how a workflow says "only if there is something to do" without conditions (section 5.4).
 
 Run-time error codes:
 - `invalid_input`: a value failed the input's schema. This is where `type_unchecked` warnings are settled.
@@ -431,6 +464,7 @@ Run-time error codes:
 - the run's inputs and outputs
 - the caller, and timestamps
 - an OpenTelemetry trace id, so logs and traces can be found
+- for a run that failed or never started, an `error` with a message and a code, such as `check_failed`
 - for each step: its version and digest, cache key and whether the cache was hit, attempts, inputs, outputs, error, and an agent's calls and plan
 
 Examples are in `examples/runs/`.
@@ -439,13 +473,19 @@ Examples are in `examples/runs/`.
 
 ### 8.1 Digests
 
-- A digest is `sha256:` followed by the SHA-256 of a document's canonical JSON: keys sorted, no whitespace, UTF-8.
-- Before computing a step's digest, publishing resolves everything in the manifest that could change later. A container image tag becomes `image@sha256:...`, and the agent's instruction file is replaced by its content digest.
+- A digest is `sha256:` followed by the SHA-256 of a document's canonical JSON as defined by RFC 8785, the JSON Canonicalization Scheme. Every language then gets the same digest; for example, `1.0` and `1` are written the same way.
+- Before computing a step's digest, publishing resolves everything in the manifest that could change later. A container image tag becomes `image@sha256:...`, and `instructions` becomes the instruction file's digest, with the file stored under it.
 - The reference checker hashes the manifest as written, because it doesn't build images.
+- **A published name@version never changes.** A platform must refuse to publish different content under a name@version it already has. Locks and caches depend on this.
 
 ### 8.2 Lock file
 
-Publishing a workflow writes `<workflow>.lock.json`, which maps each `uses` value to its digest (`schemas/lock.schema.json`, example `examples/ci-triage.lock.json`). A platform must refuse to run a published workflow whose steps no longer match its lock.
+Publishing a workflow writes `<workflow>.lock.json` (`schemas/lock.schema.json`, example `examples/ci-triage.lock.json`). It maps to its digest every step version the workflow can run, directly or not:
+- each step's `uses`
+- the tools of its agent steps
+- the steps inside workflows it uses as steps, and so on down
+
+A platform must refuse to run a published workflow when any of those no longer matches the lock.
 
 ### 8.3 A workflow is a step
 
@@ -454,7 +494,7 @@ Published, a workflow gets a manifest derived from its contents:
 | Field | Derived from |
 |---|---|
 | `inputSchema` | the workflow's `inputSchema` |
-| `outputSchema` | each output's source schema; required when the source is |
+| `outputSchema` | each output's source schema; required only when the source is required and no step it depends on has `maySkip` |
 | `effects` | the highest effects among needed steps |
 | `deterministic` | true only if every needed step is |
 | `idempotent` | true only if every needed `writes` step is |
@@ -479,13 +519,14 @@ Other changes bump the minor or patch number. A platform should check these rule
 ### 8.5 Saving a run as a workflow
 
 From a run record, a person or an agent writes a workflow:
-- **Step versions:** every step and tool call in the record becomes a step with the same `uses`.
-- **Values:** a value that came out of an earlier step becomes a reference to it. Values that came from the run's inputs become workflow inputs. The rest become literals.
+- **Steps:** steps the run executed stay as they are, except broad agent steps.
+- **Broad agent steps** are replaced by the tool calls they made, each a step with the same `uses`.
 - **Values an agent made up between calls** (for example the issue text it wrote) become the outputs of a narrower agent step with a typed schema, or fixed values.
+- **Values:** a value that came out of an earlier step becomes a reference to it. Values that came from the run's inputs become workflow inputs. The rest become literals.
 
 The saved workflow is accepted when two things hold:
 - It checks without errors.
-- A rerun with the original inputs gives the same outputs for every deterministic step.
+- A dry run with the original inputs gives the same outputs for every deterministic step. A dry run executes every step except those that write. Each step that writes returns the outputs recorded in the original run, so nothing outside changes a second time.
 
 `examples/runs/investigate.run.json` records a broad agent (`acme/investigate-failure`) that fetched logs and opened an issue. `examples/workflows/ci-triage.yaml` is that run saved as a workflow:
 - The two tool calls became fixed steps.
@@ -493,18 +534,27 @@ The saved workflow is accepted when two things hold:
 
 `examples/runs/ci-triage.run.json` is a later run of the saved workflow with a different `style`. The logs came from the cache, and only the agent and the write ran again.
 
+### 8.6 Examples at publish
+
+Publishing runs a step's `examples` as tests and checks their outputs against `outputSchema`. A step that writes is the exception: its examples are only checked against its schemas, unless the platform has a test environment for it, because running them would change real data.
+
 ## 9. MCP
 
 ### 9.1 A step as an MCP tool
 
 | MCP tool field | From the manifest |
 |---|---|
-| `name` | `name` with `/` replaced by `.`, as MCP names allow letters, digits, `_`, `-` and `.` |
+| `name` | `<owner>_<name>_v<major>`, such as `acme_open-issue_v1` |
 | `title`, `description` | same |
 | `inputSchema`, `outputSchema` | same, with `urn:wfspec:file` references written out in full |
 | `annotations` | from `effects`, as in section 3.2 |
 
-`wfspec mcp-tool <manifest>` prints the result. MCP treats annotations as untrusted unless the server is trusted. The platform's own MCP server is trusted, and it enforces `effects` itself.
+- **Why that name form:** it uses only letters, digits, `_` and `-`, which both MCP and model tool APIs accept (MCP also allows `.`; model APIs don't). Step names can't contain `_`, so the separators are unambiguous.
+- **Versions:** the server offers the latest version within each major version, so minor updates reach callers and breaking ones don't.
+- **Long names:** a name over 64 characters is cut, and 8 hex characters of the full name's SHA-256 are appended, so it stays unique.
+- **Trust:** MCP treats annotations as untrusted unless the server is trusted. The platform's own MCP server is trusted, and it enforces `effects` itself.
+
+`wfspec mcp-tool <manifest>` prints the result.
 
 ### 9.2 The platform's MCP server
 
@@ -515,12 +565,17 @@ A platform should offer one MCP server through which agents find steps, check wo
 | `find_steps` | `query`, optional `effects` | name@version, title, description, effects |
 | `get_step` | `ref` | the manifest |
 | `check_workflow` | `workflow` (text) | section 6.3's result |
-| `run_workflow` | `workflow` (text) or `ref`, `inputs` | a run id |
+| `run_workflow` | `workflow` (text) or `ref`, `inputs` | `{runId}`, or section 6.3's result if checking fails |
 | `get_run` | `runId` | the run record so far |
+| `put_file` | `name`, `mediaType`, content | a file value, for file inputs |
 
-- Each published workflow should also appear as its own tool. Calling that tool runs the workflow.
+- **Each published workflow also appears as its own tool**, named as in 9.1, with the workflow's derived interface (section 8.3).
+  - Calling the tool runs the workflow and returns its outputs as the tool's structured result, which fits its `outputSchema`.
+  - When the run outlasts the call, the call returns a task (below), and the task's result carries the outputs.
+  - A run that fails returns an error result that includes the run id.
+- **Nothing runs unchecked.** `run_workflow` and the per-workflow tools check first, under the caller's policy, and return the errors instead of starting a run.
 - **No editing tools are needed.** A workflow is a text file, which agents already edit. The server supplies what the agent can't know on its own: which steps exist, whether the file is correct, and what happened when it ran.
-- **Long runs** can use MCP's tasks extension (`io.modelcontextprotocol/tasks`, in the 2026-07-28 revision), where a call returns a handle the client polls. Clients that don't support it poll `get_run`.
+- **Long runs** can use MCP's tasks extension (`io.modelcontextprotocol/tasks`, in the 2026-07-28 revision), where a call returns a handle the client polls. Clients that don't support it use `run_workflow` and poll `get_run`.
 - **Forms:** a client that supports MCP Apps can show a published workflow's `inputSchema` as a form. Copilot Chat in VS Code supports MCP Apps.
 
 ## 10. Left to the platform
@@ -544,7 +599,8 @@ The spec only requires that a platform:
 
 - Picking a field out of an output (`steps.x.outputs.y.z`).
 - Running a step once per item of a list.
-- Generic inputs, such as an input whose type follows another input's.
+- Generic steps, whose output type follows an input's type. Steps such as "pick the first item" or "map a value" can only declare loose types now, which leaves `type_unchecked` warnings. These caused most of the warnings in `experiments/agent-authoring/`.
+- References inside schemas other than to files, and enforced `format`.
 - Steps that run only when asked for, like ComfyUI's lazy inputs.
 - Automatic upgrades from one major version to the next.
 - Working out a saved workflow's references automatically from an agent's calls.

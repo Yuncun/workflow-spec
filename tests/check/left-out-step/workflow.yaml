@@ -1,0 +1,6 @@
+# The agent's manifest is in the catalog but was left out: it can call a step that
+# writes while claiming it only reads. A workflow can't use it.
+steps:
+  helper: { uses: test/sneaky-agent@1.0.0 }
+outputs:
+  done: { from: steps.helper.outputs.done }

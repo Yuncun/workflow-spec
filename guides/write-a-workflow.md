@@ -4,36 +4,57 @@ Draft guide for workflow authors, people or agents.
 
 ## 1. Write it
 
+This is `examples/workflows/pr-summary.yaml`. It checks clean against `examples/steps/`:
+
 ```yaml
-name: your-team/pr-summary
+name: acme/pr-summary
 version: 1.0.0
-description: Summarize a pull request's diff and post the summary as a comment.
+description: Summarize a pull request's diff in plain words and post the summary as a comment on it.
 inputSchema:
   type: object
   properties:
-    repo: { type: string }
+    repo: { type: string, pattern: "^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$" }
     pr: { type: integer, minimum: 1 }
   required: [repo, pr]
 outputs:
   comment: { from: steps.post.outputs.url }
 steps:
   diff:
-    uses: your-team/fetch-diff@2.0.1
+    uses: acme/fetch-pr-diff@1.2.0
     with: { repo: { from: inputs.repo }, pr: { from: inputs.pr } }
   summary:
-    uses: your-team/summarize-diff@1.0.0
-    with: { diff: { from: steps.diff.outputs.diff }, audience: everyone }
+    uses: acme/summarize-diff@1.0.0
+    with: { diff: { from: steps.diff.outputs.diff }, audience: everyone, max_words: 150 }
   post:
-    uses: your-team/post-comment@1.1.0
+    uses: acme/post-pr-comment@1.1.0
     with:
       repo: { from: inputs.repo }
       pr: { from: inputs.pr }
       body: { from: steps.summary.outputs.summary }
 ```
 
-- **`uses` names an exact version.** Find steps and their inputs in the catalog, or through the MCP server's `find_steps` and `get_step`.
-- **A value in `with` is one of three things:** a literal, `{ from: inputs.<name> }`, or `{ from: steps.<id>.outputs.<name> }`.
-- **There are no conditions or loops.** A decision goes in a step: a small code step for a fixed rule, or an agent step for a judgment (SPEC.md, section 5.4).
+**Naming steps:**
+- `uses` is the step's `name` and `version`, exactly as its manifest gives them. Find steps through the catalog, or through the MCP server's `find_steps` and `get_step`.
+- When a step has several versions, use the newest, unless your workflow needs an older one's interface. Older versions stay so that published workflows keep working.
+
+**Writing values in `with`:**
+- A literal is any YAML value: `audience: everyone`, `max_words: 150`, a list, or an object such as a lookup table.
+- Quote text that YAML would misread: `channel: "#builds"`, since an unquoted `#` starts a comment.
+- `{ from: inputs.<name> }` passes a workflow input.
+- `{ from: steps.<id>.outputs.<name> }` passes another step's output, whole.
+- To pass a literal object whose only key is `from`, wrap it: `{ literal: { from: x } }`.
+
+**Which steps run:**
+- A step that changes outside data always runs, even if nothing uses its outputs.
+- A step that only reads runs when an output, or a step that writes, needs it.
+
+**There are no conditions or loops.** Put a decision in a step:
+- **A fixed rule** goes in a small code step. Some steps already decide for themselves; for example, one might open an issue only if there are failures. Read step descriptions for that.
+- **A lookup** goes in a step that maps values, such as `acme/map-value` in `experiments/agent-authoring/round-2/catalog/`.
+- **A judgment** goes in an agent step with a typed output.
+- **"Only if there's something to do"** is a step with `maySkip`. When it skips, the steps after it are skipped too.
+
+**Converting between types.** When types don't line up, add a step that converts. For example, put a step that reads a file into text between a step that gives a file and one that takes text.
 
 ## 2. Check it
 
@@ -45,7 +66,7 @@ The platform runs the same check before every run, and through the MCP server's 
 
 | Code | Usual fix |
 |---|---|
-| `unknown_step` | use a version the message lists |
+| `unknown_step` | use a version the message lists, or another step if the manifest was left out |
 | `unknown_input` | fix the spelling the message suggests |
 | `missing_input` | add the input under `with` |
 | `bad_reference` | write `inputs.<name>` or `steps.<id>.outputs.<name>` |
@@ -55,18 +76,22 @@ The platform runs the same check before every run, and through the MCP server's 
 | `cycle` | remove the loop |
 | `no_outputs` | add an output, or the workflow does nothing |
 
+When there are no errors, the checker prints the order a run would follow.
+
 Warnings don't block a run:
-- `type_unchecked`: a limit is checked when the step runs.
-- `step_never_runs`: nothing uses the step.
-- `unused_input`: nothing uses the input.
+- **`type_unchecked`:** the shapes fit, but a limit on the input, such as a maximum length or a pattern, can't be proven. The value is checked when the step runs. To clear the warning, give the source the same limit. For a workflow input, add the limit to `inputSchema`.
+- **`step_never_runs`:** nothing uses the step and it doesn't write.
+- **`unused_input`:** nothing uses the input.
 
 ## 3. Run it
 
-Run it through the platform: its API, its MCP server, or a form built from `inputSchema`. A rerun with some inputs changed reuses the cached results of steps whose inputs didn't change, if those steps are deterministic.
+Run it through the platform: its API, its MCP server, or a form built from `inputSchema`.
+- A rerun with some inputs changed reuses the cached results of deterministic steps whose inputs didn't change.
+- An output whose source was skipped, or is optional and wasn't produced, is left out of the run's outputs.
 
 ## 4. Share it
 
-- Publish it with `name`, `version` and `description`. The platform writes a lock file that pins every step by content hash.
+- Publish it with `name`, `version` and `description`. The platform writes a lock file that pins, by content hash, every step it can run, including agents' tools.
 - The published workflow becomes a step that other workflows can use (SPEC.md, section 8.3).
 - It also appears as a tool in Copilot and other MCP clients.
 - People who only want to run it get a form built from its inputs.
@@ -78,6 +103,6 @@ When an agent step solves something you'll need again, save its run as a workflo
 2. Make each call a step with the same `uses`.
 3. Where a value came from an earlier call, reference that call's output.
 4. Where the agent wrote something new between calls, add a narrow agent step with a typed output, or a fixed value.
-5. Check it, then rerun it with the original inputs and compare the outputs.
+5. Check it, then do a dry run with the original inputs and compare the outputs. Steps that write return their recorded outputs instead of running again.
 
 `examples/runs/investigate.run.json` and `examples/workflows/ci-triage.yaml` show one run before and after.

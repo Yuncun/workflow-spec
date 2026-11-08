@@ -4,49 +4,113 @@
   "title": "Step manifest",
   "description": "A published, versioned unit of work. name, title, description, inputSchema and outputSchema are the fields of an MCP tool definition; the rest say how the step behaves and how it runs. See SPEC.md, section 3.",
   "type": "object",
-  "required": ["name", "version", "description", "inputSchema", "outputSchema", "effects", "runtime"],
+  "required": [
+    "name",
+    "version",
+    "description",
+    "inputSchema",
+    "outputSchema",
+    "effects",
+    "runtime"
+  ],
   "properties": {
-    "$schema": { "type": "string" },
-    "name": { "$ref": "#/$defs/name" },
-    "version": { "$ref": "#/$defs/version" },
-    "title": { "type": "string", "minLength": 1 },
-    "description": { "type": "string", "minLength": 1 },
-    "inputSchema": { "$ref": "#/$defs/objectSchema" },
-    "outputSchema": { "$ref": "#/$defs/objectSchema" },
-    "effects": { "enum": ["none", "reads", "writes"] },
-    "deterministic": { "type": "boolean" },
-    "idempotent": { "type": "boolean" },
-    "destructive": { "type": "boolean" },
+    "$schema": {
+      "type": "string"
+    },
+    "name": {
+      "$ref": "#/$defs/name"
+    },
+    "version": {
+      "$ref": "#/$defs/version"
+    },
+    "title": {
+      "type": "string",
+      "minLength": 1
+    },
+    "description": {
+      "type": "string",
+      "minLength": 1
+    },
+    "inputSchema": {
+      "$ref": "#/$defs/objectSchema"
+    },
+    "outputSchema": {
+      "$ref": "#/$defs/objectSchema"
+    },
+    "effects": {
+      "enum": [
+        "none",
+        "reads",
+        "writes"
+      ]
+    },
+    "deterministic": {
+      "type": "boolean"
+    },
+    "idempotent": {
+      "type": "boolean"
+    },
+    "destructive": {
+      "type": "boolean"
+    },
+    "maySkip": {
+      "type": "boolean",
+      "description": "The step can finish by skipping: it gives a reason instead of outputs, and the steps that depend on it are skipped (SPEC.md, section 7.5)."
+    },
     "secrets": {
       "type": "array",
-      "items": { "type": "string", "pattern": "^[A-Z][A-Z0-9_]*$" },
+      "items": {
+        "type": "string",
+        "pattern": "^[A-Z][A-Z0-9_]*$"
+      },
       "uniqueItems": true
     },
-    "runtime": { "$ref": "#/$defs/runtime" },
+    "runtime": {
+      "$ref": "#/$defs/runtime"
+    },
     "resources": {
       "type": "object",
       "properties": {
-        "timeout": { "type": "string", "pattern": "^[1-9][0-9]*(s|m|h)$" },
-        "cpu": { "type": "number", "exclusiveMinimum": 0 },
-        "memory": { "type": "string", "pattern": "^[1-9][0-9]*(Mi|Gi)$" }
+        "timeout": {
+          "type": "string",
+          "pattern": "^[1-9][0-9]*(s|m|h)$"
+        },
+        "cpu": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        },
+        "memory": {
+          "type": "string",
+          "pattern": "^[1-9][0-9]*(Mi|Gi)$"
+        }
       },
-      "patternProperties": { "^x-": {} },
+      "patternProperties": {
+        "^x-": {}
+      },
       "additionalProperties": false
     },
     "examples": {
       "type": "array",
       "items": {
         "type": "object",
-        "required": ["inputs"],
+        "required": [
+          "inputs"
+        ],
         "properties": {
-          "inputs": { "type": "object" },
-          "outputs": { "type": "object" }
+          "inputs": {
+            "type": "object"
+          },
+          "outputs": {
+            "type": "object"
+          }
         },
         "additionalProperties": false
       }
     }
   },
-  "patternProperties": { "^x-": {} },
+  "patternProperties": {
+    "^x-": {}
+  },
   "additionalProperties": false,
   "$defs": {
     "name": {
@@ -67,16 +131,25 @@
     "objectSchema": {
       "description": "A JSON Schema (2020-12) for an object whose properties are the named inputs or outputs.",
       "type": "object",
-      "required": ["type", "properties"],
+      "required": [
+        "type",
+        "properties"
+      ],
       "properties": {
-        "type": { "const": "object" },
+        "type": {
+          "const": "object"
+        },
         "properties": {
           "type": "object",
-          "propertyNames": { "pattern": "^[A-Za-z_][A-Za-z0-9_-]*$" }
+          "propertyNames": {
+            "pattern": "^[A-Za-z_][A-Za-z0-9_-]*$"
+          }
         },
         "required": {
           "type": "array",
-          "items": { "type": "string" },
+          "items": {
+            "type": "string"
+          },
           "uniqueItems": true
         }
       }
@@ -89,46 +162,92 @@
       "properties": {
         "container": {
           "type": "object",
-          "required": ["image"],
+          "required": [
+            "image"
+          ],
           "properties": {
-            "image": { "type": "string", "minLength": 1 },
-            "command": { "type": "array", "items": { "type": "string" } }
+            "image": {
+              "type": "string",
+              "minLength": 1
+            },
+            "command": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
           },
           "additionalProperties": false
         },
         "agent": {
           "type": "object",
-          "required": ["model", "instructions"],
+          "required": [
+            "model",
+            "instructions"
+          ],
           "properties": {
-            "model": { "type": "string", "minLength": 1 },
-            "instructions": { "type": "string", "minLength": 1 },
+            "model": {
+              "type": "string",
+              "minLength": 1
+            },
+            "instructions": {
+              "type": "string",
+              "minLength": 1
+            },
             "tools": {
               "type": "array",
-              "items": { "$ref": "#/$defs/stepRef" },
+              "items": {
+                "$ref": "#/$defs/stepRef"
+              },
               "uniqueItems": true
             },
-            "maxTurns": { "type": "integer", "minimum": 1 },
-            "mayPlan": { "type": "boolean" }
+            "maxTurns": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "mayPlan": {
+              "type": "boolean"
+            }
           },
           "additionalProperties": false
         },
         "workflow": {
           "type": "object",
-          "required": ["path"],
-          "properties": { "path": { "type": "string", "minLength": 1 } },
+          "required": [
+            "path"
+          ],
+          "properties": {
+            "path": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
           "additionalProperties": false
         },
         "mcp": {
           "type": "object",
-          "required": ["server", "tool"],
+          "required": [
+            "server",
+            "tool"
+          ],
           "properties": {
-            "server": { "type": "string", "minLength": 1 },
-            "tool": { "type": "string", "minLength": 1 }
+            "server": {
+              "type": "string",
+              "minLength": 1
+            },
+            "tool": {
+              "type": "string",
+              "minLength": 1
+            }
           },
           "additionalProperties": false
         }
       },
-      "patternProperties": { "^x-": { "type": "object" } },
+      "patternProperties": {
+        "^x-": {
+          "type": "object"
+        }
+      },
       "additionalProperties": false
     }
   }

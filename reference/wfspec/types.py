@@ -9,13 +9,17 @@ SPEC.md, section 4.3. The checker proves shapes and leaves limits it can't prove
 
 from __future__ import annotations
 
+import json
 from dataclasses import dataclass
+
+import rfc8785
 
 FILE_REF = "urn:wfspec:file"
 
 _ANNOTATIONS = frozenset({
     "title", "description", "examples", "default", "deprecated", "readOnly", "writeOnly",
     "$comment", "$schema", "$id", "$anchor",
+    "format",  # an annotation in version 0.1: neither checked nor enforced (SPEC.md, section 4.1)
 })
 _SCHEMA_MAPS = ("properties", "patternProperties", "$defs", "dependentSchemas")
 _SCHEMA_VALUES = (
@@ -28,22 +32,22 @@ _COMPOSITION = frozenset({
     "prefixItems", "contains", "patternProperties", "propertyNames", "unevaluatedProperties",
     "unevaluatedItems",
 })
-# Lower and upper limits, each with the keywords on the source side that can prove it.
-_LOWER = {
-    "minimum": ("minimum", "exclusiveMinimum"),
-    "exclusiveMinimum": ("exclusiveMinimum",),
-    "minLength": ("minLength",),
-    "minItems": ("minItems",),
-    "minProperties": ("minProperties",),
+# Each limit an input can set, with the source limits that prove it: (source keyword, holds).
+# An exclusive limit proves an inclusive one at the same value, and an inclusive limit proves
+# an exclusive one only when it is strictly inside it.
+_LIMITS = {
+    "minimum": (("minimum", lambda s, d: s >= d), ("exclusiveMinimum", lambda s, d: s >= d)),
+    "exclusiveMinimum": (("exclusiveMinimum", lambda s, d: s >= d), ("minimum", lambda s, d: s > d)),
+    "maximum": (("maximum", lambda s, d: s <= d), ("exclusiveMaximum", lambda s, d: s <= d)),
+    "exclusiveMaximum": (("exclusiveMaximum", lambda s, d: s <= d), ("maximum", lambda s, d: s < d)),
+    "minLength": (("minLength", lambda s, d: s >= d),),
+    "maxLength": (("maxLength", lambda s, d: s <= d),),
+    "minItems": (("minItems", lambda s, d: s >= d),),
+    "maxItems": (("maxItems", lambda s, d: s <= d),),
+    "minProperties": (("minProperties", lambda s, d: s >= d),),
+    "maxProperties": (("maxProperties", lambda s, d: s <= d),),
 }
-_UPPER = {
-    "maximum": ("maximum", "exclusiveMaximum"),
-    "exclusiveMaximum": ("exclusiveMaximum",),
-    "maxLength": ("maxLength",),
-    "maxItems": ("maxItems",),
-    "maxProperties": ("maxProperties",),
-}
-_HANDLED = frozenset({"type", "properties", "required", "additionalProperties", "items", "$ref", "x-mediaType", "enum", "const"}) | _LOWER.keys() | _UPPER.keys()
+_HANDLED = frozenset({"type", "properties", "required", "additionalProperties", "items", "$ref", "x-mediaType", "enum", "const"}) | _LIMITS.keys()
 
 
 @dataclass(frozen=True)
@@ -51,6 +55,18 @@ class Finding:
     error: bool
     where: str  # place inside the value, e.g. "summary.body"; "" is the value itself
     message: str
+
+
+def same(a, b) -> bool:
+    """JSON equality: true and 1 differ, 1 and 1.0 don't (Python's == says the opposite of the first)."""
+    return _json_text(a) == _json_text(b)
+
+
+def _json_text(value) -> bytes:
+    try:
+        return rfc8785.dumps(value)
+    except Exception:  # numbers outside the range RFC 8785 covers
+        return json.dumps(value, sort_keys=True).encode()
 
 
 def canonical(schema):
@@ -76,7 +92,7 @@ def assignable(src, dst, where: str = "") -> list[Finding]:
     src, dst = canonical(src), canonical(dst)
     if dst is True or dst == {}:
         return []
-    if src == dst:
+    if same(src, dst):
         return []
     if dst is False:
         return [Finding(True, where, "the input accepts no value")]
@@ -104,7 +120,8 @@ def assignable(src, dst, where: str = "") -> list[Finding]:
     findings += _allowed_values(src, dst, where)
     unproven = _unproven_limits(src, dst)
     if unproven:
-        findings.append(Finding(False, where, f"can't prove the input's {_names(unproven, 'and')} {'limit' if len(unproven) == 1 else 'limits'}"))
+        noun = "limit" if len(unproven) == 1 else "limits"
+        findings.append(Finding(False, where, f"can't prove the input's {_names(unproven, 'and')} {noun}; declare the same {noun} on the source to prove {'it' if noun == 'limit' else 'them'}"))
     if _may_be(dst, "object") and _may_be(src, "object"):
         findings += _objects(src, dst, where)
     if _may_be(dst, "array") and _may_be(src, "array") and "items" in dst:
@@ -193,7 +210,7 @@ def _allowed_values(src: dict, dst: dict, where: str) -> list[Finding]:
     produced = _values(src)
     if produced is None:
         return [Finding(False, where, f"the input allows only {_show(allowed)} and the source doesn't limit its values")]
-    outside = [v for v in produced if v not in allowed]
+    outside = [v for v in produced if not any(same(v, a) for a in allowed)]
     if outside:
         return [Finding(True, where, f"the source can produce {_show(outside)}, which the input doesn't allow")]
     return []
@@ -201,14 +218,11 @@ def _allowed_values(src: dict, dst: dict, where: str) -> list[Finding]:
 
 def _unproven_limits(src: dict, dst: dict) -> list[str]:
     unproven = []
-    for key, provers in _LOWER.items():
-        if key in dst and not any(p in src and src[p] >= dst[key] for p in provers):
-            unproven.append(key)
-    for key, provers in _UPPER.items():
-        if key in dst and not any(p in src and src[p] <= dst[key] for p in provers):
+    for key, provers in _LIMITS.items():
+        if key in dst and not any(p in src and holds(src[p], dst[key]) for p, holds in provers):
             unproven.append(key)
     for key in sorted(set(dst) - _HANDLED - _COMPOSITION):
-        if src.get(key) != dst[key]:
+        if not same(src.get(key), dst[key]):
             unproven.append(key)
     return unproven
 
@@ -239,7 +253,7 @@ def _objects(src: dict, dst: dict, where: str) -> list[Finding]:
 
 def _join(where: str, part: str) -> str:
     if part == "[]":
-        return f"{where}[]"
+        return f"each item of {where}" if where else "each item"
     return f"{where}.{part}" if where else part
 
 
@@ -249,4 +263,4 @@ def _names(items, joiner: str = "or") -> str:
 
 
 def _show(values: list) -> str:
-    return ", ".join(repr(v) for v in values)
+    return ", ".join(json.dumps(v) for v in values)

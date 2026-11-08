@@ -18,13 +18,15 @@ SPEC.md                 the format and its rules
 HANDOFF.md              how a platform team adopts it, and the first demo to build
 schemas/                JSON Schemas: step, workflow, file value, lock file, run record
 examples/
-├─ steps/               four step manifests: two containers, a narrow agent, a broad agent
-├─ workflows/           an agent-led workflow, and the fixed workflow saved from its run
-├─ runs/                run records for both
-└─ ci-triage.lock.json  the lock file for the fixed workflow
+├─ steps/               seven step manifests: containers, narrow agents, a broad agent
+├─ workflows/           an agent-led workflow, the fixed workflow saved from its run, a PR summary
+├─ runs/                run records for the first two
+├─ ci-triage.lock.json  the lock file for the fixed workflow
+└─ regenerate.py        recomputes the digests above after an example changes
 guides/                 drafts for step authors, workflow authors and Copilot users
 tests/                  test cases any checker must pass
 reference/              a small Python checker that passes them
+experiments/            agents writing workflows in this format: method, runs, results
 ```
 
 ## Try it

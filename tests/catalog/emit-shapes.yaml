@@ -1,0 +1,20 @@
+name: test/emit-shapes
+version: 1.0.0
+description: Produce values of many shapes, for checker tests.
+inputSchema: { type: object, properties: {} }
+outputSchema:
+  type: object
+  properties:
+    words: { type: array, items: { type: string } }
+    bag: { type: array }
+    open_record: { type: object, properties: { a: { type: string }, extra: { type: string } }, required: [a] }
+    anything: {}
+    note_file: { $ref: urn:wfspec:file, x-mediaType: text/plain }
+    raw_file: { $ref: urn:wfspec:file }
+    big: { type: integer, minimum: 2 }
+    flag: { enum: [true] }
+    maybe_text: { type: string }
+  required: [words, bag, open_record, anything, note_file, raw_file, big, flag]
+effects: none
+deterministic: true
+runtime: { container: { image: example.test/emit-shapes:1.0.0 } }

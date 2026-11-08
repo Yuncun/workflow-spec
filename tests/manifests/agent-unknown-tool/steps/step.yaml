@@ -1,0 +1,7 @@
+name: test/m10
+version: 1.0.0
+description: An agent whose tool doesn't exist.
+inputSchema: { type: object, properties: {} }
+outputSchema: { type: object, properties: {} }
+effects: writes
+runtime: { agent: { model: claude-sonnet-5-5, instructions: prompts/m10.md, tools: [acme/does-not-exist@1.0.0] } }

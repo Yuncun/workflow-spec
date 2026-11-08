@@ -1,0 +1,12 @@
+# Each input gets a value of the wrong shape.
+steps:
+  emit: { uses: test/emit-shapes@1.0.0 }
+  take:
+    uses: test/take-shapes@1.0.0
+    with:
+      numbers: { from: steps.emit.outputs.words }        # strings where integers are expected
+      closed: { from: steps.emit.outputs.open_record }   # has a property the input forbids
+      image: { from: steps.emit.outputs.note_file }      # text/plain where image/png is expected
+      one: { from: steps.emit.outputs.flag }             # true isn't 1 in JSON
+outputs:
+  done: { from: steps.take.outputs.done }

@@ -8,7 +8,7 @@ import sys
 from pathlib import Path
 
 from .check import check
-from .documents import EFFECT_ORDER, Issue, ParseError, load_catalog, load_document, manifest_issues
+from .documents import EFFECT_ORDER, Issue, ParseError, agent_tool_issues, load_catalog, load_document, manifest_issues
 from .publish import as_step, lock, mcp_tool
 
 
@@ -24,6 +24,7 @@ def main(argv: list[str] | None = None) -> int:
 
     p = sub.add_parser("check-step", help="check one step manifest")
     p.add_argument("manifest", type=Path)
+    p.add_argument("--catalog", type=Path, action="append", default=[], help="folder of step manifests, to check an agent's tools (repeatable)")
     p.add_argument("--json", action="store_true", help="print the result as JSON")
 
     for name, text in (
@@ -48,8 +49,10 @@ def main(argv: list[str] | None = None) -> int:
 def _check(args) -> int:
     catalog = load_catalog(args.catalog)
     policy = _policy(args.policy) if args.policy else None
+    order: list[str] = []
     try:
-        out = check(load_document(args.workflow), catalog, policy).to_dict()
+        result = check(load_document(args.workflow), catalog, policy)
+        out, order = result.to_dict(), result.order
     except ParseError as exc:
         out = {"ok": False, "errors": [Issue("parse_error", "", str(exc)).to_dict()], "warnings": []}
     if catalog.problems:
@@ -61,11 +64,17 @@ def _check(args) -> int:
         _report(out["warnings"], "warning")
         _report(out.get("catalog", []), "catalog")
         print(_count(len(out["errors"]), "error") + ", " + _count(len(out["warnings"]), "warning"))
+        if out["ok"] and order:
+            print("a run would do: " + " -> ".join(order))
     return 0 if out["ok"] else 1
 
 
 def _check_step(args) -> int:
-    issues = [i.to_dict() for i in manifest_issues(load_document(args.manifest))]
+    manifest = load_document(args.manifest)
+    found = manifest_issues(manifest)
+    if not found and args.catalog:
+        found = agent_tool_issues(manifest, load_catalog(args.catalog))
+    issues = [i.to_dict() for i in found]
     if args.json:
         print(json.dumps({"ok": not issues, "errors": issues}, indent=2, ensure_ascii=False))
     else:

@@ -1,0 +1,26 @@
+name: test/take-shapes
+version: 1.0.0
+description: Accept values of many shapes, for checker tests.
+inputSchema:
+  type: object
+  properties:
+    numbers: { type: array, items: { type: integer } }
+    strings: { type: array, items: { type: string } }
+    closed: { type: object, properties: { a: { type: string } }, required: [a], additionalProperties: false }
+    image: { $ref: urn:wfspec:file, x-mediaType: image/png }
+    textfile: { $ref: urn:wfspec:file, x-mediaType: "text/*" }
+    either: { anyOf: [ { type: string }, { type: integer } ] }
+    text: { type: string }
+    above_one: { type: integer, exclusiveMinimum: 1 }
+    one: { enum: [1] }
+    optional_text: { type: string }
+    defaulted: { type: string, default: x }
+  required: [defaulted]
+outputSchema:
+  type: object
+  properties:
+    done: { type: boolean }
+  required: [done]
+effects: none
+deterministic: true
+runtime: { container: { image: example.test/take-shapes:1.0.0 } }

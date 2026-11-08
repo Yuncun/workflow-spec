@@ -1,0 +1,7 @@
+ok: true
+errors: []
+warnings:
+  - { code: type_unchecked, path: "/steps/take/with/either" }
+  - { code: type_unchecked, path: "/steps/take/with/strings" }
+  - { code: type_unchecked, path: "/steps/take/with/text" }
+  - { code: type_unchecked, path: "/steps/take/with/textfile" }

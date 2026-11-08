@@ -1,0 +1,11 @@
+# Values that fit, including two that may be missing.
+steps:
+  emit: { uses: test/emit-shapes@1.0.0 }
+  take:
+    uses: test/take-shapes@1.0.0
+    with:
+      above_one: { from: steps.emit.outputs.big }           # minimum 2 proves exclusiveMinimum 1
+      optional_text: { from: steps.emit.outputs.maybe_text } # may be missing; the input is optional
+      defaulted: { from: steps.emit.outputs.maybe_text }     # may be missing; the input has a default
+outputs:
+  done: { from: steps.take.outputs.done }

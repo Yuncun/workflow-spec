@@ -1,0 +1,8 @@
+name: test/m9
+version: 1.0.0
+effects: reads
+destructive: false
+description: A test step.
+runtime: { container: { image: example.test/x:1.0.0 } }
+outputSchema: { type: object, properties: {} }
+inputSchema: { type: object, properties: {} }

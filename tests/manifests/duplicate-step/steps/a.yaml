@@ -1,0 +1,7 @@
+name: test/m12
+version: 1.0.0
+effects: none
+description: A test step.
+runtime: { container: { image: example.test/x:1.0.0 } }
+outputSchema: { type: object, properties: {} }
+inputSchema: { type: object, properties: {} }
