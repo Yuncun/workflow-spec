@@ -54,3 +54,7 @@ uv venv .venv && uv pip install --python .venv/bin/python -e "reference[test]"
 - Version 0.1, a draft dated 2026-11-07.
 - The reference checker passes every test case.
 - Nothing in this package runs steps. The runner, the step catalog and the MCP server are for the platform to build; see HANDOFF.md.
+
+## License
+
+Apache-2.0, the license OpenAPI and Arazzo use. See [LICENSE](LICENSE).
