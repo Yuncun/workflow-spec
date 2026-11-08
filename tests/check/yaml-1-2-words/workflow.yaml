@@ -1,0 +1,9 @@
+# YAML 1.2: on, off, yes and no are text, as in GitHub Actions files.
+# A YAML 1.1 parser would turn the step id and the value into booleans.
+steps:
+  on:
+    uses: test/echo@1.0.0
+    with:
+      text: yes
+outputs:
+  text: { from: steps.on.outputs.text }

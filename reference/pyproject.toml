@@ -3,7 +3,7 @@ name = "wfspec"
 version = "0.1.0"
 description = "Reference checker for the workflow spec in this repository"
 requires-python = ">=3.11"
-dependencies = ["jsonschema>=4.23", "PyYAML>=6.0"]
+dependencies = ["jsonschema>=4.23", "ruamel.yaml>=0.18"]
 
 [project.optional-dependencies]
 test = ["pytest>=8"]

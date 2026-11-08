@@ -19,6 +19,11 @@ Two kinds of file sit next to it:
 
 "Must" and "should" carry their usual specification meaning: a "must" is required, and a "should" can be broken only for a stated reason.
 
+Manifests and workflows are YAML 1.2 or JSON, and every value must be one JSON can hold. Three consequences, because many YAML parsers default to YAML 1.1:
+- `yes`, `no`, `on` and `off` are text, not booleans. GitHub Actions files rely on this.
+- A key that appears twice is an error, not "the last one wins".
+- Keys are text, and a date stays the text that was written.
+
 ## 1. The parts
 
 | Part | Where it lives | Schema |
@@ -187,7 +192,8 @@ fits(src, dst):                                   # both with annotations remove
      src must be a file (or dst a plain object); media types must match, "text/*" matching "text/plain"
      dst names a media type and src doesn't         -> warning
   if dst uses $ref (other than files) or anyOf/oneOf/allOf/not/if...: warning, unless equal
-  types: every type src can have must be accepted by dst ("integer" is accepted by "number")
+  types: every type src can have must be accepted by dst ("integer" is accepted by "number");
+         an enum or const on src implies its types
          src declares no type                       -> warning
   enum/const on dst: every value src can produce is allowed     -> else error
                      src doesn't limit its values               -> warning
@@ -197,7 +203,8 @@ fits(src, dst):                                   # both with annotations remove
               (warning instead if src declares no properties)
            shared properties: fits(src.p, dst.p), recursively
            dst forbids extra properties and src declares some dst lacks -> error
-  arrays:  fits(src.items, dst.items)
+              (warning if src declares none but doesn't forbid extras either)
+  arrays:  fits(src.items, dst.items); src declares no item type -> warning
 ```
 
 A value that may be missing can't feed a required input. That covers two cases: an output the source step doesn't list as required, and an optional workflow input with no default. This is a `type_mismatch` error.
@@ -294,7 +301,7 @@ check(W, catalog, policy):
     s needs a secret not in policy.secrets            -> secret_not_granted
   each workflow output resolves like a reference      -> bad_reference, unknown_reference
   references form a loop                              -> cycle
-  no outputs and no step that writes                  -> no_outputs (stop here)
+  no outputs, no step that writes, all steps known    -> no_outputs (stop here)
   a step no output needs and that doesn't write       -> warning step_never_runs
   a workflow input nothing uses                       -> warning unused_input
 ```
@@ -324,7 +331,7 @@ check(W, catalog, policy):
 
 - A code keeps its meaning across versions of this spec, and new checks get new codes.
 - Messages are for people and may change.
-- For `parse_error`, the file couldn't be read: the YAML or JSON is invalid, or a key appears twice. YAML parsers usually keep the last copy of a repeated key without saying so, so the checker must reject it.
+- For `parse_error`, the file couldn't be read: the YAML or JSON is invalid, a key appears twice, or a key isn't text. Many YAML parsers keep the last copy of a repeated key without saying so, so the checker must reject it.
 
 ### 6.3 Output
 

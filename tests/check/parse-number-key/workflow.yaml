@@ -1,0 +1,3 @@
+# JSON keys are text, so a YAML key that parses as a number is rejected.
+steps:
+  1: { uses: test/echo@1.0.0, with: { text: hi } }

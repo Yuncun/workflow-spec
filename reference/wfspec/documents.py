@@ -6,10 +6,12 @@ import json
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
 
-import yaml
 from jsonschema import Draft202012Validator, FormatChecker
 from jsonschema.exceptions import SchemaError, best_match
 from referencing import Registry, Resource
+from ruamel.yaml import YAML
+from ruamel.yaml.constructor import SafeConstructor
+from ruamel.yaml.error import MarkedYAMLError, YAMLError
 
 SCHEMA_DIR = Path(__file__).resolve().parents[2] / "schemas"
 EFFECT_ORDER = {"none": 0, "reads": 1, "writes": 2}
@@ -39,22 +41,19 @@ def pointer(*parts: object) -> str:
     return "".join("/" + str(p).replace("~", "~0").replace("/", "~1") for p in parts)
 
 
-class _Loader(yaml.SafeLoader):
-    """A safe YAML loader that rejects a repeated key instead of keeping the last value."""
+class _Constructor(SafeConstructor):
+    """YAML 1.2 values, kept JSON-compatible: a date or time stays the text that was written."""
 
 
-def _mapping(loader: _Loader, node: yaml.MappingNode) -> dict:
-    loader.flatten_mapping(node)
-    seen = set()
-    for key_node, _ in node.value:
-        key = loader.construct_object(key_node, deep=True)
-        if key in seen:
-            raise ParseError(f"line {key_node.start_mark.line + 1}: the key {key!r} appears twice")
-        seen.add(key)
-    return loader.construct_mapping(node, deep=True)
+_Constructor.add_constructor("tag:yaml.org,2002:timestamp", SafeConstructor.construct_yaml_str)
 
 
-_Loader.add_constructor(yaml.resolver.BaseResolver.DEFAULT_MAPPING_TAG, _mapping)
+def _yaml() -> YAML:
+    # YAML 1.2, so yes, no, on and off are text (YAML 1.1 made them booleans).
+    # ruamel.yaml also rejects a repeated key rather than keeping the last value.
+    yaml = YAML(typ="safe", pure=True)
+    yaml.Constructor = _Constructor
+    return yaml
 
 
 def _unique_pairs(pairs: list[tuple[str, object]]) -> dict:
@@ -66,15 +65,34 @@ def _unique_pairs(pairs: list[tuple[str, object]]) -> dict:
     return out
 
 
+def _text_keys(node, path: tuple = ()) -> None:
+    """JSON allows only text keys; YAML also allows numbers and other values."""
+    if isinstance(node, dict):
+        for key, value in node.items():
+            if not isinstance(key, str):
+                raise ParseError(f"at {pointer(*path) or '/'}: the key {key!r} must be text; put it in quotes")
+            _text_keys(value, (*path, key))
+    elif isinstance(node, list):
+        for i, value in enumerate(node):
+            _text_keys(value, (*path, i))
+
+
 def load_document(path: Path):
-    """Parse a .json file as JSON and anything else as YAML."""
+    """Parse a .json file as JSON and anything else as YAML 1.2."""
     text = Path(path).read_text(encoding="utf-8")
     try:
         if Path(path).suffix == ".json":
             return json.loads(text, object_pairs_hook=_unique_pairs)
-        return yaml.load(text, Loader=_Loader)  # a SafeLoader subclass
-    except (yaml.YAMLError, json.JSONDecodeError) as exc:
+        doc = _yaml().load(text)
+    except json.JSONDecodeError as exc:
         raise ParseError(str(exc)) from exc
+    except MarkedYAMLError as exc:
+        where = f"line {exc.problem_mark.line + 1}: " if exc.problem_mark else ""
+        raise ParseError(where + (exc.problem or str(exc))) from exc
+    except YAMLError as exc:
+        raise ParseError(str(exc)) from exc
+    _text_keys(doc)
+    return doc
 
 
 def _registry() -> Registry:
