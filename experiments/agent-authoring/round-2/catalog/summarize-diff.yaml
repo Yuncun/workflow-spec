@@ -1,0 +1,21 @@
+name: acme/summarize-diff
+version: 1.0.0
+title: Summarize a diff
+description: Explain what a diff changes, in plain words for the chosen audience, and rate how risky the change is.
+inputSchema:
+  type: object
+  properties:
+    diff: { $ref: urn:wfspec:file, x-mediaType: text/x-diff }
+    audience: { type: string, enum: [engineers, everyone], default: engineers }
+    max_words: { type: integer, minimum: 50, maximum: 500, default: 200 }
+  required: [diff]
+outputSchema:
+  type: object
+  properties:
+    summary: { type: string, minLength: 1 }
+    risk: { type: string, enum: [low, medium, high] }
+  required: [summary, risk]
+effects: reads
+deterministic: false
+runtime:
+  agent: { model: claude-sonnet-5-5, instructions: prompts/summarize-diff.md, maxTurns: 10 }

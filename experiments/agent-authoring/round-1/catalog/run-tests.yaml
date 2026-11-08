@@ -1,0 +1,30 @@
+name: acme/run-tests
+version: 3.1.0
+title: Run tests
+description: Run a repository's test suite at a branch, tag or commit, and report which tests failed.
+inputSchema:
+  type: object
+  properties:
+    repo: { type: string, description: Repository as owner/name., pattern: "^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$" }
+    ref: { type: string, minLength: 1, description: Branch, tag or commit. }
+    suite: { type: string, enum: [unit, integration, all], default: unit }
+  required: [repo, ref]
+outputSchema:
+  type: object
+  properties:
+    passed: { type: boolean }
+    failures:
+      type: array
+      items:
+        type: object
+        properties:
+          test: { type: string }
+          message: { type: string }
+        required: [test, message]
+    logs: { $ref: urn:wfspec:file, x-mediaType: text/plain }
+  required: [passed, failures, logs]
+effects: reads
+deterministic: false
+secrets: [GITHUB_TOKEN]
+runtime: { container: { image: ghcr.io/acme/run-tests:3.1.0 } }
+resources: { timeout: 30m }

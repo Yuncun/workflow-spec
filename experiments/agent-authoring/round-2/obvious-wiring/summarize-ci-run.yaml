@@ -1,0 +1,5 @@
+inputSchema: { type: object, properties: { repo: { type: string, pattern: "^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$" }, run_id: { type: integer, minimum: 1 } }, required: [repo, run_id] }
+steps:
+  logs: { uses: acme/fetch-ci-logs@2.1.0, with: { repo: { from: inputs.repo }, run_id: { from: inputs.run_id } } }
+  sum: { uses: ml/summarize-text@2.0.0, with: { text: { from: steps.logs.outputs.logs }, length: short } }
+  post: { uses: acme/send-chat-message@1.0.0, with: { channel: "#builds", text: { from: steps.sum.outputs.summary } } }

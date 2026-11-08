@@ -1,0 +1,28 @@
+name: your-team/release-translations
+version: 1.0.0
+description: Translate a release's notes into Japanese and German and post each translation to #releases.
+inputSchema:
+  type: object
+  properties:
+    repo: { type: string, pattern: "^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$" }
+    tag: { type: string, minLength: 1 }
+  required: [repo, tag]
+outputs:
+  japanese_message: { from: steps.post_ja.outputs.id }
+  german_message: { from: steps.post_de.outputs.id }
+steps:
+  notes:
+    uses: acme/fetch-release-notes@1.0.0
+    with: { repo: { from: inputs.repo }, tag: { from: inputs.tag } }
+  translate_ja:
+    uses: acme/translate-text@1.0.0
+    with: { text: { from: steps.notes.outputs.notes }, target_language: ja }
+  translate_de:
+    uses: acme/translate-text@1.0.0
+    with: { text: { from: steps.notes.outputs.notes }, target_language: de }
+  post_ja:
+    uses: acme/send-chat-message@1.0.0
+    with: { channel: "#releases", text: { from: steps.translate_ja.outputs.translation } }
+  post_de:
+    uses: acme/send-chat-message@1.0.0
+    with: { channel: "#releases", text: { from: steps.translate_de.outputs.translation } }

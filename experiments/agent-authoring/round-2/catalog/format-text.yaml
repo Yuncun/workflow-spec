@@ -1,0 +1,20 @@
+name: acme/format-text
+version: 1.0.0
+title: Fill in a text template
+description: Replace {a}, {b} and {c} in a template with the given values. Use it to combine fixed text with values from other steps.
+inputSchema:
+  type: object
+  properties:
+    template: { type: string, minLength: 1 }
+    a: { type: string, default: "" }
+    b: { type: string, default: "" }
+    c: { type: string, default: "" }
+  required: [template]
+outputSchema:
+  type: object
+  properties:
+    text: { type: string }
+  required: [text]
+effects: none
+deterministic: true
+runtime: { container: { image: ghcr.io/acme/format-text:1.0.0 } }

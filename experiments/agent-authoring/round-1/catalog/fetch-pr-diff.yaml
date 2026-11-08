@@ -1,0 +1,21 @@
+name: acme/fetch-pr-diff
+version: 1.2.0
+title: Fetch a pull request's diff
+description: Download the current diff of a pull request, with its title and the number of files it changes.
+inputSchema:
+  type: object
+  properties:
+    repo: { type: string, description: Repository as owner/name., pattern: "^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$" }
+    pr: { type: integer, minimum: 1, description: Pull request number. }
+  required: [repo, pr]
+outputSchema:
+  type: object
+  properties:
+    diff: { $ref: urn:wfspec:file, x-mediaType: text/x-diff }
+    title: { type: string }
+    files_changed: { type: integer, minimum: 0 }
+  required: [diff, title, files_changed]
+effects: reads
+deterministic: false
+secrets: [GITHUB_TOKEN]
+runtime: { container: { image: ghcr.io/acme/fetch-pr-diff:1.2.0 } }

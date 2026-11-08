@@ -1,0 +1,35 @@
+name: your-team/label-ci-issue
+version: 1.0.0
+description: Triage a failed CI run's logs, open an issue with the report, and label it by failure category.
+inputSchema:
+  type: object
+  properties:
+    repo: { type: string, pattern: "^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$" }
+    run_id: { type: integer, minimum: 1 }
+  required: [repo, run_id]
+outputs:
+  issue: { from: steps.issue.outputs.url }
+  labeled: { from: steps.label.outputs.labeled }
+steps:
+  logs:
+    uses: acme/fetch-ci-logs@2.1.0
+    with: { repo: { from: inputs.repo }, run_id: { from: inputs.run_id } }
+  triage:
+    uses: acme/triage-logs@0.4.1
+    with: { logs: { from: steps.logs.outputs.logs } }
+  issue:
+    uses: acme/open-issue@1.0.3
+    with:
+      repo: { from: inputs.repo }
+      title: { from: steps.triage.outputs.title }
+      body: { from: steps.triage.outputs.report }
+  label_name:
+    uses: acme/map-value@1.0.0
+    with:
+      value: { from: steps.triage.outputs.category }
+      mapping: { test: test, flaky: flaky, infrastructure: infra, build: bug }
+  label:
+    uses: acme/label-issue@1.0.0
+    with:
+      url: { from: steps.issue.outputs.url }
+      label: { from: steps.label_name.outputs.result }

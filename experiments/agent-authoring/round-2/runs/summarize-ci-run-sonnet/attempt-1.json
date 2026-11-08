@@ -1,0 +1,20 @@
+{
+  "ok": true,
+  "errors": [],
+  "warnings": [
+    {
+      "code": "type_unchecked",
+      "path": "/steps/post/with/text",
+      "message": "output 'summary' of step 'summary' → input 'text': can't prove the input's maxLength limit; the value is checked when the step runs",
+      "step": "post",
+      "input": "text"
+    },
+    {
+      "code": "type_unchecked",
+      "path": "/steps/summary/with/text",
+      "message": "output 'text' of step 'text' → input 'text': can't prove the input's minLength and maxLength limits; the value is checked when the step runs",
+      "step": "summary",
+      "input": "text"
+    }
+  ]
+}

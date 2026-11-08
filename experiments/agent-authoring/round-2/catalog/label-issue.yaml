@@ -1,0 +1,20 @@
+name: acme/label-issue
+version: 1.0.0
+title: Label an issue
+description: Add one label from the team's label set to an existing issue.
+inputSchema:
+  type: object
+  properties:
+    url: { type: string, format: uri, description: The issue's URL. }
+    label: { type: string, enum: [bug, test, infra, flaky, ci-failure] }
+  required: [url, label]
+outputSchema:
+  type: object
+  properties:
+    labeled: { type: boolean }
+  required: [labeled]
+effects: writes
+idempotent: true
+destructive: false
+secrets: [GITHUB_TOKEN]
+runtime: { container: { image: ghcr.io/acme/label-issue:1.0.0 } }

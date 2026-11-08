@@ -1,0 +1,21 @@
+name: acme/open-issue
+version: 0.9.0
+title: Open an issue (old)
+description: Open an issue in a GitHub repository. Superseded by 1.0.0, which adds labels.
+inputSchema:
+  type: object
+  properties:
+    repo: { type: string, description: Repository as owner/name., pattern: "^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$" }
+    heading: { type: string, minLength: 1 }
+    text: { type: string }
+  required: [repo, heading, text]
+outputSchema:
+  type: object
+  properties:
+    url: { type: string, format: uri }
+  required: [url]
+effects: writes
+idempotent: false
+destructive: false
+secrets: [GITHUB_TOKEN]
+runtime: { container: { image: ghcr.io/acme/open-issue:0.9.0 } }

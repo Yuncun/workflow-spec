@@ -1,0 +1,28 @@
+name: acme/file-test-failures
+version: 1.0.0
+title: File test failures
+description: Open an issue listing test failures, but only if there are any. Returns the issue's URL when it opened one.
+inputSchema:
+  type: object
+  properties:
+    repo: { type: string, description: Repository as owner/name., pattern: "^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$" }
+    failures:
+      type: array
+      items:
+        type: object
+        properties:
+          test: { type: string }
+          message: { type: string }
+        required: [test, message]
+    title: { type: string, minLength: 1, default: Failing tests }
+  required: [repo, failures]
+outputSchema:
+  type: object
+  properties:
+    url: { type: string, format: uri }
+  required: []
+effects: writes
+idempotent: false
+destructive: false
+secrets: [GITHUB_TOKEN]
+runtime: { container: { image: ghcr.io/acme/file-test-failures:1.0.0 } }

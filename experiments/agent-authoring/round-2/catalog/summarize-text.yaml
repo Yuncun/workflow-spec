@@ -1,0 +1,19 @@
+name: ml/summarize-text
+version: 2.0.0
+title: Summarize text
+description: Summarize any text at the chosen length.
+inputSchema:
+  type: object
+  properties:
+    text: { type: string, minLength: 1, maxLength: 100000 }
+    length: { type: string, enum: [short, medium, long], default: medium }
+  required: [text]
+outputSchema:
+  type: object
+  properties:
+    summary: { type: string, minLength: 1 }
+  required: [summary]
+effects: reads
+deterministic: false
+runtime:
+  agent: { model: claude-haiku-5-5, instructions: prompts/summarize.md, maxTurns: 3 }

@@ -1,0 +1,21 @@
+name: acme/fetch-release-notes
+version: 1.0.0
+title: Fetch release notes
+description: Get the release notes published for a tag, with the release's URL and publication time.
+inputSchema:
+  type: object
+  properties:
+    repo: { type: string, description: Repository as owner/name., pattern: "^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$" }
+    tag: { type: string, minLength: 1 }
+  required: [repo, tag]
+outputSchema:
+  type: object
+  properties:
+    notes: { type: string }
+    url: { type: string, format: uri }
+    published: { type: string, format: date-time }
+  required: [notes, url, published]
+effects: reads
+deterministic: false
+secrets: [GITHUB_TOKEN]
+runtime: { container: { image: ghcr.io/acme/fetch-release-notes:1.0.0 } }

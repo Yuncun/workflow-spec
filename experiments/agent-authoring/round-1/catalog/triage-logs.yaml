@@ -1,0 +1,39 @@
+# An agent step. It calls a model, so it reads outside data and is not deterministic:
+# it is never cached. Its outputs are still typed, so later steps can be checked.
+name: acme/triage-logs
+version: 0.4.1
+title: Triage CI logs
+description: Read CI logs, find the first real failure, and write a short report about it.
+inputSchema:
+  type: object
+  properties:
+    logs:
+      $ref: urn:wfspec:file
+      x-mediaType: text/plain
+    style:
+      type: string
+      enum: [short, long]
+      default: short
+  required: [logs]
+outputSchema:
+  type: object
+  properties:
+    title:
+      type: string
+      minLength: 1
+      maxLength: 120
+    report:
+      type: string
+    category:
+      type: string
+      enum: [test, build, infrastructure, flaky]
+  required: [title, report, category]
+effects: reads
+deterministic: false
+runtime:
+  agent:
+    model: claude-sonnet-5-5
+    instructions: prompts/triage.md
+    maxTurns: 20
+resources:
+  timeout: 10m

@@ -1,0 +1,13 @@
+{
+  "ok": true,
+  "errors": [],
+  "warnings": [
+    {
+      "code": "type_unchecked",
+      "path": "/steps/post/with/body",
+      "message": "output 'summary' of step 'summary' → input 'body': can't prove the input's maxLength limit; the value is checked when the step runs",
+      "step": "post",
+      "input": "body"
+    }
+  ]
+}

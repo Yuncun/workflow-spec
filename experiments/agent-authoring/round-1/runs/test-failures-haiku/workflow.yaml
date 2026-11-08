@@ -1,0 +1,24 @@
+name: your-team/integration-tests-report
+version: 1.0.0
+description: Run a repository's integration tests on a branch. If any fail, open an issue listing the failures. Output whether the tests passed.
+inputSchema:
+  type: object
+  properties:
+    repo: { type: string, description: "Repository as owner/name.", pattern: "^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$" }
+    branch: { type: string, minLength: 1 }
+  required: [repo, branch]
+outputs:
+  passed: { from: steps.tests.outputs.passed }
+  issue: { from: steps.file.outputs.url }
+steps:
+  tests:
+    uses: acme/run-tests@3.1.0
+    with:
+      repo: { from: inputs.repo }
+      ref: { from: inputs.branch }
+      suite: integration
+  file:
+    uses: acme/file-test-failures@1.0.0
+    with:
+      repo: { from: inputs.repo }
+      failures: { from: steps.tests.outputs.failures }

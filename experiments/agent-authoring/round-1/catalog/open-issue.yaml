@@ -1,0 +1,42 @@
+# A step that changes outside data. It always runs when its workflow runs, is never
+# cached, and isn't retried automatically, because it isn't idempotent. It adds an
+# issue rather than changing or deleting anything, so it isn't destructive.
+name: acme/open-issue
+version: 1.0.3
+title: Open an issue
+description: Open an issue in a GitHub repository and return its URL.
+inputSchema:
+  type: object
+  properties:
+    repo:
+      type: string
+      description: Repository as owner/name.
+      pattern: "^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$"
+    title:
+      type: string
+      minLength: 1
+      maxLength: 256
+    body:
+      type: string
+    labels:
+      type: array
+      items: { type: string }
+      default: []
+  required: [repo, title, body]
+outputSchema:
+  type: object
+  properties:
+    url:
+      type: string
+      format: uri
+  required: [url]
+effects: writes
+idempotent: false
+destructive: false
+secrets: [GITHUB_TOKEN]
+runtime:
+  container:
+    image: ghcr.io/acme/open-issue:1.0.3
+    command: [open-issue]
+resources:
+  timeout: 1m

@@ -1,0 +1,25 @@
+name: acme/open-pull-request
+version: 1.3.0
+title: Open a pull request
+description: Commit file changes to a new branch and open a pull request from it. Returns the pull request's URL and number.
+inputSchema:
+  type: object
+  properties:
+    repo: { type: string, description: Repository as owner/name., pattern: "^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$" }
+    branch: { type: string, pattern: "^[A-Za-z0-9._/-]+$", description: Name of the new branch. }
+    base: { type: string, default: main }
+    title: { type: string, minLength: 1, maxLength: 256 }
+    body: { type: string }
+    changes: { type: array, minItems: 1, items: { type: object, properties: { path: { type: string }, content: { type: string } }, required: [path, content] } }
+  required: [repo, branch, title, body, changes]
+outputSchema:
+  type: object
+  properties:
+    url: { type: string, format: uri }
+    number: { type: integer, minimum: 1 }
+  required: [url, number]
+effects: writes
+idempotent: false
+destructive: false
+secrets: [GITHUB_TOKEN]
+runtime: { container: { image: ghcr.io/acme/open-pull-request:1.3.0 } }

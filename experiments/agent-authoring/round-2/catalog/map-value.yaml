@@ -1,0 +1,19 @@
+name: acme/map-value
+version: 1.0.0
+title: Map a value
+description: Look a text value up in a mapping and return what it maps to, or the fallback when it isn't there.
+inputSchema:
+  type: object
+  properties:
+    value: { type: string }
+    mapping: { type: object, additionalProperties: { type: string } }
+    fallback: { type: string, default: "" }
+  required: [value, mapping]
+outputSchema:
+  type: object
+  properties:
+    result: { type: string }
+  required: [result]
+effects: none
+deterministic: true
+runtime: { container: { image: ghcr.io/acme/map-value:1.0.0 } }

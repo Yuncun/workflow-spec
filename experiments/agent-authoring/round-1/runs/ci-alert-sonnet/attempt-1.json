@@ -1,0 +1,13 @@
+{
+  "ok": true,
+  "errors": [],
+  "warnings": [
+    {
+      "code": "type_unchecked",
+      "path": "/steps/announce/with/text",
+      "message": "output 'text' of step 'message' → input 'text': can't prove the input's minLength and maxLength limits; the value is checked when the step runs",
+      "step": "announce",
+      "input": "text"
+    }
+  ]
+}
