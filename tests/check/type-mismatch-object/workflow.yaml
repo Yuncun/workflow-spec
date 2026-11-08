@@ -1,0 +1,8 @@
+steps:
+  make: { uses: test/make-summary@1.0.0 }
+  post:
+    uses: test/post-summary@1.0.0
+    with:
+      summary: { from: steps.make.outputs.summary }
+outputs:
+  id: { from: steps.post.outputs.id }

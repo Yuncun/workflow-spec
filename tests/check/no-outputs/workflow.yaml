@@ -1,0 +1,2 @@
+steps:
+  emit: { uses: test/emit-values@1.0.0 }

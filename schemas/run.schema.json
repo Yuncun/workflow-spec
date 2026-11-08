@@ -1,0 +1,92 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:wfspec:schema:run",
+  "title": "Run record",
+  "description": "What happened when a workflow ran: which step versions, with which inputs, giving which outputs. Enough to rerun it or save it as a new workflow. See SPEC.md, section 7.",
+  "type": "object",
+  "required": ["id", "workflow", "lock", "inputs", "status", "created", "steps"],
+  "properties": {
+    "id": { "type": "string", "minLength": 1 },
+    "workflow": {
+      "type": "object",
+      "required": ["digest"],
+      "properties": {
+        "name": { "$ref": "urn:wfspec:schema:step#/$defs/name" },
+        "version": { "$ref": "urn:wfspec:schema:step#/$defs/version" },
+        "digest": { "$ref": "urn:wfspec:schema:lock#/$defs/digest" }
+      },
+      "additionalProperties": false
+    },
+    "lock": { "$ref": "urn:wfspec:schema:lock" },
+    "inputs": { "type": "object" },
+    "outputs": { "type": "object" },
+    "status": { "enum": ["queued", "running", "succeeded", "failed", "cancelled"] },
+    "caller": { "type": "string" },
+    "created": { "type": "string", "format": "date-time" },
+    "started": { "type": "string", "format": "date-time" },
+    "ended": { "type": "string", "format": "date-time" },
+    "traceId": { "type": "string", "pattern": "^[0-9a-f]{32}$" },
+    "steps": {
+      "type": "object",
+      "additionalProperties": { "$ref": "#/$defs/stepRun" }
+    }
+  },
+  "additionalProperties": false,
+  "$defs": {
+    "stepRun": {
+      "type": "object",
+      "required": ["uses", "status"],
+      "properties": {
+        "uses": { "$ref": "urn:wfspec:schema:step#/$defs/stepRef" },
+        "digest": { "$ref": "urn:wfspec:schema:lock#/$defs/digest" },
+        "status": { "enum": ["pending", "running", "succeeded", "failed", "skipped", "not_needed"] },
+        "cacheKey": { "$ref": "urn:wfspec:schema:lock#/$defs/digest" },
+        "cacheHit": { "type": "boolean" },
+        "attempts": { "type": "integer", "minimum": 0 },
+        "inputs": { "type": "object" },
+        "outputs": { "type": "object" },
+        "started": { "type": "string", "format": "date-time" },
+        "ended": { "type": "string", "format": "date-time" },
+        "logs": { "$ref": "urn:wfspec:file" },
+        "error": {
+          "type": "object",
+          "required": ["message"],
+          "properties": {
+            "message": { "type": "string" },
+            "code": { "type": "string" }
+          },
+          "additionalProperties": false
+        },
+        "calls": {
+          "description": "Steps an agent step called as tools, in order.",
+          "type": "array",
+          "items": { "$ref": "#/$defs/call" }
+        },
+        "plan": {
+          "description": "The workflow an agent step returned instead of outputs.",
+          "$ref": "urn:wfspec:schema:workflow"
+        },
+        "steps": {
+          "description": "How the plan's steps ran.",
+          "type": "object",
+          "additionalProperties": { "$ref": "#/$defs/stepRun" }
+        }
+      },
+      "additionalProperties": false
+    },
+    "call": {
+      "type": "object",
+      "required": ["uses", "inputs", "status"],
+      "properties": {
+        "uses": { "$ref": "urn:wfspec:schema:step#/$defs/stepRef" },
+        "digest": { "$ref": "urn:wfspec:schema:lock#/$defs/digest" },
+        "inputs": { "type": "object" },
+        "outputs": { "type": "object" },
+        "status": { "enum": ["succeeded", "failed"] },
+        "started": { "type": "string", "format": "date-time" },
+        "ended": { "type": "string", "format": "date-time" }
+      },
+      "additionalProperties": false
+    }
+  }
+}

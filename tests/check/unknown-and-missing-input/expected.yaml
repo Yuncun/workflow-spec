@@ -1,0 +1,5 @@
+ok: false
+errors:
+  - { code: missing_input, path: "/steps/take/with" }
+  - { code: unknown_input, path: "/steps/take/with/txt" }
+warnings: []

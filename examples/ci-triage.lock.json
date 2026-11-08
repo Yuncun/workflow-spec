@@ -1,0 +1,15 @@
+{
+  "lockVersion": 1,
+  "workflow": "acme/ci-triage@1.2.0",
+  "steps": {
+    "acme/fetch-ci-logs@2.1.0": {
+      "digest": "sha256:c5a48d74a450852979d4d718498e3e81e2913d4272ed60c5c6e31356b8dbcbeb"
+    },
+    "acme/open-issue@1.0.3": {
+      "digest": "sha256:6f51a39faa93321d62993649e6c0cd9f8d33df655fba2a51c7d19c060952c104"
+    },
+    "acme/triage-logs@0.4.1": {
+      "digest": "sha256:52965052354b7291f46fc7421d1cfa4b00449d8cca8bc5cb4d39abba50bbbb2d"
+    }
+  }
+}

@@ -1,0 +1,7 @@
+steps:
+  take:
+    uses: test/take-values@1.0.0
+    with:
+      txt: hello
+outputs:
+  done: { from: steps.take.outputs.done }

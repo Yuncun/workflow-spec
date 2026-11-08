@@ -1,0 +1,16 @@
+name: test/echo
+version: 1.0.0
+description: Return its text unchanged, for checker tests.
+inputSchema:
+  type: object
+  properties:
+    text: { type: string }
+  required: [text]
+outputSchema:
+  type: object
+  properties:
+    text: { type: string }
+  required: [text]
+effects: none
+deterministic: true
+runtime: { container: { image: example.test/echo:1.0.0 } }

@@ -1,0 +1,7 @@
+ok: false
+errors:
+  - { code: unknown_reference, path: "/steps/take/with/amount" }
+  - { code: unknown_reference, path: "/steps/take/with/text" }
+  - { code: unknown_reference, path: "/steps/take/with/whole" }
+warnings:
+  - { code: unused_input, path: "/inputSchema/properties/topic" }

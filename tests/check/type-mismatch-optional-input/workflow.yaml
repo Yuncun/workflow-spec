@@ -1,0 +1,11 @@
+inputSchema:
+  type: object
+  properties:
+    topic: { type: string }
+steps:
+  take:
+    uses: test/take-values@1.0.0
+    with:
+      text: { from: inputs.topic }
+outputs:
+  done: { from: steps.take.outputs.done }

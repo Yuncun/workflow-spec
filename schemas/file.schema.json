@@ -1,0 +1,15 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:wfspec:file",
+  "title": "File value",
+  "description": "A file passed between steps, addressed by the hash of its content. In a step's schemas, write {\"$ref\": \"urn:wfspec:file\"}, optionally with \"x-mediaType\". See SPEC.md, section 4.",
+  "type": "object",
+  "required": ["digest", "mediaType"],
+  "properties": {
+    "digest": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+    "mediaType": { "type": "string", "pattern": "^[a-z]+/[A-Za-z0-9.+-]+$" },
+    "size": { "type": "integer", "minimum": 0 },
+    "name": { "type": "string" }
+  },
+  "additionalProperties": false
+}

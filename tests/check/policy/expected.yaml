@@ -1,0 +1,5 @@
+ok: false
+errors:
+  - { code: effects_not_allowed, path: "/steps/post/uses" }
+  - { code: secret_not_granted, path: "/steps/post/uses" }
+warnings: []

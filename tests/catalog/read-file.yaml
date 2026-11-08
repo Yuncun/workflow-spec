@@ -1,0 +1,16 @@
+name: test/read-file
+version: 1.0.0
+description: Count the lines of any text file, for checker tests.
+inputSchema:
+  type: object
+  properties:
+    doc: { $ref: "urn:wfspec:file", x-mediaType: "text/*" }
+  required: [doc]
+outputSchema:
+  type: object
+  properties:
+    lines: { type: integer, minimum: 0 }
+  required: [lines]
+effects: none
+deterministic: true
+runtime: { container: { image: example.test/read-file:1.0.0 } }

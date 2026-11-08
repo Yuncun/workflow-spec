@@ -1,0 +1,17 @@
+name: test/make-summary
+version: 1.0.0
+description: Produce a summary whose body may be missing, for checker tests.
+inputSchema: { type: object, properties: {} }
+outputSchema:
+  type: object
+  properties:
+    summary:
+      type: object
+      properties:
+        title: { type: string }
+        body: { type: string }
+      required: [title]
+  required: [summary]
+effects: none
+deterministic: true
+runtime: { container: { image: example.test/make-summary:1.0.0 } }

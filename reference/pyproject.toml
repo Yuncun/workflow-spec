@@ -1,0 +1,16 @@
+[project]
+name = "wfspec"
+version = "0.1.0"
+description = "Reference checker for the workflow spec in this repository"
+requires-python = ">=3.11"
+dependencies = ["jsonschema>=4.23", "PyYAML>=6.0"]
+
+[project.optional-dependencies]
+test = ["pytest>=8"]
+
+[project.scripts]
+wfspec = "wfspec.cli:main"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"

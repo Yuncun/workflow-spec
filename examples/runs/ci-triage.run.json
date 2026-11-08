@@ -1,0 +1,101 @@
+{
+  "id": "run_9b04e6d2",
+  "workflow": {
+    "name": "acme/ci-triage",
+    "version": "1.2.0",
+    "digest": "sha256:49bd3567a3d4692ae2e7dc86441a107976415d5fd92eef7565fd2293a55c82a1"
+  },
+  "lock": {
+    "lockVersion": 1,
+    "workflow": "acme/ci-triage@1.2.0",
+    "steps": {
+      "acme/fetch-ci-logs@2.1.0": {
+        "digest": "sha256:c5a48d74a450852979d4d718498e3e81e2913d4272ed60c5c6e31356b8dbcbeb"
+      },
+      "acme/open-issue@1.0.3": {
+        "digest": "sha256:6f51a39faa93321d62993649e6c0cd9f8d33df655fba2a51c7d19c060952c104"
+      },
+      "acme/triage-logs@0.4.1": {
+        "digest": "sha256:52965052354b7291f46fc7421d1cfa4b00449d8cca8bc5cb4d39abba50bbbb2d"
+      }
+    }
+  },
+  "inputs": {
+    "repo": "acme/web",
+    "run_id": 1234,
+    "style": "long"
+  },
+  "outputs": {
+    "report": "The first real failure is test_checkout_total in tests/checkout/test_total.py.\nIt expects 10.00 and gets 9.99 after commit 4e1c2d0 changed currency.format to truncate instead of round.\nTwo other failures in the same run (test_cart_badge, test_cart_count) are timeouts on the shared runner and pass on retry.\nSuggested fix: restore rounding in currency.format, or update the test if truncation is intended.",
+    "issue": "https://github.com/acme/web/issues/91"
+  },
+  "status": "succeeded",
+  "caller": "user:sam",
+  "created": "2026-11-07T19:40:03Z",
+  "started": "2026-11-07T19:40:03Z",
+  "ended": "2026-11-07T19:41:12Z",
+  "traceId": "0af7651916cd43dd8448eb211c80319c",
+  "steps": {
+    "logs": {
+      "uses": "acme/fetch-ci-logs@2.1.0",
+      "digest": "sha256:c5a48d74a450852979d4d718498e3e81e2913d4272ed60c5c6e31356b8dbcbeb",
+      "status": "succeeded",
+      "cacheKey": "sha256:dc86ac78e68e53987ac6c73b98f157e1376365a3ded677bd746c2e2a56632607",
+      "cacheHit": true,
+      "attempts": 0,
+      "inputs": {
+        "repo": "acme/web",
+        "run_id": 1234
+      },
+      "outputs": {
+        "logs": {
+          "digest": "sha256:d52a9fbbd59cbade17be761368b02529abcfa48c51f6e82376f544233b9c8603",
+          "mediaType": "text/plain",
+          "size": 48213,
+          "name": "run-1234.log"
+        }
+      }
+    },
+    "triage": {
+      "uses": "acme/triage-logs@0.4.1",
+      "digest": "sha256:52965052354b7291f46fc7421d1cfa4b00449d8cca8bc5cb4d39abba50bbbb2d",
+      "status": "succeeded",
+      "attempts": 1,
+      "inputs": {
+        "logs": {
+          "digest": "sha256:d52a9fbbd59cbade17be761368b02529abcfa48c51f6e82376f544233b9c8603",
+          "mediaType": "text/plain",
+          "size": 48213,
+          "name": "run-1234.log"
+        },
+        "style": "long"
+      },
+      "outputs": {
+        "title": "test_checkout_total fails: rounding changed in currency.format",
+        "report": "The first real failure is test_checkout_total in tests/checkout/test_total.py.\nIt expects 10.00 and gets 9.99 after commit 4e1c2d0 changed currency.format to truncate instead of round.\nTwo other failures in the same run (test_cart_badge, test_cart_count) are timeouts on the shared runner and pass on retry.\nSuggested fix: restore rounding in currency.format, or update the test if truncation is intended.",
+        "category": "test"
+      },
+      "started": "2026-11-07T19:40:04Z",
+      "ended": "2026-11-07T19:41:02Z"
+    },
+    "file": {
+      "uses": "acme/open-issue@1.0.3",
+      "digest": "sha256:6f51a39faa93321d62993649e6c0cd9f8d33df655fba2a51c7d19c060952c104",
+      "status": "succeeded",
+      "attempts": 1,
+      "inputs": {
+        "repo": "acme/web",
+        "title": "test_checkout_total fails: rounding changed in currency.format",
+        "body": "The first real failure is test_checkout_total in tests/checkout/test_total.py.\nIt expects 10.00 and gets 9.99 after commit 4e1c2d0 changed currency.format to truncate instead of round.\nTwo other failures in the same run (test_cart_badge, test_cart_count) are timeouts on the shared runner and pass on retry.\nSuggested fix: restore rounding in currency.format, or update the test if truncation is intended.",
+        "labels": [
+          "ci-failure"
+        ]
+      },
+      "outputs": {
+        "url": "https://github.com/acme/web/issues/91"
+      },
+      "started": "2026-11-07T19:41:03Z",
+      "ended": "2026-11-07T19:41:11Z"
+    }
+  }
+}

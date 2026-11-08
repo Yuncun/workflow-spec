@@ -1,0 +1,15 @@
+inputSchema:
+  type: object
+  properties:
+    topic: { type: string }
+  required: [topic]
+steps:
+  emit: { uses: test/emit-values@1.0.0 }
+  take:
+    uses: test/take-values@1.0.0
+    with:
+      text: { from: inputs.topik }
+      amount: { from: steps.emitt.outputs.count }
+      whole: { from: steps.emit.outputs.total }
+outputs:
+  done: { from: steps.take.outputs.done }

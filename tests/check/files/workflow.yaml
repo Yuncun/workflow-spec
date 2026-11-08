@@ -1,0 +1,23 @@
+inputSchema:
+  type: object
+  properties:
+    repo: { type: string }
+    run: { type: integer, minimum: 1 }
+  required: [repo, run]
+steps:
+  logs:
+    uses: acme/fetch-ci-logs@2.1.0
+    with:
+      repo: { from: inputs.repo }
+      run_id: { from: inputs.run }
+  count:
+    uses: test/read-file@1.0.0
+    with:
+      doc: { from: steps.logs.outputs.logs }
+  take:
+    uses: test/take-values@1.0.0
+    with:
+      text: { from: steps.logs.outputs.logs }
+outputs:
+  lines: { from: steps.count.outputs.lines }
+  done: { from: steps.take.outputs.done }

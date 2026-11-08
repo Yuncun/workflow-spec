@@ -1,0 +1,26 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:wfspec:schema:lock",
+  "title": "Lock file",
+  "description": "The content hash of every step a workflow uses, written when the workflow is published. See SPEC.md, section 8.",
+  "type": "object",
+  "required": ["lockVersion", "steps"],
+  "properties": {
+    "lockVersion": { "const": 1 },
+    "workflow": { "$ref": "urn:wfspec:schema:step#/$defs/stepRef" },
+    "steps": {
+      "type": "object",
+      "propertyNames": { "$ref": "urn:wfspec:schema:step#/$defs/stepRef" },
+      "additionalProperties": {
+        "type": "object",
+        "required": ["digest"],
+        "properties": { "digest": { "$ref": "#/$defs/digest" } },
+        "additionalProperties": false
+      }
+    }
+  },
+  "additionalProperties": false,
+  "$defs": {
+    "digest": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" }
+  }
+}

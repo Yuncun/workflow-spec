@@ -1,0 +1,5 @@
+steps:
+  post:
+    uses: test/post-summary@1.0.0
+    with:
+      summary: { title: Build broke, body: See the logs. }

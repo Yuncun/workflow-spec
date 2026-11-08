@@ -1,0 +1,21 @@
+name: test/take-values
+version: 1.0.0
+description: Accept values of several types, for checker tests.
+inputSchema:
+  type: object
+  properties:
+    text: { type: string }
+    amount: { type: number }
+    whole: { type: integer, minimum: 1 }
+    mode: { type: string, enum: [a, b] }
+    note: { type: string, default: "" }
+    extra: { type: object }
+  required: [text]
+outputSchema:
+  type: object
+  properties:
+    done: { type: boolean }
+  required: [done]
+effects: none
+deterministic: true
+runtime: { container: { image: example.test/take-values:1.0.0 } }

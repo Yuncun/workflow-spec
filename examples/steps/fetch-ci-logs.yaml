@@ -1,0 +1,35 @@
+# A container step that reads outside data. Its output depends only on its inputs
+# (a finished run's logs never change), so it is deterministic and can be cached.
+name: acme/fetch-ci-logs
+version: 2.1.0
+title: Fetch CI logs
+description: Download the logs of one finished CI run as a text file.
+inputSchema:
+  type: object
+  properties:
+    repo:
+      type: string
+      description: Repository as owner/name.
+      pattern: "^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$"
+    run_id:
+      type: integer
+      minimum: 1
+  required: [repo, run_id]
+outputSchema:
+  type: object
+  properties:
+    logs:
+      $ref: urn:wfspec:file
+      x-mediaType: text/plain
+  required: [logs]
+effects: reads
+deterministic: true
+secrets: [GITHUB_TOKEN]
+runtime:
+  container:
+    image: ghcr.io/acme/fetch-ci-logs:2.1.0
+    command: [fetch-ci-logs]
+resources:
+  timeout: 5m
+examples:
+  - inputs: { repo: acme/web, run_id: 1234 }

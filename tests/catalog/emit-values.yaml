@@ -1,0 +1,16 @@
+name: test/emit-values
+version: 1.0.0
+description: Produce values of several types, for checker tests.
+inputSchema: { type: object, properties: {} }
+outputSchema:
+  type: object
+  properties:
+    count: { type: integer }
+    ratio: { type: number }
+    label: { type: string }
+    maybe: { type: string }
+    choice: { type: string, enum: [a, b, c] }
+  required: [count, ratio, label, choice]
+effects: none
+deterministic: true
+runtime: { container: { image: example.test/emit-values:1.0.0 } }

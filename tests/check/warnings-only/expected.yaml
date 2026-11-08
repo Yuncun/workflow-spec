@@ -1,0 +1,7 @@
+ok: true
+errors: []
+warnings:
+  - { code: unused_input, path: "/inputSchema/properties/unused" }
+  - { code: step_never_runs, path: "/steps/extra" }
+  - { code: type_unchecked, path: "/steps/take/with/mode" }
+  - { code: type_unchecked, path: "/steps/take/with/whole" }

@@ -1,0 +1,88 @@
+{
+  "id": "run_7f3c2a91",
+  "workflow": {
+    "name": "acme/investigate",
+    "version": "0.1.0",
+    "digest": "sha256:627391407401f71b5f3f8f0de8966ba24ad92aae2c85f065312aa9bf1dceb7c3"
+  },
+  "lock": {
+    "lockVersion": 1,
+    "workflow": "acme/investigate@0.1.0",
+    "steps": {
+      "acme/investigate-failure@0.1.0": {
+        "digest": "sha256:de1191940088019f244c8d172466ee0f5ba06f4cb513aae751f3b04d857d00d2"
+      }
+    }
+  },
+  "inputs": {
+    "repo": "acme/web",
+    "run_id": 1234
+  },
+  "outputs": {
+    "summary": "Real failure in test_checkout_total, caused by commit 4e1c2d0. Filed an issue.",
+    "issue": "https://github.com/acme/web/issues/88"
+  },
+  "status": "succeeded",
+  "caller": "user:alex",
+  "created": "2026-11-07T18:02:11Z",
+  "started": "2026-11-07T18:02:12Z",
+  "ended": "2026-11-07T18:05:40Z",
+  "traceId": "4bf92f3577b34da6a3ce929d0e0e4736",
+  "steps": {
+    "investigate": {
+      "uses": "acme/investigate-failure@0.1.0",
+      "digest": "sha256:de1191940088019f244c8d172466ee0f5ba06f4cb513aae751f3b04d857d00d2",
+      "status": "succeeded",
+      "attempts": 1,
+      "inputs": {
+        "repo": "acme/web",
+        "run_id": 1234
+      },
+      "outputs": {
+        "summary": "Real failure in test_checkout_total, caused by commit 4e1c2d0. Filed an issue.",
+        "issue": "https://github.com/acme/web/issues/88"
+      },
+      "started": "2026-11-07T18:02:12Z",
+      "ended": "2026-11-07T18:05:40Z",
+      "calls": [
+        {
+          "uses": "acme/fetch-ci-logs@2.1.0",
+          "digest": "sha256:c5a48d74a450852979d4d718498e3e81e2913d4272ed60c5c6e31356b8dbcbeb",
+          "inputs": {
+            "repo": "acme/web",
+            "run_id": 1234
+          },
+          "outputs": {
+            "logs": {
+              "digest": "sha256:d52a9fbbd59cbade17be761368b02529abcfa48c51f6e82376f544233b9c8603",
+              "mediaType": "text/plain",
+              "size": 48213,
+              "name": "run-1234.log"
+            }
+          },
+          "status": "succeeded",
+          "started": "2026-11-07T18:02:20Z",
+          "ended": "2026-11-07T18:02:31Z"
+        },
+        {
+          "uses": "acme/open-issue@1.0.3",
+          "digest": "sha256:6f51a39faa93321d62993649e6c0cd9f8d33df655fba2a51c7d19c060952c104",
+          "inputs": {
+            "repo": "acme/web",
+            "title": "test_checkout_total fails: rounding changed in currency.format",
+            "body": "The first real failure is test_checkout_total in tests/checkout/test_total.py.\nIt expects 10.00 and gets 9.99 after commit 4e1c2d0 changed currency.format to truncate.",
+            "labels": [
+              "ci-failure"
+            ]
+          },
+          "outputs": {
+            "url": "https://github.com/acme/web/issues/88"
+          },
+          "status": "succeeded",
+          "started": "2026-11-07T18:05:31Z",
+          "ended": "2026-11-07T18:05:39Z"
+        }
+      ]
+    }
+  }
+}

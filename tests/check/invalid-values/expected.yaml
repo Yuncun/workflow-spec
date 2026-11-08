@@ -1,0 +1,5 @@
+ok: false
+errors:
+  - { code: invalid_value, path: "/steps/take/with/mode" }
+  - { code: invalid_value, path: "/steps/take/with/whole" }
+warnings: []

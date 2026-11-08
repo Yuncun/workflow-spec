@@ -1,0 +1,4 @@
+ok: false
+errors:
+  - { code: no_outputs, path: "" }
+warnings: []

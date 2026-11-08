@@ -1,0 +1,25 @@
+# One agent step with tools. The agent works out what to do on each run.
+# Compare examples/workflows/ci-triage.yaml, which fixes the steps it took.
+name: acme/investigate
+version: 0.1.0
+description: Have an agent investigate a failed CI run and file an issue if needed.
+inputSchema:
+  type: object
+  properties:
+    repo:
+      type: string
+      description: Repository as owner/name.
+      pattern: "^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$"
+    run_id:
+      type: integer
+      minimum: 1
+  required: [repo, run_id]
+outputs:
+  summary: { from: steps.investigate.outputs.summary }
+  issue: { from: steps.investigate.outputs.issue }
+steps:
+  investigate:
+    uses: acme/investigate-failure@0.1.0
+    with:
+      repo: { from: inputs.repo }
+      run_id: { from: inputs.run_id }

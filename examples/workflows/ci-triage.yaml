@@ -1,0 +1,43 @@
+# Fetch a failed run's logs, have an agent write a report, and file it as an issue.
+# Check it with:
+#   wfspec check examples/workflows/ci-triage.yaml --catalog examples/steps
+name: acme/ci-triage
+version: 1.2.0
+title: Triage a failed CI run
+description: Read a failed CI run's logs, write a short report, and file it as an issue.
+inputSchema:
+  type: object
+  properties:
+    repo:
+      type: string
+      description: Repository as owner/name.
+      pattern: "^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$"
+    run_id:
+      type: integer
+      minimum: 1
+    style:
+      type: string
+      enum: [short, long]
+      default: short
+  required: [repo, run_id]
+outputs:
+  report: { from: steps.triage.outputs.report }
+  issue: { from: steps.file.outputs.url }
+steps:
+  logs:
+    uses: acme/fetch-ci-logs@2.1.0
+    with:
+      repo: { from: inputs.repo }
+      run_id: { from: inputs.run_id }
+  triage:
+    uses: acme/triage-logs@0.4.1
+    with:
+      logs: { from: steps.logs.outputs.logs }
+      style: { from: inputs.style }
+  file:
+    uses: acme/open-issue@1.0.3
+    with:
+      repo: { from: inputs.repo }
+      title: { from: steps.triage.outputs.title }
+      body: { from: steps.triage.outputs.report }
+      labels: [ci-failure]

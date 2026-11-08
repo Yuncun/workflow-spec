@@ -1,0 +1,12 @@
+inputSchema:
+  type: object
+  properties:
+    count: { type: integer, minimum: 1, default: 0 }
+steps:
+  take:
+    uses: test/take-values@1.0.0
+    with:
+      text: hi
+      whole: { from: inputs.count }
+outputs:
+  done: { from: steps.take.outputs.done }

@@ -1,0 +1,4 @@
+steps:
+  emit: { uses: test/emit-values@2.0.0 }
+outputs:
+  label: { from: steps.emit.outputs.label }

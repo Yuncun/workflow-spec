@@ -1,0 +1,23 @@
+name: test/post-summary
+version: 1.0.0
+description: Post a summary to a chat channel, for checker tests.
+inputSchema:
+  type: object
+  properties:
+    summary:
+      type: object
+      properties:
+        title: { type: string }
+        body: { type: string }
+      required: [title, body]
+  required: [summary]
+outputSchema:
+  type: object
+  properties:
+    id: { type: string }
+  required: [id]
+effects: writes
+idempotent: true
+destructive: false
+secrets: [CHAT_TOKEN]
+runtime: { container: { image: example.test/post-summary:1.0.0 } }

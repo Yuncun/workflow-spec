@@ -1,0 +1,9 @@
+steps:
+  emit: { uses: test/emit-values@1.0.0 }
+  take:
+    uses: test/take-values@1.0.0
+    with:
+      text: done
+      mode: { from: steps.emit.outputs.choice }
+outputs:
+  done: { from: steps.take.outputs.done }

@@ -1,0 +1,9 @@
+steps:
+  emit: { uses: test/emit-values@1.0.0 }
+  take:
+    uses: test/take-values@1.0.0
+    with:
+      text: { from: steps.emit.outputs.label }
+      amount: { from: steps.emit.outputs.count }
+outputs:
+  done: { from: steps.take.outputs.done }
