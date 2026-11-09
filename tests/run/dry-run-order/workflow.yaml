@@ -1,0 +1,8 @@
+# A dry run replays the original run's writes of a step in the order they ran, which here isn't
+# the order the original run record lists them in (SPEC.md, [publish.saved-run]).
+steps:
+  first: { uses: test/save-text@1.0.0, with: { folder: /original, name: a.txt, text: a } }
+  second: { uses: test/save-text@1.0.0, with: { folder: /original, name: b.txt, text: { from: steps.first.outputs.path } } }
+outputs:
+  a: { from: steps.first.outputs.path }
+  b: { from: steps.second.outputs.path }

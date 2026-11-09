@@ -706,7 +706,11 @@ From a run record, a person or an agent writes a workflow:
 - **Values a step made up between calls**, such as the issue text an agent wrote, become the outputs of a narrower step with a typed schema, or fixed values.
 - **Values** that came out of an earlier step become references to it. Values that came from the run's inputs become workflow inputs. The rest become literals.
 
-- **[publish.saved-run]** When a workflow is published as saved from a run, the publisher MUST check that it checks without errors, and that a dry run of it with the original run's inputs gives, for each deterministic step whose inputs equal those of a step or call in the original run, the outputs that the original run recorded for it. A dry run executes every step except those that write. Each step that writes returns the outputs the original run recorded for the same step, taken in run order, so nothing outside changes a second time. How a platform marks a workflow as saved from a run is its own choice.
+- **[publish.saved-run]** When a workflow is published as saved from a run, the publisher MUST check that it checks without errors, and that a dry run of it with the original run's inputs differs from the original run in neither of these ways:
+  - a deterministic step gives other outputs than the original run recorded for a step or call of the same step version with equal inputs
+  - a step that writes is given another value for a fixed input than the write it replays was given
+
+  A dry run executes every step except those that write. Each step that writes replays the next write of the same step version in the original run, in run order, and returns the outputs recorded for it, so nothing outside changes a second time; when no write is left to replay, the step fails. A write is a step or call of a step that writes. Run order is the order in which steps started, with each step's calls in the order it made them. A value is fixed when it is a literal, a default, a workflow input, or an output of a deterministic step whose inputs are all fixed. Other values, such as a model's answer, can differ from one run to the next, so they aren't compared. How a platform marks a workflow as saved from a run is its own choice.
 
 *Informative.* `examples/runs/investigate.run.json` records an agent step (`acme/investigate-failure`) that fetched logs and opened an issue. `examples/workflows/ci-triage.yaml` is that run saved as a workflow:
 - The two calls became fixed steps.

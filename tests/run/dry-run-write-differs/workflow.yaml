@@ -1,0 +1,8 @@
+# A dry run in which a step that writes gets another value for a fixed input than the write it
+# replays got is reported. The text comes from a step that isn't deterministic, so it isn't
+# compared (SPEC.md, [publish.saved-run]).
+steps:
+  token: { uses: test/random@1.0.0 }
+  saved: { uses: test/save-text@1.0.0, with: { folder: /original, name: other.txt, text: { from: steps.token.outputs.token } } }
+outputs:
+  path: { from: steps.saved.outputs.path }

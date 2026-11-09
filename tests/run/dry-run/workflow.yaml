@@ -1,7 +1,7 @@
-# A dry run of a saved workflow: steps that write return the outputs the original run recorded
-# (SPEC.md, [publish.saved-run]).
+# A dry run of a saved workflow: steps that write return the outputs the original run recorded,
+# and nothing differs from the original run (SPEC.md, [publish.saved-run]).
 steps:
   said: { uses: test/echo@1.0.0, with: { text: hi } }
-  saved: { uses: test/save-text@1.0.0, with: { folder: "{tmp}", name: note.txt, text: { from: steps.said.outputs.text } } }
+  saved: { uses: test/save-text@1.0.0, with: { folder: /original, name: note.txt, text: { from: steps.said.outputs.text } } }
 outputs:
   path: { from: steps.saved.outputs.path }

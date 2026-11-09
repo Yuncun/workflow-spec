@@ -1,0 +1,3 @@
+status: succeeded
+outputs: { path: /original/note.txt }
+dry_run_differences: ["test/save-text@1.0.0 gets a different 'name' than in the original run"]

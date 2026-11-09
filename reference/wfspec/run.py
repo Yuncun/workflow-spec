@@ -297,38 +297,88 @@ class Runner:
     # ---- dry runs (SPEC.md, [publish.saved-run]) --------------------------------------------
 
     def _recorded_outputs(self, ref: str) -> dict | None:
-        """The outputs the original run recorded for the next unused call of `ref`, in run order."""
-        seen = -1
-        for entry in _entries(self.options.replay):
-            if entry["uses"] == ref and entry.get("status") == "succeeded":
-                seen += 1
-                if seen == self._replayed.get(ref, 0):
-                    self._replayed[ref] = seen + 1
-                    return entry.get("outputs", {})
-        return None
+        """The outputs the original run recorded for the next write of `ref` not yet replayed."""
+        k = self._replayed.get(ref, 0)
+        recorded = _recorded_write(self.options.replay, ref, k)
+        if recorded is None:
+            return None
+        self._replayed[ref] = k + 1
+        return recorded.get("outputs", {})
 
 
 def _entries(record: dict) -> list[dict]:
-    """Every step and call in a run record, in the order they ran."""
+    """Every step and call in a run record, in run order: steps by start time, each followed by
+    what ran inside it."""
     found = []
-    for entry in record.get("steps", {}).values():
-        found.append(entry)
-        found.extend(entry.get("calls", []))
-        found.extend(_entries(entry) if "steps" in entry else [])
+    for entry in sorted(record.get("steps", {}).values(), key=lambda e: e.get("started", "")):
+        found.extend(_with_inner(entry))
     return found
 
 
-def compare_dry_run(original: dict, dry: dict, catalog: Catalog) -> list[str]:
-    """Differences between a dry run of a saved workflow and the run it was saved from: for each
-    deterministic step that ran, the original call with the same step and inputs must have given
-    the same outputs."""
+def _with_inner(entry: dict) -> list[dict]:
+    """A step or call, then the calls it made and the steps of its workflow, at every depth."""
+    found = [entry]
+    for call in entry.get("calls", []):
+        found.extend(_with_inner(call))
+    if "steps" in entry:
+        found.extend(_entries(entry))
+    return found
+
+
+def _recorded_write(record: dict, ref: str, k: int) -> dict | None:
+    """The k-th succeeded step or call of `ref` in a run record, in run order, counting from 0."""
+    found = [e for e in _entries(record) if e["uses"] == ref and e.get("status") == "succeeded"]
+    return found[k] if k < len(found) else None
+
+
+def compare_dry_run(original: dict, dry: dict, catalog: Catalog, workflow: dict) -> list[str]:
+    """How a dry run of a saved workflow differs from the run it was saved from (SPEC.md,
+    [publish.saved-run]): a deterministic step that gave other outputs than the original run
+    recorded for the same inputs, or a step that writes given another value for a fixed input
+    than the write it replayed was given."""
     differences = []
     before = _entries(original)
     for entry in _entries(dry):
         manifest = catalog.steps.get(entry["uses"], {})
-        if entry.get("status") != "succeeded" or not manifest.get("deterministic") or "dry run" in entry.get("reason", ""):
+        if entry.get("status") != "succeeded" or not manifest.get("deterministic") or manifest.get("effects") == "writes":
             continue
         same = [e for e in before if e["uses"] == entry["uses"] and digest(e.get("inputs", {})) == digest(entry.get("inputs", {}))]
         if same and digest(same[0].get("outputs", {})) != digest(entry.get("outputs", {})):
             differences.append(f"{entry['uses']} gave different outputs for the same inputs")
+    order = check(workflow, catalog).order  # the order the dry run replayed its writes in
+    fixed = _fixed_steps(workflow, catalog, order)
+    replayed: dict[str, int] = {}
+    for sid in order:
+        entry = dry["steps"].get(sid, {})
+        if entry.get("status") != "succeeded" or catalog.steps[entry["uses"]]["effects"] != "writes":
+            continue
+        k = replayed.get(entry["uses"], 0)
+        replayed[entry["uses"]] = k + 1
+        recorded = _recorded_write(original, entry["uses"], k) or {}
+        given = workflow["steps"][sid].get("with") or {}
+        for name in sorted(set(entry.get("inputs", {})) | set(recorded.get("inputs", {}))):
+            if name in given and not _is_fixed(given[name], fixed):
+                continue  # a value that can differ from one run to the next, such as a model's answer
+            if digest(entry.get("inputs", {}).get(name)) != digest(recorded.get("inputs", {}).get(name)):
+                differences.append(f"{entry['uses']} gets a different {name!r} than in the original run")
     return differences
+
+
+def _fixed_steps(workflow: dict, catalog: Catalog, order: list[str]) -> set[str]:
+    """The steps whose outputs are fixed: deterministic steps whose inputs are all fixed."""
+    fixed: set[str] = set()
+    for sid in order:  # each step comes after the steps it references
+        step = workflow["steps"][sid]
+        if catalog.steps[step["uses"]].get("deterministic") and all(_is_fixed(v, fixed) for v in (step.get("with") or {}).values()):
+            fixed.add(sid)
+    return fixed
+
+
+def _is_fixed(value, fixed: set[str]) -> bool:
+    """Whether a `with` value is the same in every run with the same inputs: a literal, a workflow
+    input, or an output of a fixed step."""
+    kind, ref = split_value(value)
+    if kind == "literal" or INPUT_REF.match(ref):
+        return True
+    m = OUTPUT_REF.match(ref)
+    return bool(m) and m.group(1) in fixed

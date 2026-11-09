@@ -103,6 +103,6 @@ When an agent step solves something you'll need again, save its run as a workflo
 2. Make each call a step with the same `uses`.
 3. Where a value came from an earlier call, reference that call's output.
 4. Where the agent wrote something new between calls, add a narrow agent step with a typed output, or a fixed value.
-5. Check it, then do a dry run with the original inputs and compare the outputs. Steps that write return their recorded outputs instead of running again.
+5. Check it, then do a dry run with the original inputs. It compares the outputs of deterministic steps, and what each step that writes would be given, with the original run. Steps that write return their recorded outputs instead of running again.
 
 `examples/runs/investigate.run.json` and `examples/workflows/ci-triage.yaml` show one run before and after.

@@ -162,7 +162,7 @@ def test_run_case(case: Path, tmp_path: Path):
     if "model_saw_tools" in expected:
         assert [t["function"]["name"] for t in model.requests[0]["tools"]] == expected["model_saw_tools"]
     if "dry_run_differences" in expected:
-        assert compare_dry_run(replay, record, catalog) == expected["dry_run_differences"]
+        assert compare_dry_run(replay, record, catalog, workflow) == expected["dry_run_differences"]
     for hidden in expected.get("logs_hide", []):
         for stored in (tmp_path / "store").rglob("*"):
             if stored.is_file():

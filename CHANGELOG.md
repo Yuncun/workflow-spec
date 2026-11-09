@@ -7,6 +7,11 @@
 - **Error codes never change meaning** (SPEC.md, [check.codes-stable]), and requirement ids are never reused.
 - **Each version lists its changes here,** by section.
 
+## Unreleased
+
+**Changed**
+- [publish.saved-run]: a dry run also compares what a saved workflow would write. Each step that writes must be given the same value as the write it replays for every fixed input, meaning one that doesn't come from a model's answer or another step that isn't deterministic. Before, the dry run replayed writes without looking at their inputs, so a saved workflow that would write something else still passed. The rule now also defines run order, which decides which write each step replays.
+
 ## 0.2, 2026-11-08 (draft)
 
 Version 0.2 cuts the specification down to the format layer. Rules for a runner and a platform that no implementation had tested moved to drafts and proposals.

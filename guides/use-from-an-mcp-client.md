@@ -39,7 +39,7 @@ A typical exchange, condensed:
 After an agent step solves a problem, ask Copilot: "Save run run_7f3c2a91 as a workflow." Copilot:
 1. reads the run with `get_run`
 2. writes a workflow from the agent's calls (guides/write-a-workflow.md)
-3. checks it, then does a dry run with the original inputs and compares the outputs. Steps that write return their recorded outputs instead of running again, so nothing is filed twice.
+3. checks it, then does a dry run with the original inputs and compares it with the original run. Steps that write return their recorded outputs instead of running again, so nothing is filed twice.
 
 You review the result before publishing.
 

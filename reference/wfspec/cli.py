@@ -159,13 +159,13 @@ def _run(args) -> int:
         readable=args.allow_read,
     )
     record = Runner(catalog, options).run(workflow, inputs)
-    differences = compare_dry_run(replay, record, catalog) if replay else []
+    differences = compare_dry_run(replay, record, catalog, workflow) if replay else []
     if args.json:
         print(json.dumps(record, indent=2, ensure_ascii=False))
     else:
         _print_run(record, store)
         if replay:
-            print("dry run: " + ("the outputs match the original run" if not differences else "; ".join(differences)))
+            print("dry run: " + ("no differences from the original run" if not differences else "; ".join(differences)))
     return 0 if record["status"] == "succeeded" and not differences else 1
 
 

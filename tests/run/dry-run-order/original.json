@@ -1,0 +1,19 @@
+{
+  "id": "run_original",
+  "steps": {
+    "later": {
+      "uses": "test/save-text@1.0.0",
+      "status": "succeeded",
+      "started": "2026-11-08T10:00:02.000Z",
+      "inputs": { "folder": "/original", "name": "b.txt", "text": "/original/a.txt" },
+      "outputs": { "path": "/original/b.txt" }
+    },
+    "earlier": {
+      "uses": "test/save-text@1.0.0",
+      "status": "succeeded",
+      "started": "2026-11-08T10:00:01.000Z",
+      "inputs": { "folder": "/original", "name": "a.txt", "text": "a" },
+      "outputs": { "path": "/original/a.txt" }
+    }
+  }
+}
