@@ -1,0 +1,6 @@
+replies:
+  - tool_calls:
+      - { name: test_upper_v1, arguments: { text: hi } }
+      - { name: test_fail_v1, arguments: { text: x } }
+  - tool_calls:
+      - { name: finish, arguments: { answer: HI } }

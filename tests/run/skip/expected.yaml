@@ -1,0 +1,6 @@
+status: succeeded
+outputs: { other: still runs }
+steps:
+  first: { status: skipped, reason: the list is empty }
+  loud: { status: skipped, reason: the list is empty }
+  other: { status: succeeded }

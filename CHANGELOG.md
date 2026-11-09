@@ -18,6 +18,8 @@ Version 0.2 cuts the specification down to the format layer. Rules for a runner 
 - The BCP 14 key words: MUST, SHOULD and MAY in capitals.
 - `calls` (section 5.4). Any step may list the steps it can call, and the rules for calls apply whatever the runtime kind. It replaces `runtime.agent.tools`.
 - The `process` runtime kind: a program started directly, under the same contract as `container` ([drafts/runtime.md](drafts/runtime.md)).
+- Test cases for runners in `tests/run/` (section 9.10), and a reference runner that passes them.
+- Run-level error codes `invalid_input` and `lock_mismatch` for runs that never start ([run.check-first], [run.lock]).
 
 **Moved**
 - To [drafts/runtime.md](drafts/runtime.md): the contracts for containers and agents (0.1, section 3.3) and for remote tools (0.1, `mcp`). Agent steps now finish by calling a `finish` tool, and a runner hands schema problems back for another turn.

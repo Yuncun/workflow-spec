@@ -7,7 +7,7 @@
 # folder covers no id.
 
 conform.checker-tests: [test_conformance.py::test_check_case, test_conformance.py::test_manifest_case]
-conform.runner-tests: { untested: "there are no cases in tests/run/ yet; they come with the reference runner" }
+conform.runner-tests: [test_runner.py::test_run_case]
 
 doc.formats: [check/json-duplicate-key, check/yaml-1-2-words]
 doc.yaml-1.2: [check/yaml-1-2-words]
@@ -36,7 +36,7 @@ manifest.duplicate: [manifests/duplicate-step]
 types.json-schema: [manifests/bad-input-name]
 types.format: [check/format-is-annotation]
 types.file-value: [check/files]
-types.file-store: { untested: "needs a runner" }
+types.file-store: [run/file-flow]
 types.fits-error: [check/shape-errors, check/shape-edges, check/shape-more, check/files, check/type-mismatch-scalars, check/type-mismatch-object, check/type-mismatch-enum, check/constant-fits, check/ok-integer-into-number, check/shape-fits]
 types.fits-warning: [check/shape-warnings, check/shape-edges, check/shape-more, check/warnings-only]
 types.maybe-missing: [check/type-mismatch-optional-input, check/type-mismatch-optional-output]
@@ -68,25 +68,25 @@ check.codes-stable: { untested: "a promise about later versions, which no test c
 check.output: [test_examples.py::test_cli_exit_codes]
 check.policy: [check/policy]
 
-run.check-first: { untested: "needs a runner" }
-run.lock: { untested: "needs a runner" }
-run.needed: { untested: "needs a runner; the checker computes the needed steps, but nothing runs them" }
-run.order: { untested: "needs a runner" }
-run.missing-value: { untested: "needs a runner" }
-run.input-check: { untested: "needs a runner" }
-run.output-check: { untested: "needs a runner" }
-run.cache-key: [test_examples.py::test_cache_key_is_step_digest_plus_input_values, test_examples.py::test_cache_key_ignores_file_names]
-run.cache-only-cacheable: { untested: "needs a runner" }
-run.retry: { untested: "needs a runner" }
-run.failure: { untested: "needs a runner" }
-run.skip: { untested: "needs a runner" }
-run.error-codes: { untested: "needs a runner" }
-run.secrets-named: { untested: "needs a runner" }
-run.secrets-hidden: { untested: "needs a runner" }
-run.effects: { untested: "needs a runner" }
-run.calls-listed: { untested: "needs a runner" }
-run.calls-recorded: { untested: "needs a runner" }
-run.record: { untested: "needs a runner; the example run records are written by hand" }
+run.check-first: [run/check-first, run/invalid-inputs]
+run.lock: [run/lock]
+run.needed: [run/needed]
+run.order: [run/order-and-values, run/workflow-step]
+run.missing-value: [run/missing-value]
+run.input-check: [run/input-check]
+run.output-check: [run/output-check, run/agent-finish-retry, run/typed-agent]
+run.cache-key: [test_examples.py::test_cache_key_is_step_digest_plus_input_values, test_examples.py::test_cache_key_ignores_file_names, run/cache]
+run.cache-only-cacheable: [run/cache]
+run.retry: [run/retry]
+run.failure: [run/failure]
+run.skip: [run/skip]
+run.error-codes: [run/failure, run/input-check, run/output-check]
+run.secrets-named: [run/secrets]
+run.secrets-hidden: [run/secrets]
+run.effects: [run/effects]
+run.calls-listed: [run/calls]
+run.calls-recorded: [run/calls]
+run.record: [test_runner.py::test_run_case]
 
 publish.digest: [test_examples.py::test_lock_file_is_current, test_examples.py::test_run_records_are_valid_and_pinned]
 publish.resolve: { untested: "the reference implementation hashes manifests as written, because it builds nothing" }
@@ -94,4 +94,4 @@ publish.immutable: { untested: "needs a publisher" }
 publish.lock: [test_examples.py::test_lock_file_is_current, test_examples.py::test_lock_includes_the_steps_a_step_can_call, test_examples.py::test_lock_includes_the_steps_inside_a_published_workflow]
 publish.as-step: [test_examples.py::test_workflow_published_as_step, test_examples.py::test_outputs_after_a_step_that_may_skip_are_optional]
 publish.versions: { untested: "nothing checks it yet (proposals.md, P13)" }
-publish.saved-run: { untested: "the dry run needs a runner" }
+publish.saved-run: [run/dry-run]

@@ -1,0 +1,8 @@
+name: test/maybe-name
+version: 1.0.0
+description: Give a name, or no name.
+inputSchema: { type: object, properties: { give: { type: boolean } }, required: [give] }
+outputSchema: { type: object, properties: { name: { type: string } }, required: [] }
+effects: none
+deterministic: true
+runtime: { process: { command: [python3, programs/step.py, maybe-name] } }

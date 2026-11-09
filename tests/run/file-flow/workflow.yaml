@@ -1,0 +1,6 @@
+# Files pass between steps by content hash (SPEC.md, [types.file-store]).
+steps:
+  made: { uses: test/make-file@1.0.0, with: { text: hello file } }
+  read: { uses: test/read-file@1.0.0, with: { file: { from: steps.made.outputs.file } } }
+outputs:
+  text: { from: steps.read.outputs.text }

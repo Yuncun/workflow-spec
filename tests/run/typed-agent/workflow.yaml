@@ -1,0 +1,5 @@
+# An agent without calls answers once in typed-answer mode, with retries (drafts/runtime.md, section 2).
+steps:
+  sorted: { uses: test/typed-agent@1.0.0, with: { text: something } }
+outputs:
+  category: { from: steps.sorted.outputs.category }

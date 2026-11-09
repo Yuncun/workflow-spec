@@ -1,0 +1,9 @@
+name: test/first-item
+version: 1.0.0
+description: Give the first item of a list, or skip if the list is empty.
+inputSchema: { type: object, properties: { items: { type: array, items: { type: string } } }, required: [items] }
+outputSchema: { type: object, properties: { item: { type: string } }, required: [item] }
+effects: none
+deterministic: true
+maySkip: true
+runtime: { process: { command: [python3, programs/step.py, first-item] } }

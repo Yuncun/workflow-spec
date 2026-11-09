@@ -1,0 +1,5 @@
+# A workflow that fails checking never starts (SPEC.md, [run.check-first]).
+steps:
+  say: { uses: test/echo@1.0.0, with: { txt: hi } }
+outputs:
+  said: { from: steps.say.outputs.text }

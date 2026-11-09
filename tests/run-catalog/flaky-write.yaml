@@ -1,0 +1,7 @@
+name: test/flaky-write
+version: 1.0.0
+description: Fail on the first attempt only, and write.
+inputSchema: { type: object, properties: { counter: { type: string } }, required: [counter] }
+outputSchema: { type: object, properties: { done: { type: boolean } }, required: [done] }
+effects: writes
+runtime: { process: { command: [python3, programs/step.py, flaky-write] } }

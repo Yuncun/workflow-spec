@@ -1,0 +1,8 @@
+name: test/shout
+version: 1.0.0
+description: Give back the text in capitals, as a workflow.
+inputSchema: { type: object, properties: { text: { type: string } }, required: [text] }
+outputSchema: { type: object, properties: { loud: { type: string } }, required: [loud] }
+effects: none
+deterministic: true
+runtime: { workflow: { path: workflows/shout.yaml } }

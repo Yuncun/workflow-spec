@@ -1,0 +1,7 @@
+# Only needed steps run: steps that outputs need, steps that write, and what they depend on (SPEC.md, [run.needed]).
+steps:
+  said: { uses: test/echo@1.0.0, with: { text: hi } }
+  unused: { uses: test/upper@1.0.0, with: { text: nobody needs this } }
+  saved: { uses: test/save-text@1.0.0, with: { folder: "{tmp}", name: note.txt, text: written anyway } }
+outputs:
+  said: { from: steps.said.outputs.text }

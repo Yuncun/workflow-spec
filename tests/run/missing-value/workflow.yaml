@@ -1,0 +1,6 @@
+# A missing value leaves the input unset, so its default applies (SPEC.md, [run.missing-value]).
+steps:
+  maybe: { uses: test/maybe-name@1.0.0, with: { give: false } }
+  hello: { uses: test/greet@1.0.0, with: { name: { from: steps.maybe.outputs.name } } }
+outputs:
+  greeting: { from: steps.hello.outputs.greeting }

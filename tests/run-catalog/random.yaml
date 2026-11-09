@@ -1,0 +1,7 @@
+name: test/random
+version: 1.0.0
+description: Give a random token.
+inputSchema: { type: object, properties: {}, required: [] }
+outputSchema: { type: object, properties: { token: { type: string } }, required: [token] }
+effects: reads
+runtime: { process: { command: [python3, programs/step.py, random] } }

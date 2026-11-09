@@ -16,7 +16,7 @@ Change any of these only with a new spec version and a written reason. Error cod
 - **The drafts:** `drafts/runtime.md` (how a runner starts a step) and `drafts/mcp.md` (steps as MCP tools, and the platform's MCP server). Neither is normative yet. Adopt them, change them, or replace them, and send back what works in practice.
 - **The proposals:** `proposals.md` lists features left out on purpose, each with what would settle it. Evidence from your platform is what moves one into the spec.
 
-The reference checker is in Python. You can call it as it is, port it, or rewrite it in your own stack. The test cases are the contract either way. A reference runner, tested against SPEC.md's running rules, is being built in this package.
+The reference checker and runner are in Python. You can call them as they are, port them, or rewrite them in your own stack. The test cases are the contract either way: `tests/check/` and `tests/manifests/` for checkers, `tests/run/` for runners.
 
 ## First task: compare with the current design
 
@@ -31,8 +31,8 @@ A person decides each conflict. A change to the spec goes back into this package
 | Piece | Done when |
 |---|---|
 | Three real steps from real repositories | each manifest passes `wfspec check-step` (with `--catalog` for steps with `calls`) |
-| Checker | passes every case in `tests/` |
-| Runner for program and agent steps | follows SPEC.md, section 9, and drafts/runtime.md, and writes run records that fit `schemas/run.schema.json` |
+| Checker | passes every case in `tests/check/` and `tests/manifests/` |
+| Runner for program and agent steps | passes every case in `tests/run/`, following drafts/runtime.md or your own step runtime |
 | MCP server | offers the tools in drafts/mcp.md, section 2, and works from Copilot |
 
 The demo, in order:

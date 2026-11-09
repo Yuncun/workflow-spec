@@ -1,0 +1,5 @@
+# A published workflow runs as a step, and its record holds the steps inside it (SPEC.md, section 10.4).
+steps:
+  shout: { uses: test/shout@1.0.0, with: { text: hi } }
+outputs:
+  loud: { from: steps.shout.outputs.loud }

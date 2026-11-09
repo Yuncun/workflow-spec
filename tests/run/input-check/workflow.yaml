@@ -1,0 +1,6 @@
+# A value the checker could only warn about is checked when the step runs (SPEC.md, [run.input-check]).
+steps:
+  said: { uses: test/echo@1.0.0, with: { text: a name much longer than ten characters } }
+  hello: { uses: test/greet@1.0.0, with: { name: { from: steps.said.outputs.text } } }
+outputs:
+  greeting: { from: steps.hello.outputs.greeting }

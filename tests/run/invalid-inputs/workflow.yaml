@@ -1,0 +1,6 @@
+# Input values that don't fit the workflow's inputSchema never start a run (SPEC.md, [run.check-first]).
+inputSchema: { type: object, properties: { text: { type: string } }, required: [text] }
+steps:
+  say: { uses: test/echo@1.0.0, with: { text: { from: inputs.text } } }
+outputs:
+  said: { from: steps.say.outputs.text }

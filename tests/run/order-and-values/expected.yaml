@@ -1,0 +1,5 @@
+status: succeeded
+outputs: { loud: HI, original: hi }
+steps:
+  said: { status: succeeded }
+  loud: { status: succeeded }

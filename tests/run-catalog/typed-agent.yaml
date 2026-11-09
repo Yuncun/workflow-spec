@@ -1,0 +1,7 @@
+name: test/typed-agent
+version: 1.0.0
+description: An agent without calls that answers in one typed reply.
+inputSchema: { type: object, properties: { text: { type: string } }, required: [text] }
+outputSchema: { type: object, properties: { category: { enum: [a, b] }, note: { type: string, maxLength: 20 } }, required: [category, note] }
+effects: reads
+runtime: { agent: { model: test-model, instructions: prompts/typed.md } }

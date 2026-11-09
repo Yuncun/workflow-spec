@@ -1,0 +1,6 @@
+inputSchema: { type: object, properties: { text: { type: string } }, required: [text] }
+steps:
+  said: { uses: test/echo@1.0.0, with: { text: { from: inputs.text } } }
+  loud: { uses: test/upper@1.0.0, with: { text: { from: steps.said.outputs.text } } }
+outputs:
+  loud: { from: steps.loud.outputs.text }

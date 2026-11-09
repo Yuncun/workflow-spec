@@ -1,0 +1,3 @@
+{"id": "run_original", "steps": {"agent": {"uses": "test/helper-agent@1.0.0", "status": "succeeded", "calls": [
+  {"uses": "test/echo@1.0.0", "inputs": {"text": "hi"}, "outputs": {"text": "hi"}, "status": "succeeded"},
+  {"uses": "test/save-text@1.0.0", "inputs": {"folder": "/original", "name": "note.txt", "text": "hi"}, "outputs": {"path": "/original/note.txt"}, "status": "succeeded"}]}}}

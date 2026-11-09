@@ -1,0 +1,8 @@
+name: test/upper
+version: 1.0.0
+description: Give back the text in capitals.
+inputSchema: { type: object, properties: { text: { type: string } }, required: [text] }
+outputSchema: { type: object, properties: { text: { type: string } }, required: [text] }
+effects: none
+deterministic: true
+runtime: { process: { command: [python3, programs/step.py, upper] } }

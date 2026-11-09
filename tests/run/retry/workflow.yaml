@@ -1,0 +1,6 @@
+# A failed step is retried only when it doesn't write (SPEC.md, [run.retry]).
+steps:
+  reading: { uses: test/flaky@1.0.0, with: { counter: "{tmp}/reading.count" } }
+  writing: { uses: test/flaky-write@1.0.0, with: { counter: "{tmp}/writing.count" } }
+outputs:
+  reading: { from: steps.reading.outputs.done }

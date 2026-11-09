@@ -1,0 +1,2 @@
+status: succeeded
+outputs: { text: hello file }

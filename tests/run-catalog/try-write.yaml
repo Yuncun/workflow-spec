@@ -1,0 +1,7 @@
+name: test/try-write
+version: 1.0.0
+description: Try to write a file.
+inputSchema: { type: object, properties: { path: { type: string } }, required: [path] }
+outputSchema: { type: object, properties: { written: { type: boolean } }, required: [written] }
+effects: reads
+runtime: { process: { command: [python3, programs/step.py, try-write] } }

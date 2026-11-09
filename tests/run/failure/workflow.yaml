@@ -1,0 +1,8 @@
+# A failed step skips what depends on it; independent steps still finish (SPEC.md, [run.failure]).
+steps:
+  broken: { uses: test/fail@1.0.0, with: { text: x } }
+  after: { uses: test/upper@1.0.0, with: { text: { from: steps.broken.outputs.text } } }
+  other: { uses: test/echo@1.0.0, with: { text: still runs } }
+outputs:
+  after: { from: steps.after.outputs.text }
+  other: { from: steps.other.outputs.text }

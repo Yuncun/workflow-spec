@@ -1,0 +1,8 @@
+name: test/bad-output
+version: 1.0.0
+description: Give an output that doesn't fit its schema.
+inputSchema: { type: object, properties: {}, required: [] }
+outputSchema: { type: object, properties: { count: { type: integer } }, required: [count] }
+effects: none
+deterministic: true
+runtime: { process: { command: [python3, programs/step.py, bad-output] } }

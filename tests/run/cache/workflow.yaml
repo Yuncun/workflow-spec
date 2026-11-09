@@ -1,0 +1,7 @@
+# Run twice: the deterministic step comes from the cache, the other runs again (SPEC.md, section 9.4).
+steps:
+  said: { uses: test/echo@1.0.0, with: { text: hi } }
+  token: { uses: test/random@1.0.0 }
+outputs:
+  said: { from: steps.said.outputs.text }
+  token: { from: steps.token.outputs.token }

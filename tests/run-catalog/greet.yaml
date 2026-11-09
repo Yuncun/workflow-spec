@@ -1,0 +1,8 @@
+name: test/greet
+version: 1.0.0
+description: Greet someone by name.
+inputSchema: { type: object, properties: { name: { type: string, maxLength: 10, default: world } }, required: [] }
+outputSchema: { type: object, properties: { greeting: { type: string } }, required: [greeting] }
+effects: none
+deterministic: true
+runtime: { process: { command: [python3, programs/step.py, greet] } }

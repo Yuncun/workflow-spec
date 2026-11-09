@@ -1,0 +1,8 @@
+name: test/read-file
+version: 1.0.0
+description: Read a text file.
+inputSchema: { type: object, properties: { file: { $ref: urn:wfspec:file, x-mediaType: text/plain } }, required: [file] }
+outputSchema: { type: object, properties: { text: { type: string } }, required: [text] }
+effects: none
+deterministic: true
+runtime: { process: { command: [python3, programs/step.py, read-file] } }

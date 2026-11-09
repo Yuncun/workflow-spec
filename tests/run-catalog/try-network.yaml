@@ -1,0 +1,7 @@
+name: test/try-network
+version: 1.0.0
+description: Try to open a connection to a local port.
+inputSchema: { type: object, properties: { port: { type: integer } }, required: [port] }
+outputSchema: { type: object, properties: { connected: { type: boolean } }, required: [connected] }
+effects: none
+runtime: { process: { command: [python3, programs/step.py, try-network] } }

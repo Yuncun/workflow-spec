@@ -1,0 +1,7 @@
+status: failed
+error: failed
+outputs: { other: still runs }
+steps:
+  broken: { status: failed, error: failed }
+  after: { status: skipped }
+  other: { status: succeeded }

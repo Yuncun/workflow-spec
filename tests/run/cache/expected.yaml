@@ -1,0 +1,4 @@
+status: succeeded
+steps:
+  said: { status: succeeded, cacheHit: true, attempts: 0 }
+  token: { status: succeeded, attempts: 1 }

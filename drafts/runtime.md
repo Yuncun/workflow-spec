@@ -1,6 +1,6 @@
 # Step runtimes
 
-Draft, 2026-11-08. **Not normative.** This document becomes a normative companion to [SPEC.md](../SPEC.md) once the reference runner's tests in `tests/run/` cover it. Until then, a runner may follow it or not.
+Draft, 2026-11-08. **Not normative.** The reference runner follows sections 1 and 2 for `process` and `agent` steps, and the cases in `tests/run/` exercise them. This document becomes a normative companion to [SPEC.md](../SPEC.md) once a second runner, or a platform, confirms it in practice. Until then, a runner may follow it or not.
 
 SPEC.md says what a run must produce. This document says how a runner starts one step, for each runtime kind a manifest can name in `runtime`. SPEC.md, section 5.3 defines the `workflow` kind.
 
@@ -23,13 +23,21 @@ The contract:
   - `path` is added after the check and isn't part of the file value.
 - **Outputs.** The program writes a JSON object of its outputs to the file named by `WF_OUTPUTS`.
   - Wherever `outputSchema` declares a file, the program writes `{"path": "...", "mediaType": "..."}`. It can leave out `mediaType` when the schema's `x-mediaType` names a single type.
+  - A relative `path` is relative to the folder that holds the `WF_OUTPUTS` file, which is the program's work folder.
   - The runner stores each file, replaces it with a file value, and then checks the outputs ([run.output-check]).
+- **Environment.** The program gets only these environment variables: `PATH`, `LANG`, `HOME` and `TMPDIR` (both set to its work folder), `WF_INPUTS`, `WF_OUTPUTS`, `WF_SKIP`, and its secrets.
 - **Skipping.** A step whose manifest has `maySkip` and that has nothing to do writes a reason to the file named by `WF_SKIP` instead of writing outputs ([run.skip]).
 - **Secrets.** Each secret named in `secrets` is set as an environment variable with the same name, and no other secret is set ([run.secrets-named]).
 - **Exit and logs.** Exit code 0 means success. Any other exit code fails the step with `failed`. Standard output and standard error are the step's logs.
 - **Pinning.** Before computing the digest, a publisher resolves `image` to `image@sha256:...` ([publish.resolve]). For `process`, the publisher pins the files in the manifest's folder, for example by including their digests in what it hashes.
 
 A program can't call steps under this draft (proposals.md, P16).
+
+*Informative.* The reference runner (`reference/wfspec/run.py`) enforces `effects` for programs on macOS with the system sandbox (`sandbox-exec`):
+- A `none` step gets no network.
+- Neither a `none` nor a `reads` step may write outside its work folder.
+
+The test case `tests/run/effects/` checks that the sandbox applies.
 
 ## 2. Agents: `agent`
 

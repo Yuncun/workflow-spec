@@ -1,0 +1,7 @@
+name: test/flaky
+version: 1.0.0
+description: Fail on the first attempt only.
+inputSchema: { type: object, properties: { counter: { type: string } }, required: [counter] }
+outputSchema: { type: object, properties: { done: { type: boolean } }, required: [done] }
+effects: reads
+runtime: { process: { command: [python3, programs/step.py, flaky] } }

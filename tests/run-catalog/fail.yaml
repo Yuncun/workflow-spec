@@ -1,0 +1,7 @@
+name: test/fail
+version: 1.0.0
+description: Always fail.
+inputSchema: { type: object, properties: { text: { type: string } }, required: [] }
+outputSchema: { type: object, properties: { text: { type: string } }, required: [text] }
+effects: reads
+runtime: { process: { command: [python3, programs/step.py, fail] } }

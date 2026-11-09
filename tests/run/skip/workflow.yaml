@@ -1,0 +1,8 @@
+# A step that skips skips what depends on it, and the run still succeeds (SPEC.md, [run.skip]).
+steps:
+  first: { uses: test/first-item@1.0.0, with: { items: [] } }
+  loud: { uses: test/upper@1.0.0, with: { text: { from: steps.first.outputs.item } } }
+  other: { uses: test/echo@1.0.0, with: { text: still runs } }
+outputs:
+  loud: { from: steps.loud.outputs.text }
+  other: { from: steps.other.outputs.text }

@@ -1,0 +1,2 @@
+status: succeeded
+outputs: { answer: ok }

@@ -1,0 +1,4 @@
+status: failed
+steps:
+  reading: { status: succeeded, attempts: 2 }
+  writing: { status: failed, attempts: 1, error: failed }

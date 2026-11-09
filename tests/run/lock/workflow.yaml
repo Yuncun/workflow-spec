@@ -1,0 +1,5 @@
+# A published workflow doesn't run when a step no longer matches its lock file (SPEC.md, [run.lock]).
+steps:
+  said: { uses: test/echo@1.0.0, with: { text: hi } }
+outputs:
+  said: { from: steps.said.outputs.text }

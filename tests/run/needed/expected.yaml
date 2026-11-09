@@ -1,0 +1,6 @@
+status: succeeded
+outputs: { said: hi }
+steps:
+  said: { status: succeeded }
+  unused: { status: not_needed }
+  saved: { status: succeeded }

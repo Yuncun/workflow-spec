@@ -1,0 +1,7 @@
+# A runner enforces effects: no network for a `none` step, no writes outside its folder for `reads` (SPEC.md, [run.effects]).
+steps:
+  network: { uses: test/try-network@1.0.0, with: { port: "{port}" } }
+  write: { uses: test/try-write@1.0.0, with: { path: "{tmp}/should-not-exist.txt" } }
+outputs:
+  connected: { from: steps.network.outputs.connected }
+  written: { from: steps.write.outputs.written }

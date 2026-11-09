@@ -1,0 +1,8 @@
+name: test/helper-agent
+version: 1.0.0
+description: An agent that can call two steps.
+inputSchema: { type: object, properties: { task: { type: string } }, required: [task] }
+outputSchema: { type: object, properties: { answer: { type: string } }, required: [answer] }
+effects: reads
+calls: [test/echo@1.0.0, test/upper@1.0.0]
+runtime: { agent: { model: test-model, instructions: prompts/helper.md, maxTurns: 5 } }

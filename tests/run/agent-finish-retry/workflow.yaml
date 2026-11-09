@@ -1,0 +1,5 @@
+# An agent's answer that doesn't fit outputSchema goes back for another try (drafts/runtime.md, section 2).
+steps:
+  helper: { uses: test/helper-agent@1.0.0, with: { task: answer anything } }
+outputs:
+  answer: { from: steps.helper.outputs.answer }

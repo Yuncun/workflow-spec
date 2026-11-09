@@ -1,0 +1,5 @@
+# Outputs that don't fit outputSchema fail the step (SPEC.md, [run.output-check]).
+steps:
+  counted: { uses: test/bad-output@1.0.0 }
+outputs:
+  count: { from: steps.counted.outputs.count }

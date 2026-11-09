@@ -93,7 +93,7 @@ There are three conformance classes. One program can belong to several.
 | publisher | publishes steps and workflows | section 10 |
 
 - **[conform.checker-tests]** A checker MUST pass every test case in `tests/check/` and `tests/manifests/` (section 8.5).
-- **[conform.runner-tests]** A runner MUST pass every test case in `tests/run/`.
+- **[conform.runner-tests]** A runner MUST pass every test case in `tests/run/` (section 9.10).
 
 *Informative.* This specification says what a run must produce, not how a runner works. A runner can be a hosted service, a command-line tool, or an adapter onto another workflow engine. In practice, a runner has to be able to:
 - run a step with JSON values in and JSON values out ([drafts/runtime.md](drafts/runtime.md) describes how, for each runtime kind)
@@ -493,12 +493,12 @@ The platform decides each caller's policy.
 
 ## 9. Running
 
-*This section is normative for runners. No runner has been tested against it yet, so [tests/coverage.yaml](tests/coverage.yaml) lists each of its requirements as untested.*
+*This section is normative for runners. The reference runner, `reference/wfspec/run.py`, passes the test cases in `tests/run/` (section 9.10).*
 
 ### 9.1 Before a run
 
-- **[run.check-first]** A runner MUST check a workflow under the caller's policy before running it, and MUST NOT start a run that has errors. A run that never starts gets the error code `check_failed` in its record.
-- **[run.lock]** A runner MUST NOT run a published workflow when any step version it can run no longer matches the workflow's lock file (section 10.3).
+- **[run.check-first]** A runner MUST check a workflow under the caller's policy before running it. It MUST NOT start a run that has errors, or whose input values don't fit the workflow's `inputSchema`, after defaults are filled in. A run that never starts gets the error code `check_failed` or `invalid_input` in its record.
+- **[run.lock]** A runner MUST NOT run a published workflow when any step version it can run no longer matches the workflow's lock file (section 10.3). A run refused this way gets the error code `lock_mismatch` in its record.
 
 ### 9.2 Which steps run
 
@@ -569,6 +569,12 @@ A run record holds:
 - for each call a step made: the same facts as for a step
 
 Examples are in `examples/runs/`.
+
+### 9.10 Test cases
+
+- `tests/run/<case>/` holds a `workflow.yaml` and an `expected.yaml`, and may hold the run's `inputs.yaml`, the caller's `secrets.yaml`, `options.yaml`, scripted model replies in `model.yaml`, and a `catalog/` folder. The shared steps are in `tests/run-catalog/`.
+- The shared steps are programs (`process` steps, [drafts/runtime.md](drafts/runtime.md)). Agent cases give their model replies as a script, served as an OpenAI-compatible API, so they need no model.
+- `expected.yaml` says what the last run must give: the run's status and error code, its outputs, and, for chosen steps, their status, error code, `cacheHit`, `attempts` and `reason`. `reference/tests/test_runner.py` documents the remaining keys, and checks every run record against `schemas/run.schema.json`.
 
 ## 10. Publishing and versions
 

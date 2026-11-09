@@ -1,0 +1,4 @@
+status: succeeded
+outputs: { answer: HI }
+calls: { helper: [test/upper@1.0.0] }
+model_saw_tools: [test_echo_v1, test_upper_v1, finish]

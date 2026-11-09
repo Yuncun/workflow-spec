@@ -1,0 +1,7 @@
+name: test/save-text
+version: 1.0.0
+description: Save text to a file in a folder.
+inputSchema: { type: object, properties: { folder: { type: string }, name: { type: string }, text: { type: string } }, required: [folder, name, text] }
+outputSchema: { type: object, properties: { path: { type: string } }, required: [path] }
+effects: writes
+runtime: { process: { command: [python3, programs/step.py, save-text] } }

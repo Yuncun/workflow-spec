@@ -1,0 +1,8 @@
+name: test/make-file
+version: 1.0.0
+description: Write text into a file.
+inputSchema: { type: object, properties: { text: { type: string } }, required: [text] }
+outputSchema: { type: object, properties: { file: { $ref: urn:wfspec:file, x-mediaType: text/plain } }, required: [file] }
+effects: none
+deterministic: true
+runtime: { process: { command: [python3, programs/step.py, make-file] } }
