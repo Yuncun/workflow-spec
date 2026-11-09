@@ -17,7 +17,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 from .check import INPUT_REF, OUTPUT_REF, check, split_value
-from .documents import Catalog, load_document, value_problem
+from .documents import Catalog, load_document, media_type_problems, value_problem
 from .publish import cache_key, digest, lock
 from .runtimes import Model, Outcome, StepFailed, readable, run_agent, run_process
 from .store import Store
@@ -82,7 +82,7 @@ class Runner:
             return self._refuse(record, "lock_mismatch", "a step version no longer matches the workflow's lock file")
         schema = workflow.get("inputSchema", {"type": "object", "properties": {}})
         values = with_defaults(schema, inputs)
-        problem = value_problem(schema, values)
+        problem = value_problem(schema, values) or next(iter(media_type_problems(values, schema)), None)
         if problem:
             return self._refuse(record, "invalid_input", f"the inputs don't fit the workflow's inputSchema: {problem}")
         record["inputs"] = values
@@ -152,8 +152,8 @@ class Runner:
         try:
             inputs = with_defaults(manifest["inputSchema"], given)
             entry["inputs"] = inputs
-            problem = value_problem(manifest["inputSchema"], inputs)
-            if problem:  # [run.input-check]
+            problem = value_problem(manifest["inputSchema"], inputs) or next(iter(media_type_problems(inputs, manifest["inputSchema"])), None)
+            if problem:  # [run.input-check], [types.media-type]
                 raise StepFailed("invalid_input", problem)
             key = None
             if cacheable:  # [run.cache-key], [run.cache-only-cacheable]

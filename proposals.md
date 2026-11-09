@@ -97,7 +97,7 @@ A proposal joins the specification only through a new version of SPEC.md, with r
 ## P13. Checking version rules
 
 - **Status:** open.
-- **Problem:** SPEC.md, [publish.versions] says when a new version must bump its major number, but nothing checks it.
+- **Problem:** SPEC.md, [publish.versions] says when a new version should bump its major number, but nothing checks it.
 - **Idea:** a command that compares two versions of a step and reports breaking changes.
 - **Settled by:** a publisher that wants to enforce the rule.
 
@@ -147,5 +147,5 @@ A proposal joins the specification only through a new version of SPEC.md, with r
 
 - **Status:** open.
 - **Problem:** a run can't stop to ask a person something, such as approving a draft before it's posted.
-- **Idea:** a step kind that waits for a person's answer, with a typed output. Approving steps that write is already possible through the caller's policy (SPEC.md, [run.effects]).
+- **Idea:** a step kind that waits for a person's answer, with a typed output. A platform can already ask for approval before a step that writes (SPEC.md, [run.effects]).
 - **Settled by:** a workflow where approval by policy isn't enough.

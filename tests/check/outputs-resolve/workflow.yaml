@@ -4,3 +4,4 @@ steps:
 outputs:
   missing: { from: steps.nope.outputs.text }
   malformed: { from: steps.values.text }
+  not_text: { from: 5 }

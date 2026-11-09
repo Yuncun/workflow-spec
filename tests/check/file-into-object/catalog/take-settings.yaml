@@ -1,0 +1,7 @@
+name: test/take-settings
+version: 1.0.0
+description: Take a settings object with no extra properties, for checker tests.
+inputSchema: { type: object, properties: { settings: { type: object, additionalProperties: false } }, required: [settings] }
+outputSchema: { type: object, properties: { done: { type: boolean } }, required: [done] }
+effects: none
+runtime: { container: { image: example.test/take-settings:1.0.0 } }

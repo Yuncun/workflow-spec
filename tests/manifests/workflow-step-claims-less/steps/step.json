@@ -1,0 +1,29 @@
+{
+  "name": "test/m20",
+  "version": "1.0.0",
+  "description": "Open a weekly report issue, as a workflow.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {}
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "url": {
+        "type": "string",
+        "format": "uri"
+      }
+    },
+    "required": [
+      "url"
+    ]
+  },
+  "effects": "none",
+  "deterministic": true,
+  "runtime": {
+    "workflow": {
+      "path": "flows/inner.yaml",
+      "digest": "sha256:2fa5940883c1f113fb408cf426d6e680f62d747a21bed391984a2133c80b9215"
+    }
+  }
+}

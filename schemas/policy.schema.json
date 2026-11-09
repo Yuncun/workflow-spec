@@ -1,0 +1,27 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:wfspec:schema:policy",
+  "title": "Caller policy",
+  "description": "What the person or program asking for a check or a run may do. A missing key means no limit of that kind. See SPEC.md, section 8.4.",
+  "type": "object",
+  "properties": {
+    "maxEffects": {
+      "enum": [
+        "none",
+        "reads",
+        "writes"
+      ],
+      "description": "The highest effects a step may have. When it's missing, there is no limit."
+    },
+    "secrets": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "pattern": "^[A-Z][A-Z0-9_]*$"
+      },
+      "uniqueItems": true,
+      "description": "The secrets this caller may use. When it's missing, secrets aren't checked."
+    }
+  },
+  "additionalProperties": false
+}

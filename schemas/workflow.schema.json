@@ -31,7 +31,7 @@
       "description": "inputs.<name> or steps.<id>.outputs.<name>.",
       "type": "object",
       "required": ["from"],
-      "properties": { "from": { "type": "string" } },
+      "properties": { "from": { "description": "A from that isn't text is reported as bad_reference by checking, not by this schema." } },
       "additionalProperties": false
     },
     "step": {

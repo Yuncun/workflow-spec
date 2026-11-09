@@ -1,0 +1,7 @@
+# Fields starting with x- belong to platforms, at the top level and in a step entry; a checker
+# ignores them (SPEC.md, [workflow.extensions]).
+x-owner: platform-team
+steps:
+  take: { uses: test/take-values@1.0.0, with: { text: hi }, x-retries: 3 }
+outputs:
+  done: { from: steps.take.outputs.done }

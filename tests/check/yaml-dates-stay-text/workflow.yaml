@@ -1,0 +1,5 @@
+# A date stays the text that was written (SPEC.md, [doc.text-keys]), so it fits a text input.
+steps:
+  take: { uses: test/take-values@1.0.0, with: { text: 2026-11-08 } }
+outputs:
+  done: { from: steps.take.outputs.done }

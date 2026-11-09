@@ -1,0 +1,4 @@
+errors:
+  - { code: invalid_manifest, path: "/effects" }
+  - { code: invalid_manifest, path: "/deterministic" }
+  - { code: invalid_manifest, path: "/secrets" }

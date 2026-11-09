@@ -1,0 +1,8 @@
+# A file fits an object schema only when the object accepts any properties (SPEC.md, [types.fits]).
+steps:
+  logs: { uses: acme/fetch-ci-logs@2.1.0, with: { repo: acme/web, run_id: 7 } }
+  open: { uses: test/take-values@1.0.0, with: { text: x, extra: { from: steps.logs.outputs.logs } } }
+  closed: { uses: test/take-settings@1.0.0, with: { settings: { from: steps.logs.outputs.logs } } }
+outputs:
+  open: { from: steps.open.outputs.done }
+  closed: { from: steps.closed.outputs.done }

@@ -2,5 +2,6 @@ ok: false
 errors:
   - { code: unknown_reference, path: "/outputs/missing" }
   - { code: bad_reference, path: "/outputs/malformed" }
+  - { code: bad_reference, path: "/outputs/not_text" }
 warnings:
   - { code: step_never_runs, path: "/steps/values" }

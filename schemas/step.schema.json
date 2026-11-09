@@ -136,106 +136,32 @@
       }
     },
     "runtime": {
-      "description": "How the step runs: exactly one kind. SPEC.md, section 5.3 defines workflow; drafts/runtime.md defines process, container, agent and mcp; kinds starting with x- belong to platforms.",
+      "description": "How the step runs: an object with exactly one key, the runtime kind. SPEC.md, section 5.3 defines `workflow`, whose fields are fixed here. drafts/runtime.md describes process, container, agent and mcp; those and platform kinds are open objects, so a change to a draft doesn't make manifests invalid.",
       "type": "object",
       "minProperties": 1,
       "maxProperties": 1,
       "properties": {
-        "process": {
-          "type": "object",
-          "required": [
-            "command"
-          ],
-          "properties": {
-            "command": {
-              "type": "array",
-              "items": {
-                "type": "string"
-              },
-              "minItems": 1
-            }
-          },
-          "additionalProperties": false
-        },
-        "container": {
-          "type": "object",
-          "required": [
-            "image"
-          ],
-          "properties": {
-            "image": {
-              "type": "string",
-              "minLength": 1
-            },
-            "command": {
-              "type": "array",
-              "items": {
-                "type": "string"
-              }
-            }
-          },
-          "additionalProperties": false
-        },
-        "agent": {
-          "type": "object",
-          "required": [
-            "model",
-            "instructions"
-          ],
-          "properties": {
-            "model": {
-              "type": "string",
-              "minLength": 1
-            },
-            "instructions": {
-              "type": "string",
-              "minLength": 1
-            },
-            "maxTurns": {
-              "type": "integer",
-              "minimum": 1
-            }
-          },
-          "additionalProperties": false
-        },
         "workflow": {
           "type": "object",
           "required": [
-            "path"
+            "path",
+            "digest"
           ],
           "properties": {
             "path": {
               "type": "string",
               "minLength": 1
-            }
-          },
-          "additionalProperties": false
-        },
-        "mcp": {
-          "type": "object",
-          "required": [
-            "server",
-            "tool"
-          ],
-          "properties": {
-            "server": {
-              "type": "string",
-              "minLength": 1
             },
-            "tool": {
-              "type": "string",
-              "minLength": 1
+            "digest": {
+              "$ref": "urn:wfspec:schema:lock#/$defs/digest"
             }
           },
           "additionalProperties": false
         }
       },
-      "patternProperties": {
-        "^x-": {
-          "type": "object"
-        }
-      },
-      "additionalProperties": false
+      "additionalProperties": {
+        "type": "object"
+      }
     }
   }
 }

@@ -20,6 +20,12 @@ Version 0.2 cuts the specification down to the format layer. Rules for a runner 
 - The `process` runtime kind: a program started directly, under the same contract as `container` ([drafts/runtime.md](drafts/runtime.md)).
 - Test cases for runners in `tests/run/` (section 9.10), and a reference runner that passes them.
 - Run-level error codes `invalid_input` and `lock_mismatch` for runs that never start ([run.check-first], [run.lock]).
+- Where each problem points, and how many times it's reported ([check.paths]), and the order in which manifest rules apply ([manifest.invalid]), so a second checker can pass the test cases without copying this one.
+- [types.fits]: the comparison of two schemas is normative, not an example.
+- [types.media-type]: a file value's media type must fit the input's `x-mediaType`, for literals and at run time, not only between references.
+- [manifest.workflow-derived]: a `workflow` step's manifest can't claim lower effects, fewer secrets or more determinism than its workflow has. The `workflow` runtime kind now pins its file with `digest`.
+- [workflow.extensions]: `x-` fields in workflows, like those in manifests.
+- `schemas/policy.schema.json` for caller policies ([check.policy]).
 
 **Moved**
 - To [drafts/runtime.md](drafts/runtime.md): the contracts for containers and agents (0.1, section 3.3) and for remote tools (0.1, `mcp`). Agent steps now finish by calling a `finish` tool, and a runner hands schema problems back for another turn.
@@ -33,6 +39,11 @@ Version 0.2 cuts the specification down to the format layer. Rules for a runner 
 
 **Changed**
 - Steps that write are never retried automatically. Version 0.1 allowed it for steps marked `idempotent`.
+- [publish.versions] is a SHOULD. Version 0.1 said a new version "must" bump its major number for a breaking change.
+- `schemas/step.schema.json` fixes the fields of the `workflow` runtime kind only. The other kinds are open objects, so a change to a draft doesn't make manifests invalid.
+- [check.output]: every problem has a `message`.
+- [publish.saved-run] says what the publisher compares in a dry run, and covers only deterministic steps whose inputs match the original run.
+- [doc.formats] and [doc.numbers] say what happens to values JSON can't hold, and which numbers the I-JSON range applies to.
 - MCP annotations no longer set `destructiveHint` or `idempotentHint` ([drafts/mcp.md](drafts/mcp.md)).
 - Vendor and tool names moved out of normative text into informative notes and the drafts.
 - Section numbers: Documents are now section 4, Step manifest 5, Values and types 6, Workflow file 7, Checking 8, Running 9 and Publishing 10.

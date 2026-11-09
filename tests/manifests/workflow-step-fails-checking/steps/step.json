@@ -1,0 +1,31 @@
+{
+  "name": "test/m22",
+  "version": "1.0.0",
+  "description": "Open a weekly report issue, as a workflow.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {}
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "url": {
+        "type": "string",
+        "format": "uri"
+      }
+    },
+    "required": [
+      "url"
+    ]
+  },
+  "effects": "writes",
+  "secrets": [
+    "GITHUB_TOKEN"
+  ],
+  "runtime": {
+    "workflow": {
+      "path": "flows/inner.yaml",
+      "digest": "sha256:60560d38872e308e6ef0e88edcc1498c6357caa03ea1ccc5c227265983d6397d"
+    }
+  }
+}

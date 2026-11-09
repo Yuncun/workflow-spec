@@ -29,7 +29,9 @@ The contract:
 - **Skipping.** A step whose manifest has `maySkip` and that has nothing to do writes a reason to the file named by `WF_SKIP` instead of writing outputs ([run.skip]).
 - **Secrets.** Each secret named in `secrets` is set as an environment variable with the same name, and no other secret is set ([run.secrets-named]).
 - **Exit and logs.** Exit code 0 means success. Any other exit code fails the step with `failed`. Standard output and standard error are the step's logs.
-- **Pinning.** Before computing the digest, a publisher resolves `image` to `image@sha256:...` ([publish.resolve]). For `process`, the publisher pins the files in the manifest's folder, for example by including their digests in what it hashes.
+- **Pinning** ([publish.resolve]). Before computing the step's digest, a publisher writes content digests into the manifest, so the step's digest covers them:
+  - for `container`, the image reference becomes `image@sha256:...`
+  - for `process`, the runtime object gets `digests`, mapping each file the program needs, by its path relative to the manifest's folder, to its digest
 
 A program can't call steps under this draft (proposals.md, P16).
 
@@ -42,7 +44,7 @@ The test case `tests/run/effects/` checks that the sandbox applies.
 ## 2. Agents: `agent`
 
 - `model` names a model the runner can serve. How the runner maps names to models and providers is its choice.
-- `instructions` is the path of a text file, relative to the manifest's folder. A publisher pins it by its digest before computing the step's digest.
+- `instructions` is the path of a text file, relative to the manifest's folder. Before computing the step's digest, a publisher writes the file's digest into the runtime object as `instructionsDigest` ([publish.resolve]).
 - `maxTurns` limits the number of model responses. When it's left out, the runner chooses the limit.
 
 The runner:

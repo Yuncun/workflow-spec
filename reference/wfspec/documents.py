@@ -12,6 +12,7 @@ from jsonschema import Draft202012Validator
 from jsonschema.exceptions import SchemaError, best_match
 from referencing import Registry, Resource
 from referencing.exceptions import Unresolvable
+import rfc8785
 from ruamel.yaml import YAML
 from ruamel.yaml.constructor import SafeConstructor
 from ruamel.yaml.error import MarkedYAMLError, YAMLError
@@ -100,6 +101,8 @@ def _json_only(node, path: tuple = ()) -> None:
         raise ParseError(f"at {where}: {node} isn't a JSON number")
     elif isinstance(node, int) and not isinstance(node, bool) and abs(node) > SAFE_INTEGER:
         raise ParseError(f"at {where}: {node} is beyond ±(2**53 - 1), which not every JSON parser reads exactly")
+    elif node is not None and not isinstance(node, (str, bool, int, float)):
+        raise ParseError(f"at {where}: a {type(node).__name__} value, such as YAML's !!binary or !!set, isn't one JSON can hold")
 
 
 def load_document(path: Path):
@@ -142,9 +145,13 @@ def validator(schema: dict | str) -> Draft202012Validator:
 
 
 def schema_issues(doc, schema_id: str, code: str, file: str | None = None) -> list[Issue]:
-    """One issue per place where `doc` breaks the spec schema `schema_id`."""
-    errors = sorted(validator(schema_id).iter_errors(doc), key=lambda e: [str(p) for p in e.absolute_path])
-    return [Issue(code, pointer(*e.absolute_path), e.message, file=file) for e in errors]
+    """One issue per location in `doc` where validation against the spec schema `schema_id` fails
+    (SPEC.md, section 8.2), so the count doesn't depend on how many keywords a validator reports."""
+    errors = sorted(validator(schema_id).iter_errors(doc), key=lambda e: ([str(p) for p in e.absolute_path], e.message))
+    first: dict[str, str] = {}
+    for e in errors:
+        first.setdefault(pointer(*e.absolute_path), e.message)
+    return [Issue(code, where, message, file=file) for where, message in first.items()]
 
 
 def value_problem(schema: dict, value) -> str | None:
@@ -171,18 +178,65 @@ def mcp_name(name: str, version: str) -> str:
     return full[: MCP_NAME_LIMIT - 9] + "_" + hashlib.sha256(full.encode()).hexdigest()[:8]
 
 
+_DATA_KEYWORDS = ("default", "const", "enum", "examples")  # their values are data, not schemas
+_NAMED_SCHEMAS = ("properties", "patternProperties", "dependentSchemas")  # names map to schemas
+
+
 def reference_issues(schema, path: tuple) -> list[tuple[str, str]]:
-    """(pointer, message) for each reference keyword other than {"$ref": "urn:wfspec:file"}."""
+    """(pointer, message) for each reference keyword other than {"$ref": "urn:wfspec:file"}
+    (SPEC.md, [manifest.refs]). Data such as a default, and property names, are not looked at."""
     found = []
     if isinstance(schema, dict):
         for key, value in schema.items():
             if key in _REFERENCE_KEYWORDS and not (key == "$ref" and value == FILE_REF):
                 found.append((pointer(*path, key), f"{key} isn't allowed; the only reference allowed is {{\"$ref\": \"{FILE_REF}\"}}"))
+            elif key in _DATA_KEYWORDS or key.startswith("x-"):
+                continue
+            elif key in _NAMED_SCHEMAS and isinstance(value, dict):
+                for name, sub in value.items():
+                    found += reference_issues(sub, (*path, key, name))
             else:
                 found += reference_issues(value, (*path, key))
     elif isinstance(schema, list):
         for i, value in enumerate(schema):
             found += reference_issues(value, (*path, i))
+    return found
+
+
+def canonical_json(doc) -> bytes:
+    """RFC 8785 (JSON Canonicalization Scheme): the bytes every digest is computed over."""
+    return rfc8785.dumps(doc)
+
+
+def digest(doc) -> str:
+    """sha256 of a document's canonical JSON (SPEC.md, [publish.digest])."""
+    return "sha256:" + hashlib.sha256(canonical_json(doc)).hexdigest()
+
+
+def media_type_fits(actual: str, declared: str) -> bool:
+    """Whether a file of type `actual` fits an input that declares `declared`, which may end in /*."""
+    actual, declared = actual.lower(), declared.lower()
+    if declared in ("*/*", actual):
+        return True
+    return declared.endswith("/*") and actual.split("/")[0] == declared[:-2]
+
+
+def media_type_problems(value, schema, path: tuple = ()) -> list[str]:
+    """Each file value whose mediaType doesn't fit the x-mediaType its schema declares (SPEC.md, [types.media-type])."""
+    if not isinstance(schema, dict):
+        return []
+    if schema.get("$ref") == FILE_REF:
+        declared, actual = schema.get("x-mediaType"), value.get("mediaType", "") if isinstance(value, dict) else ""
+        if declared and isinstance(value, dict) and not media_type_fits(actual, declared):
+            return [f"{pointer(*path) or 'the value'} is a {actual or 'untyped'} file, where {declared} is expected"]
+        return []
+    found = []
+    if isinstance(value, dict):
+        for k, v in value.items():
+            found += media_type_problems(v, schema.get("properties", {}).get(k), (*path, k))
+    elif isinstance(value, list):
+        for i, v in enumerate(value):
+            found += media_type_problems(v, schema.get("items"), (*path, i))
     return found
 
 
@@ -260,7 +314,9 @@ def manifest_issues(doc, file: str | None = None) -> list[Issue]:
 
 
 def workflow_runtime_issues(manifest: dict, file: str | None) -> list[Issue]:
-    """A workflow step's file must exist next to its manifest and be a workflow."""
+    """A workflow step's file must exist next to its manifest, be a workflow, and have the digest the
+    manifest pins (SPEC.md, [manifest.workflow-file]). Whether it passes checking needs the catalog:
+    see publish.workflow_step_issues."""
     runtime = manifest["runtime"].get("workflow")
     if not runtime or file is None:
         return []
@@ -274,6 +330,9 @@ def workflow_runtime_issues(manifest: dict, file: str | None) -> list[Issue]:
         return [Issue("invalid_manifest", where, f"{target} can't be read: {exc}", file=file)]
     if schema_issues(doc, "urn:wfspec:schema:workflow", "invalid_workflow"):
         return [Issue("invalid_manifest", where, f"{target} isn't a valid workflow; check it with wfspec check", file=file)]
+    if digest(doc) != runtime["digest"]:
+        return [Issue("invalid_manifest", pointer("runtime", "workflow", "digest"),
+                      f"{target} has the digest {digest(doc)}, not the one the manifest pins", file=file)]
     return []
 
 
@@ -308,7 +367,10 @@ def load_catalog(dirs: list[Path]) -> Catalog:
     """Load every *.yaml, *.yml and *.json manifest in the given folders (not recursive).
 
     A manifest with problems is left out, so no workflow can use it."""
+    from .publish import workflow_step_issues  # publish imports check, which imports this module
+
     catalog = Catalog()
+    seen: dict[str, str] = {}  # name@version -> the file that first had it, valid or not
     for folder in dirs:
         paths = sorted(p for p in Path(folder).iterdir() if p.suffix in (".yaml", ".yml", ".json"))
         for path in paths:
@@ -318,27 +380,28 @@ def load_catalog(dirs: list[Path]) -> Catalog:
             except ParseError as exc:
                 catalog.problems.append(Issue("parse_error", "", str(exc), file=file))
                 continue
-            issues = manifest_issues(doc, file)
-            if not issues:
-                issues = workflow_runtime_issues(doc, file)
             ref = _ref_of(doc)
+            if ref in seen:  # [manifest.duplicate]: the first one read is kept, valid or not
+                catalog.problems.append(Issue("duplicate_step", "", f"{ref} is also defined in {seen[ref]}", file=file))
+                continue
+            if ref:
+                seen[ref] = file
+            issues = manifest_issues(doc, file) or workflow_runtime_issues(doc, file)
             if issues:
-                if ref and ref not in catalog.steps:
+                if ref:
                     catalog.leave_out(ref, issues)
                 else:
                     catalog.problems.extend(issues)
                 continue
-            if ref in catalog.steps:
-                catalog.problems.append(Issue("duplicate_step", "", f"{ref} is also defined in {catalog.files[ref]}", file=file))
-                continue
             catalog.steps[ref] = doc
             catalog.files[ref] = file
-    # Leaving a step out can leave another step calling one that is gone, so repeat until nothing changes.
+    # Rules that need the catalog: calls, and the workflows inside workflow steps. Leaving one step
+    # out can break another, so repeat until nothing changes ([manifest.left-out]).
     changed = True
     while changed:
         changed = False
         for ref, manifest in list(catalog.steps.items()):
-            issues = calls_issues(manifest, catalog, catalog.files[ref])
+            issues = calls_issues(manifest, catalog, catalog.files[ref]) or workflow_step_issues(manifest, catalog, catalog.files[ref])
             if issues:
                 catalog.leave_out(ref, issues)
                 changed = True

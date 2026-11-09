@@ -9,7 +9,7 @@ from dataclasses import dataclass, field
 from jsonschema import Draft202012Validator
 from jsonschema.exceptions import SchemaError
 
-from .documents import EFFECT_ORDER, Catalog, Issue, pointer, reference_issues, schema_issues, value_problem
+from .documents import EFFECT_ORDER, Catalog, Issue, media_type_problems, pointer, reference_issues, schema_issues, value_problem
 from .types import Finding, assignable
 
 INPUT_REF = re.compile(r"^inputs\.([A-Za-z_][A-Za-z0-9_-]*)$")
@@ -163,8 +163,8 @@ class _Checker:
                 if known and source is not None and source.schema is not None:
                     self._check_types(source, props[name], name in required, where, sid, name)
             elif known:
-                problem = value_problem(props[name], payload)
-                if problem:
+                problem = value_problem(props[name], payload) or next(iter(media_type_problems(payload, props[name])), None)
+                if problem:  # [check.invalid-value], [types.media-type]
                     self.error("invalid_value", where, problem, sid, name)
         if manifest is None:
             return

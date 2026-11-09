@@ -5,4 +5,4 @@ inputSchema: { type: object, properties: { text: { type: string } }, required: [
 outputSchema: { type: object, properties: { loud: { type: string } }, required: [loud] }
 effects: none
 deterministic: true
-runtime: { workflow: { path: workflows/shout.yaml } }
+runtime: { workflow: { path: workflows/shout.yaml, digest: "sha256:aa46619311faeec5dd6d5840fb8c7188330494746416d9e0cbbad32982c38857" } }

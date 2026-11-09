@@ -1,0 +1,5 @@
+# A step that only a writing step uses is needed, so it isn't reported as never running
+# (SPEC.md, [check.step-never-runs], section 9.2).
+steps:
+  said: { uses: test/echo@1.0.0, with: { text: hi } }
+  saved: { uses: test/save-note@1.0.0, with: { text: { from: steps.said.outputs.text } } }

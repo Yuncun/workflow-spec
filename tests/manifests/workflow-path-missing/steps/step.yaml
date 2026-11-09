@@ -4,4 +4,4 @@ description: A published workflow whose file isn't there.
 inputSchema: { type: object, properties: {} }
 outputSchema: { type: object, properties: {} }
 effects: none
-runtime: { workflow: { path: missing.yaml } }
+runtime: { workflow: { path: missing.yaml, digest: "sha256:0000000000000000000000000000000000000000000000000000000000000000" } }

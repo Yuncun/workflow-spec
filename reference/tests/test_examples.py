@@ -163,3 +163,22 @@ def test_cli_reads_an_input_declared_as_text_as_text():
     assert _input_value("everyone", {"enum": ["engineers", "everyone"]}) == "everyone"
     assert _input_value("5", {"type": "integer"}) == 5
     assert _input_value("[1, 2]", None) == [1, 2]
+
+
+def test_digest_matches_a_known_answer():
+    """RFC 8785 sorts keys and drops spaces; the digest is the SHA-256 of those bytes. Worked out by hand,
+    so a wrong canonical form can't pass by agreeing with examples the same code produced."""
+    import hashlib
+    doc = {"b": [1, 2.5, "x"], "a": {"z": True, "y": None}}
+    canonical = b'{"a":{"y":null,"z":true},"b":[1,2.5,"x"]}'
+    assert digest(doc) == "sha256:" + hashlib.sha256(canonical).hexdigest()
+
+
+def test_cache_key_matches_a_known_answer():
+    """The key is the digest of {inputs, step}, with each file cut down to its digest and media type."""
+    import hashlib
+    manifest = {"inputSchema": {"type": "object", "properties": {"f": {"$ref": "urn:wfspec:file"}}}, "name": "t/x"}
+    step = "sha256:" + hashlib.sha256(b'{"inputSchema":{"properties":{"f":{"$ref":"urn:wfspec:file"}},"type":"object"},"name":"t/x"}').hexdigest()
+    file = {"digest": "sha256:" + "a" * 64, "mediaType": "text/plain", "name": "n.txt", "size": 3}
+    expected = b'{"inputs":{"f":{"digest":"sha256:' + b"a" * 64 + b'","mediaType":"text/plain"},"n":1},"step":"' + step.encode() + b'"}'
+    assert cache_key(manifest, {"f": file, "n": 1}) == "sha256:" + hashlib.sha256(expected).hexdigest()

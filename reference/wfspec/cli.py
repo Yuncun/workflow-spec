@@ -11,11 +11,11 @@ from pathlib import Path
 
 from .check import check
 from .documents import (
-    EFFECT_ORDER,
     Issue,
     ParseError,
     calls_issues,
     load_catalog,
+    schema_issues,
     load_document,
     manifest_issues,
     workflow_runtime_issues,
@@ -219,12 +219,9 @@ def _mcp_tool(args) -> int:
 
 def _policy(path: Path) -> dict:
     policy = load_document(path)
-    if not isinstance(policy, dict) or set(policy) - {"maxEffects", "secrets"}:
-        raise ValueError(f"{path}: a policy has only maxEffects and secrets")
-    if "maxEffects" in policy and policy["maxEffects"] not in EFFECT_ORDER:
-        raise ValueError(f"{path}: maxEffects is one of none, reads, writes")
-    if "secrets" in policy and not all(isinstance(s, str) for s in policy["secrets"]):
-        raise ValueError(f"{path}: secrets is a list of names")
+    problems = schema_issues(policy, "urn:wfspec:schema:policy", "invalid_policy")  # SPEC.md, [check.policy]
+    if problems:
+        raise ValueError(f"{path}: " + "; ".join(f"{p.path or '/'}: {p.message}" for p in problems))
     return policy
 
 

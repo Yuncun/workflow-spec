@@ -1,0 +1,5 @@
+# YAML's !!binary gives bytes, which JSON can't hold (SPEC.md, [doc.formats]).
+steps:
+  take: { uses: test/take-values@1.0.0, with: { text: !!binary aGVsbG8= } }
+outputs:
+  done: { from: steps.take.outputs.done }

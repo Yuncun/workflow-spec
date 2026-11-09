@@ -1,0 +1,12 @@
+# A default is data and a property name is a name, so neither is a reference (SPEC.md, [manifest.refs]).
+name: test/m18
+version: 1.0.0
+description: A step whose default looks like a reference and whose input is named definitions.
+inputSchema:
+  type: object
+  properties:
+    options: { type: object, default: { $ref: "#/elsewhere" } }
+    definitions: { type: string }
+outputSchema: { type: object, properties: {} }
+effects: none
+runtime: { container: { image: example.test/m18:1.0.0 } }

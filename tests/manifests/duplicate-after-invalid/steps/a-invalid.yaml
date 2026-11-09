@@ -1,0 +1,6 @@
+name: test/m19
+version: 1.0.0
+description: The first copy, which is invalid because it has no effects.
+inputSchema: { type: object, properties: {} }
+outputSchema: { type: object, properties: {} }
+runtime: { container: { image: example.test/m19:1.0.0 } }

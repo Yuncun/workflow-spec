@@ -26,9 +26,11 @@ A typical exchange, condensed:
 3. **Copilot** writes `pr-summary.yaml` and calls `check_workflow`. It gets back:
    ```text
    unknown_input at /steps/post/with/bdy: your-team/post-comment@1.1.0 has no input 'bdy'; did you mean 'body'?
+   missing_input at /steps/post/with: your-team/post-comment@1.1.0 needs input 'body'
    missing_input at /steps/post/with: your-team/post-comment@1.1.0 needs input 'pr'
    ```
-4. **Copilot** fixes both and checks again: 0 errors.
+   The misspelled `bdy` also leaves `body` missing, so one typo gives two errors.
+4. **Copilot** fixes all three and checks again: 0 errors.
 5. **Copilot** calls `run_workflow` on the file with your inputs, then `get_run` until the run finishes, and shows you the comment's URL.
 6. **You** review the file like any other change, and publish it when it's right.
 

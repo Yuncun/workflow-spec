@@ -1,0 +1,31 @@
+{
+  "name": "test/m21",
+  "version": "1.0.0",
+  "description": "Open a weekly report issue, as a workflow.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {}
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "url": {
+        "type": "string",
+        "format": "uri"
+      }
+    },
+    "required": [
+      "url"
+    ]
+  },
+  "effects": "writes",
+  "secrets": [
+    "GITHUB_TOKEN"
+  ],
+  "runtime": {
+    "workflow": {
+      "path": "flows/inner.yaml",
+      "digest": "sha256:0000000000000000000000000000000000000000000000000000000000000000"
+    }
+  }
+}

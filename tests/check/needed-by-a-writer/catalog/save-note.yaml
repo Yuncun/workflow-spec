@@ -1,0 +1,7 @@
+name: test/save-note
+version: 1.0.0
+description: Save a note, for checker tests.
+inputSchema: { type: object, properties: { text: { type: string } }, required: [text] }
+outputSchema: { type: object, properties: {} }
+effects: writes
+runtime: { container: { image: example.test/save-note:1.0.0 } }

@@ -1,0 +1,6 @@
+# A file input whose mediaType doesn't fit the input's x-mediaType is refused (SPEC.md, [types.media-type]).
+inputSchema: { type: object, properties: { notes: { $ref: urn:wfspec:file, x-mediaType: text/plain } }, required: [notes] }
+steps:
+  read: { uses: test/read-file@1.0.0, with: { file: { from: inputs.notes } } }
+outputs:
+  text: { from: steps.read.outputs.text }

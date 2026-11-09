@@ -62,7 +62,7 @@ uv venv .venv && uv pip install --python .venv/bin/python -e "reference[test]"
 
 - Version 0.2, a draft dated 2026-11-08.
 - The reference checker and the reference runner pass every test case.
-- 78 of SPEC.md's 82 requirements have tests. [tests/coverage.yaml](tests/coverage.yaml) says why the other four have none.
+- 83 of SPEC.md's 87 requirements have tests. [tests/coverage.yaml](tests/coverage.yaml) says why the other four have none.
 - The runner runs on one machine. It runs `process` steps (programs), `agent` steps (any OpenAI-compatible model API, such as LM Studio's) and workflows used as steps. On macOS it enforces `effects` for programs with the system sandbox.
 
 ## License

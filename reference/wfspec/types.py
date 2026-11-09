@@ -143,8 +143,9 @@ def _files(src: dict, dst: dict, where: str) -> list[Finding]:
     if not _is_file(src):
         return [Finding(True, where, "a file is expected here")]
     if not _is_file(dst):
-        if _may_be(dst, "object") and not dst.get("required") and not dst.get("properties"):
-            return []
+        extra = dst.get("additionalProperties", True)
+        if _may_be(dst, "object") and not dst.get("required") and not dst.get("properties") and extra in (True, {}):
+            return []  # an object schema that accepts any properties accepts a file value
         return [Finding(True, where, f"a file can't be given where {_names(sorted(_types(dst) or ['this value']))} is expected")]
     have, want = src.get("x-mediaType"), dst.get("x-mediaType")
     if want is None or have == want:

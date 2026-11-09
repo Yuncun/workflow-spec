@@ -1,0 +1,4 @@
+steps:
+  file: { uses: acme/open-issue@9.9.9, with: { repo: acme/web, title: Weekly report, body: All builds passed. } }
+outputs:
+  url: { from: steps.file.outputs.url }

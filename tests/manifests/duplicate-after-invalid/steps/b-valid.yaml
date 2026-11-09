@@ -1,0 +1,7 @@
+name: test/m19
+version: 1.0.0
+description: A second copy with the same name and version. It is a duplicate, even though the first copy is invalid.
+inputSchema: { type: object, properties: {} }
+outputSchema: { type: object, properties: {} }
+effects: none
+runtime: { container: { image: example.test/m19:1.0.0 } }
