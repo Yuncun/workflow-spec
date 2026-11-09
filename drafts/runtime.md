@@ -23,12 +23,13 @@ The contract:
   - `path` is added after the check and isn't part of the file value.
 - **Outputs.** The program writes a JSON object of its outputs to the file named by `WF_OUTPUTS`.
   - Wherever `outputSchema` declares a file, the program writes `{"path": "...", "mediaType": "..."}`. It can leave out `mediaType` when the schema's `x-mediaType` names a single type.
-  - A relative `path` is relative to the folder that holds the `WF_OUTPUTS` file, which is the program's work folder. The file, with links followed, must be inside that folder; the runner refuses any other with `invalid_output`, because it reads the file outside any sandbox.
-  - The runner stores each file, replaces it with a file value, and then checks the outputs ([run.output-check]).
+  - A relative `path` is relative to the folder that holds the `WF_OUTPUTS` file, which is the program's work folder. It must lead to a regular file inside that folder without passing through a symbolic link; the runner refuses any other with `invalid_output`, because it reads the file outside any sandbox.
+  - The runner stores each file, replaces it with a file value, and then checks the outputs ([run.output-check]). A file that holds the value of any of the run's secrets fails the step instead ([run.secrets-hidden]).
 - **Environment.** The program gets only these environment variables: `PATH`, `LANG`, `HOME` and `TMPDIR` (both set to its work folder), `WF_INPUTS`, `WF_OUTPUTS`, `WF_SKIP`, and its secrets.
 - **Skipping.** A step whose manifest has `maySkip` and that has nothing to do writes a reason to the file named by `WF_SKIP` instead of writing outputs ([run.skip]).
 - **Secrets.** Each secret named in `secrets` is set as an environment variable with the same name, and no other secret is set ([run.secrets-named]).
 - **Exit and logs.** Exit code 0 means success. Any other exit code fails the step with `failed`. Standard output and standard error are the step's logs.
+- **Processes.** The program runs in a process group of its own. When it exits or times out, the runner ends every process left in that group.
 - **Pinning** ([publish.resolve]). Before computing the step's digest, a publisher writes content digests into the manifest, so the step's digest covers them:
   - for `container`, the image reference becomes `image@sha256:...`
   - for `process`, the runtime object gets `digests`, mapping each file the program needs, by its path relative to the manifest's folder, to the SHA-256 of its bytes, written `sha256:<hex>`
@@ -40,10 +41,13 @@ A program can't call steps under this draft (proposals.md, P16).
 *Informative.* The reference runner (`reference/wfspec/run.py`) enforces `effects` for programs on macOS with the system sandbox (`sandbox-exec`):
 - A `none` step gets no network.
 - Neither a `none` nor a `reads` step may write outside its work folder.
-- Neither may read files under `/Users` or the home folder, except its manifest's folder, its work folder, the installation of the program it starts, and folders the caller grants with `wfspec run --allow-read FOLDER`.
+- Neither may read files under `/Users` or the home folder, except its manifest's folder, its work folder, and folders the caller grants with `wfspec run --allow-read FOLDER`. A program installed under a home folder, such as a Python from pyenv or uv, needs its installation granted the same way, and the runner's error names the folder.
+- Neither may send signals outside its own process group.
 - A step that writes runs without a sandbox, with the person's full access.
 
-Where `sandbox-exec` isn't available, the runner refuses programs that don't write, unless the caller passes `--no-sandbox`. The test cases `tests/run/effects/` and `tests/run/allow-read/` check the sandbox.
+The sandbox can't stop a program from reading the environment that another program of the same person started with. So `wfspec run` starts itself again without the secrets given with `--secret`, and receives their values over a pipe. A step can still read the environment of other programs that hold secrets, including a later step that names them, if it leaves a process running outside its process group, which the runner can't find to end. Steps from people you don't trust belong in containers or virtual machines.
+
+Where `sandbox-exec` isn't available, the runner refuses programs that don't write, unless the caller passes `--no-sandbox`. The test cases `tests/run/effects/` and `tests/run/allow-read/`, and `reference/tests/test_isolation.py`, check the sandbox.
 
 ## 2. Agents: `agent`
 

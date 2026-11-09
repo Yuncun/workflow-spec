@@ -1,0 +1,7 @@
+name: test/leave-child
+version: 1.0.0
+description: Start a program that keeps running, and give its process id.
+inputSchema: { type: object, properties: {}, required: [] }
+outputSchema: { type: object, properties: { pid: { type: integer } }, required: [pid] }
+effects: none
+runtime: { process: { command: [python3, programs/step.py, leave-child] } }

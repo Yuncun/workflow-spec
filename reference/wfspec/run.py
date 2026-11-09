@@ -104,11 +104,7 @@ class Runner:
 
     def _save(self, record: dict) -> dict:
         """Save the record with every secret value replaced, wherever it ended up ([run.secrets-hidden])."""
-        text = json.dumps(record, ensure_ascii=False)
-        for value in self._secret_values():
-            for form in (value, json.dumps(value, ensure_ascii=False)[1:-1]):
-                text = text.replace(form, "[secret]")
-        record = json.loads(text)
+        record = self._scrub(record)
         self.store.save_run(record)
         return record
 
@@ -243,7 +239,7 @@ class Runner:
         named = {s: self.options.secrets[s] for s in manifest.get("secrets", [])}  # [run.secrets-named]
         if kind == "process":
             return run_process(manifest, folder, inputs, named, self.store, self.options.timeout, self.options.sandbox,
-                               self.options.readable)
+                               self.options.readable, tuple(self._secret_values()))
         if kind == "agent":
             calls = entry.setdefault("calls", [])
 
@@ -278,7 +274,18 @@ class Runner:
     # ---- secrets ----------------------------------------------------------------------------
 
     def _secret_values(self) -> list[str]:
-        return [v for v in self.options.secrets.values() if len(v) >= 4]
+        return [v for v in self.options.secrets.values() if v]  # a short secret is hidden too, whatever else it hides
+
+    def _scrub(self, value):
+        """`value` with every secret value replaced: inside text and keys, and as a whole for a number
+        or other value whose JSON form holds one."""
+        if isinstance(value, str):
+            return self._redact(value)
+        if isinstance(value, dict):
+            return {self._redact(k): self._scrub(v) for k, v in value.items()}
+        if isinstance(value, list):
+            return [self._scrub(v) for v in value]
+        return "[secret]" if self._holds_secret(json.dumps(value)) else value
 
     def _redact(self, text):
         for value in self._secret_values():

@@ -85,5 +85,32 @@ elif behaviour == "escape-output":
     give({"file": {"path": "link.txt", "mediaType": "text/plain"}})
 elif behaviour == "skip-with-secret":
     Path(os.environ["WF_SKIP"]).write_text("nothing to do; token=" + os.environ["TOKEN_A"])
+elif behaviour == "secret-file":
+    (Path(os.environ["TMPDIR"]) / "token.txt").write_text("token=" + os.environ["TOKEN_A"])
+    give({"file": {"path": "token.txt", "mediaType": "text/plain"}})
+elif behaviour == "leave-child":
+    import subprocess
+    child = subprocess.Popen([sys.executable, "-c", "import time; time.sleep(60)"],
+                             stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    give({"pid": child.pid})
+elif behaviour == "signal":
+    import signal
+    try:
+        os.kill(inputs["pid"], signal.SIGCONT)
+        give({"sent": True})
+    except OSError:
+        give({"sent": False})
+elif behaviour == "parent-env":
+    if sys.platform == "darwin":  # the environment a program started with, as any program of the same user can read it
+        import ctypes
+        libc = ctypes.CDLL(None)
+        mib, size = (ctypes.c_int * 3)(1, 49, os.getppid()), ctypes.c_size_t(0)  # CTL_KERN, KERN_PROCARGS2
+        libc.sysctl(mib, 3, None, ctypes.byref(size), None, 0)
+        buf = ctypes.create_string_buffer(size.value)
+        libc.sysctl(mib, 3, buf, ctypes.byref(size), None, 0)
+        raw = buf.raw[: size.value]
+    else:
+        raw = Path(f"/proc/{os.getppid()}/environ").read_bytes()
+    give({"seen": (inputs["name"] + "=").encode() in raw})
 else:
     sys.exit(f"unknown behaviour {behaviour}")

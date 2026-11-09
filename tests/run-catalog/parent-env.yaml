@@ -1,0 +1,7 @@
+name: test/parent-env
+version: 1.0.0
+description: Say whether the environment the runner started with holds a variable.
+inputSchema: { type: object, properties: { name: { type: string } }, required: [name] }
+outputSchema: { type: object, properties: { seen: { type: boolean } }, required: [seen] }
+effects: none
+runtime: { process: { command: [python3, programs/step.py, parent-env] } }

@@ -65,7 +65,7 @@ uv venv .venv && uv pip install --python .venv/bin/python -e "reference[test]"
 - The reference checker and the reference runner pass every test case.
 - 85 of SPEC.md's 89 requirements have tests. [tests/coverage.yaml](tests/coverage.yaml) says why the other four have none.
 - The runner runs on one machine. It runs `process` steps (programs), `agent` steps (any OpenAI-compatible model API, such as LM Studio's) and workflows used as steps.
-- On macOS it enforces `effects` for programs with the system sandbox. Programs that don't write can't read files under your home folder unless you grant a folder with `--allow-read`. Steps that write run with your full access, so run only steps you trust.
+- On macOS it enforces `effects` for programs with the system sandbox. Programs that don't write can't read files under your home folder unless you grant a folder with `--allow-read`, and can't signal other processes. They can still read the environment your other programs started with, which the sandbox can't prevent. Steps that write run with your full access. So run only steps you trust.
 
 ## License
 

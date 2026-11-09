@@ -1,0 +1,5 @@
+status: failed
+error: failed
+steps:
+  written: { status: failed, error: failed }
+logs_hide: [alpha-secret-1]

@@ -1,0 +1,6 @@
+# A secret of any length is hidden: here the step prints a three-character secret to its log
+# (SPEC.md, [run.secrets-hidden]).
+steps:
+  shown: { uses: test/show-secrets@1.0.0 }
+outputs:
+  a_set: { from: steps.shown.outputs.a_set }

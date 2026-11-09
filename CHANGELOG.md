@@ -12,6 +12,14 @@
 **Changed**
 - [publish.saved-run]: a dry run also compares what a saved workflow would write. Each step that writes must be given the same value as the write it replays for every fixed input, meaning one that doesn't come from a model's answer or another step that isn't deterministic. Before, the dry run replayed writes without looking at their inputs, so a saved workflow that would write something else still passed. The rule now also defines run order, which decides which write each step replays.
 
+**Security**, in the reference runner
+- Output files are read without following symbolic links, through a handle to the work folder opened before the program starts. A process the program left running could otherwise swap in a link to a file the sandbox denied it.
+- A program runs in a process group of its own, which ends with it, on a timeout too.
+- Programs that don't write can't send signals outside their process group.
+- The runner no longer grants a program's installation folder by itself. For a program in a folder such as `~/bin`, that folder was the whole home folder.
+- `wfspec run --secret` starts the runner again without the secrets in its environment, which any program of the same person can read.
+- Secret values are hidden by walking the run record rather than by editing its text, which lost the record when a secret matched a number. Secrets of any length are hidden, and an output file that holds one fails its step.
+
 ## 0.2, 2026-11-08 (draft)
 
 Version 0.2 cuts the specification down to the format layer. Rules for a runner and a platform that no implementation had tested moved to drafts and proposals.

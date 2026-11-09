@@ -18,6 +18,7 @@ Every run record must fit schemas/run.schema.json.
 """
 
 import json
+import os
 import socket
 import threading
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -29,11 +30,14 @@ from wfspec import load_catalog, load_document
 from wfspec.documents import schema_issues
 from wfspec.publish import lock
 from wfspec.run import Options, Runner, compare_dry_run
-from wfspec.runtimes import SANDBOX, Model
+from wfspec.runtimes import SANDBOX, Model, home_installation
 from wfspec.store import Store
 
 ROOT = Path(__file__).resolve().parents[2]
 CASES = sorted(p for p in (ROOT / "tests" / "run").iterdir() if p.is_dir())
+# The test programs run python3. When it's installed under a home folder, as on GitHub's macOS
+# runners, the sandbox lets programs read it only when granted, as a person would grant it.
+PYTHON = [p for p in [home_installation(["python3"], os.environ.get("PATH", ""))] if p]
 
 
 class FakeModel:
@@ -135,7 +139,7 @@ def test_run_case(case: Path, tmp_path: Path):
             model=Model(url=model.url),
             replay=replay,
             lock=(lock(workflow, catalog) if opts["lock"] == "current" else optional(case, opts["lock"], None)) if "lock" in opts else None,
-            readable=[Path(p) for p in substitute(opts.get("allow_read", []), places)],
+            readable=[Path(p) for p in substitute(opts.get("allow_read", []), places)] + PYTHON,
         )
         runs = opts.get("runs", 1)
         for run_inputs in (substitute(runs, places) if isinstance(runs, list) else [inputs] * runs):

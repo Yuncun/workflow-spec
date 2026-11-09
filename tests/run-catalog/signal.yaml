@@ -1,0 +1,7 @@
+name: test/signal
+version: 1.0.0
+description: Try to send a signal to another process.
+inputSchema: { type: object, properties: { pid: { type: integer } }, required: [pid] }
+outputSchema: { type: object, properties: { sent: { type: boolean } }, required: [sent] }
+effects: none
+runtime: { process: { command: [python3, programs/step.py, signal] } }

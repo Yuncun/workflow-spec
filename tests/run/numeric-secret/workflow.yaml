@@ -1,0 +1,8 @@
+# A secret whose value is also a number elsewhere in the record is hidden there too, and the
+# record is still saved (SPEC.md, [run.secrets-hidden]).
+inputSchema: { type: object, properties: { count: { type: integer } }, required: [count] }
+steps:
+  said: { uses: test/echo@1.0.0, with: { text: hi } }
+outputs:
+  text: { from: steps.said.outputs.text }
+  count: { from: inputs.count }

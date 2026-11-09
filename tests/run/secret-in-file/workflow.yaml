@@ -1,0 +1,6 @@
+# A step that puts a secret's value into an output file fails, and the file isn't stored, so no
+# later step can get the secret without naming it (SPEC.md, [run.secrets-hidden]).
+steps:
+  written: { uses: test/secret-file@1.0.0 }
+outputs:
+  file: { from: steps.written.outputs.file }

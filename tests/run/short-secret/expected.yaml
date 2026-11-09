@@ -1,0 +1,3 @@
+status: succeeded
+outputs: { a_set: true }
+logs_hide: ["Q7%"]

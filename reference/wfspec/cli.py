@@ -73,6 +73,7 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("manifest", type=Path)
 
     args = parser.parse_args(argv)
+    args.restart_argv = sys.argv[1:] if argv is None else None  # only a program started from the command line restarts
     try:
         return _COMMANDS[args.command](args)
     except (ParseError, ValueError) as exc:
@@ -120,6 +121,7 @@ def _check_step(args) -> int:
 
 
 def _run(args) -> int:
+    secrets = _secrets(args.secret, args.restart_argv)  # first, since it may start this program again
     catalog = load_catalog(args.catalog)
     store = Store(args.store)
     try:
@@ -142,14 +144,11 @@ def _run(args) -> int:
         if not Path(path).is_file():
             raise ValueError(f"--file {name}: there is no file at {path}")
         inputs[name] = store.put_file(Path(path), media_type)
-    missing = [s for s in args.secret if s not in os.environ]
-    if missing:
-        raise ValueError(f"these secrets aren't set in the environment: {', '.join(missing)}")
     replay = load_document(args.dry_run_of) if args.dry_run_of else None
     options = Options(
         store=store,
         policy=_policy(args.policy) if args.policy else None,
-        secrets={s: os.environ[s] for s in args.secret},
+        secrets=secrets,
         retries=args.retries,
         timeout=args.timeout,
         model=Model(url=args.model_url, name=args.model),
@@ -233,6 +232,34 @@ def _policy(path: Path) -> dict:
     if problems:
         raise ValueError(f"{path}: " + "; ".join(f"{p.path or '/'}: {p.message}" for p in problems))
     return policy
+
+
+SECRETS_FD = "WFSPEC_SECRETS_FD"
+
+
+def _secrets(names: list[str], restart_argv: list[str] | None) -> dict[str, str]:
+    """The values of the environment variables named with --secret. Any program of the same user,
+    a sandboxed step included, can read the environment another program started with, so when
+    started from the command line this program starts again without them, receiving their values
+    over a pipe instead."""
+    if SECRETS_FD in os.environ:
+        with os.fdopen(int(os.environ.pop(SECRETS_FD)), "rb") as pipe:
+            return json.loads(pipe.read())
+    missing = [s for s in names if s not in os.environ]
+    if missing:
+        raise ValueError(f"these secrets aren't set in the environment: {', '.join(missing)}")
+    values = {s: os.environ[s] for s in names}
+    if not values or restart_argv is None or os.name != "posix":
+        return values
+    data = json.dumps(values).encode()
+    if len(data) > 16_384:  # what a pipe holds before anyone reads it
+        raise ValueError("the secrets are too large to hand over; the most is 16 KB")
+    read, write = os.pipe()
+    os.write(write, data)
+    os.close(write)
+    os.set_inheritable(read, True)
+    env = {k: v for k, v in os.environ.items() if k not in values} | {SECRETS_FD: str(read)}
+    os.execve(sys.executable, [sys.executable, "-m", "wfspec.cli", *restart_argv], env)
 
 
 def _report(issues: list[dict], kind: str) -> None:
