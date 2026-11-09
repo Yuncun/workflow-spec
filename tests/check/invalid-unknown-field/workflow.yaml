@@ -1,0 +1,8 @@
+# A key the workflow schema doesn't allow is reported at the object that holds it, not at the key
+# (SPEC.md, [check.paths]).
+steps:
+  take:
+    uses: test/take-values@1.0.0
+    wiht: { text: hi }
+outputs:
+  done: { from: steps.take.outputs.done }

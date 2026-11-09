@@ -1,0 +1,9 @@
+# Read first, and left out because it calls a step that isn't in the catalog.
+name: test/m-writer
+version: 1.0.0
+description: A step that writes and calls a step that doesn't exist.
+inputSchema: { type: object, properties: {} }
+outputSchema: { type: object, properties: {} }
+effects: writes
+calls: [acme/does-not-exist@1.0.0]
+runtime: { agent: { model: claude-sonnet-5-5, instructions: prompts/writer.md } }

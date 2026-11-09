@@ -1,3 +1,5 @@
+# A reference keyword is reported once, where it is, and what is inside it isn't checked
+# (SPEC.md, [manifest.refs], [check.paths]).
 name: test/m7
 version: 1.0.0
 effects: none
@@ -6,5 +8,7 @@ runtime: { container: { image: example.test/x:1.0.0 } }
 outputSchema: { type: object, properties: {} }
 inputSchema:
   type: object
+  $defs:
+    word: { $ref: "#/elsewhere" }
   properties:
     f: { $ref: "urn:wfspec:filez" }

@@ -9,6 +9,26 @@
 
 ## Unreleased
 
+A second checker, written in Node from SPEC.md alone, without the reference code, passed 68 of the 69 checker cases and listed 39 places where it had to guess. The text now settles each one where two checkers could otherwise report different problems for a workflow or manifest that people would realistically write. The rest stay open. 15 new test cases tell the readings apart.
+
+**Changed**
+- [check.paths], [manifest.json-schema]: a schema that isn't valid JSON Schema is reported once, at the schema, such as `/inputSchema`, and the message names the keyword. It used to be reported at the keyword the validator picked, so two checkers could disagree. A regular expression that doesn't compile makes its schema invalid; the dialect is left open (proposals.md, P21).
+
+**Written down**, as the reference checker already did
+- [check.all-at-once]: an `inputSchema` that isn't valid, or uses a reference other than to files, isn't used to check defaults or to compare inputs. Stage 3 of [manifest.invalid] says the same for a manifest's defaults and examples.
+- [workflow.input-schema] follows the three manifest rules for schemas, so `$defs` is forbidden there too.
+- [check.paths]: a missing, unknown or misnamed key fails at the object that holds it, and a reference keyword is reported once.
+- [doc.formats]: a value with a local tag, such as `!Ref`, is an error.
+- [manifest.invalid]: a manifest that can't be read gets `parse_error`.
+- [manifest.duplicate]: a catalog's manifests are the files whose names end in `.yaml`, `.yml` or `.json`.
+- [manifest.required-declared] covers a schema's top-level `required` only.
+- [manifest.left-out]: stage 5 is applied again, one manifest at a time, in reading order.
+- [publish.as-step]: the derived `outputSchema` always has `required`. An output fed by an input with a default is required, and one fed straight from a step that has `maySkip` isn't.
+- Section 6.3: the comparison's first four lines end it, keywords are removed only where they are keywords, and an input gets one problem in all.
+- [check.bad-reference]: step ids and names in a reference must match their patterns.
+- [workflow.reference-form], [check.step-never-runs]: references under a step that isn't in the catalog, or under an input a step doesn't have, still count, and such a step counts as a root.
+- [check.policy]: a policy applies to every step, needed or not.
+
 **Editorial.** No requirement changed.
 - Shorter sentences and plainer wording in [manifest.workflow-file], [manifest.no-self], [manifest.refs], [manifest.left-out], [types.fits], [types.fits-warning], [run.check-first], [run.pinned], [run.calls-listed], [publish.resolve] and [publish.saved-run], and in sections 1, 3, 4 and 11.
 - How requirement ids map to tests is described in CONTRIBUTING.md instead of section 2.2.

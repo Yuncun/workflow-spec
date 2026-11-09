@@ -2,4 +2,6 @@ ok: false
 errors:
   - { code: effects_not_allowed, path: "/steps/post/uses" }
   - { code: secret_not_granted, path: "/steps/post/uses" }
-warnings: []
+  - { code: secret_not_granted, path: "/steps/logs/uses" }
+warnings:
+  - { code: step_never_runs, path: "/steps/logs" }

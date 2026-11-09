@@ -1,0 +1,6 @@
+# A value with a local tag, such as CloudFormation's !Ref, is one JSON can't hold, so it is an error
+# (SPEC.md, [doc.formats]).
+steps:
+  take: { uses: test/take-values@1.0.0, with: { text: !Ref topic } }
+outputs:
+  done: { from: steps.take.outputs.done }

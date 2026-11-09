@@ -1,8 +1,11 @@
+# A reference must have the form inputs.<name> or steps.<id>.outputs.<name>, where a step id is
+# lowercase (SPEC.md, [check.bad-reference]).
 steps:
   emit: { uses: test/emit-values@1.0.0 }
   take:
     uses: test/take-values@1.0.0
     with:
       text: { from: steps.emit.label }
+      note: { from: steps.Emit.outputs.label }
 outputs:
   done: { from: steps.take.outputs.done }

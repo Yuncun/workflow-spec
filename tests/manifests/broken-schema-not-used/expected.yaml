@@ -1,0 +1,4 @@
+errors:
+  - { code: invalid_manifest, path: "/inputSchema/$defs" }
+  - { code: invalid_manifest, path: "/inputSchema/properties/topic/$ref" }
+  - { code: invalid_manifest, path: "/outputSchema/required" }

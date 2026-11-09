@@ -1,0 +1,15 @@
+name: test/titled
+version: 1.0.0
+description: Take and give a record with a property named title, for checker tests.
+inputSchema:
+  type: object
+  properties:
+    record: { type: object, properties: { title: { type: string } }, required: [title] }
+outputSchema:
+  type: object
+  properties:
+    record: { type: object, properties: { title: { type: integer } }, required: [title] }
+  required: [record]
+effects: none
+deterministic: true
+runtime: { container: { image: example.test/titled:1.0.0 } }

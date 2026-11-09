@@ -1,0 +1,7 @@
+name: test/m-read
+version: 1.0.0
+description: The one manifest in this folder.
+inputSchema: { type: object, properties: {} }
+outputSchema: { type: object, properties: {} }
+effects: none
+runtime: { container: { image: example.test/m-read:1.0.0 } }

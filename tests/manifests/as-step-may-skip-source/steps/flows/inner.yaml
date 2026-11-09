@@ -1,0 +1,12 @@
+# The workflow inside test/m-skip-source. The output text comes straight from a step that may
+# skip, so it isn't required, though that step lists it as required (SPEC.md, [publish.as-step]).
+inputSchema:
+  type: object
+  properties:
+    topic: { type: string }
+  required: [topic]
+steps:
+  maybe: { uses: test/m-skipper@1.0.0 }
+outputs:
+  text: { from: steps.maybe.outputs.text }
+  topic: { from: inputs.topic }

@@ -1,0 +1,23 @@
+# Defaults and examples aren't checked against a schema that breaks [manifest.refs] or
+# [manifest.required-declared] (SPEC.md, [manifest.invalid], stage 3). Neither the default of topic,
+# which needs $defs to mean anything, nor the example's outputs, which lack the misspelled sumary, is
+# reported.
+name: test/m-broken-schemas
+version: 1.0.0
+description: A step whose input schema uses $defs and whose output schema misspells a required name.
+inputSchema:
+  type: object
+  $defs:
+    word: { type: string, minLength: 1 }
+  properties:
+    topic: { $ref: "#/$defs/word", default: "" }
+outputSchema:
+  type: object
+  properties:
+    summary: { type: string }
+  required: [sumary]
+effects: none
+examples:
+  - inputs: { topic: flaky tests }
+    outputs: { summary: Two tests time out. }
+runtime: { container: { image: example.test/m-broken-schemas:1.0.0 } }

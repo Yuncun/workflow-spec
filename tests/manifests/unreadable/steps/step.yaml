@@ -1,0 +1,5 @@
+# A manifest that can't be read is reported as parse_error, not invalid_manifest
+# (SPEC.md, [manifest.invalid], stage 1).
+name: test/m-unreadable
+name: test/m-unreadable-again
+version: 1.0.0

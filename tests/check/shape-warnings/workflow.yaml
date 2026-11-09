@@ -8,5 +8,6 @@ steps:
       textfile: { from: steps.emit.outputs.raw_file }    # the source doesn't say what kind of file
       either: { from: steps.emit.outputs.big }           # anyOf isn't compared
       text: { from: steps.emit.outputs.anything }        # the source declares no type
+      any_file: { from: steps.emit.outputs.anything }    # the comparison stops at a source of {}
 outputs:
   done: { from: steps.take.outputs.done }

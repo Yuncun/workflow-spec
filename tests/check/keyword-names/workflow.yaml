@@ -1,0 +1,7 @@
+# The comparison removes title as a keyword, not as a property name, so the two title properties
+# are compared (SPEC.md, [types.fits]).
+steps:
+  give: { uses: test/titled@1.0.0 }
+  take: { uses: test/titled@1.0.0, with: { record: { from: steps.give.outputs.record } } }
+outputs:
+  record: { from: steps.take.outputs.record }

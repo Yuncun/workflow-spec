@@ -149,3 +149,10 @@ A proposal joins the specification only through a new version of SPEC.md, with r
 - **Problem:** a run can't stop to ask a person something, such as approving a draft before it's posted.
 - **Idea:** a step kind that waits for a person's answer, with a typed output. A platform can already ask for approval before a step that writes (SPEC.md, [run.effects]).
 - **Settled by:** a workflow where the platform's approval before a step that writes isn't enough.
+
+## P21. The dialect of regular expressions
+
+- **Status:** open.
+- **Problem:** JSON Schema recommends ECMA-262 regular expressions, but validators use their own language's engine. Python's `re`, which the reference checker uses, rejects `\p{L}` and accepts `(?P<name>…)`, while ECMA-262 does the opposite. Two checkers can then disagree on whether a pattern is valid, and on which values fit it.
+- **Idea:** require ECMA-262 with the `u` flag, and give the reference an ECMA-262 engine such as `regress`. Or allow only a subset that every engine reads the same way, such as I-Regexp [[RFC 9485](https://www.rfc-editor.org/rfc/rfc9485)].
+- **Settled by:** a manifest that needs a pattern the two engines read differently.

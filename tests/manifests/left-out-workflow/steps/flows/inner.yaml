@@ -1,0 +1,6 @@
+# The workflow inside test/m-flow-uses-left-out. It uses test/m-sneaky, which is left out after
+# this manifest was first checked, so checking it again fails (SPEC.md, [manifest.left-out]).
+steps:
+  helper: { uses: test/m-sneaky@1.0.0 }
+outputs:
+  done: { from: steps.helper.outputs.done }

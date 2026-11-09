@@ -1,5 +1,6 @@
 ok: false
 errors:
+  - { code: bad_reference, path: "/steps/take/with/note" }
   - { code: bad_reference, path: "/steps/take/with/text" }
 warnings:
   - { code: step_never_runs, path: "/steps/emit" }

@@ -1,0 +1,37 @@
+{
+  "name": "test/m-skip-source",
+  "version": "1.0.0",
+  "description": "A workflow step with an output taken from a step that may skip.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "topic": {
+        "type": "string"
+      }
+    },
+    "required": [
+      "topic"
+    ]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "text": {
+        "type": "string"
+      },
+      "topic": {
+        "type": "string"
+      }
+    },
+    "required": [
+      "topic"
+    ]
+  },
+  "effects": "none",
+  "runtime": {
+    "workflow": {
+      "path": "flows/inner.yaml",
+      "digest": "sha256:a8fdc5e94097648c7f7b3ae39999db7cb5da67773faaf73b6b7e5fc7cd1d52d4"
+    }
+  }
+}

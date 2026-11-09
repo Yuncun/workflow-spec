@@ -1,0 +1,4 @@
+ok: false
+errors:
+  - { code: type_mismatch, path: "/steps/take/with/record" }
+warnings: []

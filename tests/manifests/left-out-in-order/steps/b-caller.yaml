@@ -1,0 +1,10 @@
+# Read second. test/m-writer was left out as soon as it failed, so this call is unknown_step, not a
+# call to a step whose effects are higher (SPEC.md, [manifest.left-out]).
+name: test/m-caller
+version: 1.0.0
+description: A step that only reads and calls test/m-writer.
+inputSchema: { type: object, properties: {} }
+outputSchema: { type: object, properties: {} }
+effects: reads
+calls: [test/m-writer@1.0.0]
+runtime: { agent: { model: claude-sonnet-5-5, instructions: prompts/caller.md } }

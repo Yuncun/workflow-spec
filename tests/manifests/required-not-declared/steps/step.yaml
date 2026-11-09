@@ -1,3 +1,5 @@
+# Only a schema's top-level required names must be declared; JSON Schema allows a nested one that
+# isn't (SPEC.md, [manifest.required-declared]).
 name: test/m1
 version: 1.0.0
 description: A test step.
@@ -6,6 +8,7 @@ inputSchema:
   type: object
   properties:
     a: { type: string }
+    c: { type: object, properties: { x: { type: string } }, required: [y] }
   required: [a, b]
 outputSchema: { type: object, properties: {} }
 effects: none

@@ -1,0 +1,12 @@
+# A pattern that isn't a valid regular expression makes the schema invalid
+# (SPEC.md, [manifest.json-schema]).
+name: test/m-bad-pattern
+version: 1.0.0
+description: A step whose input pattern doesn't compile.
+inputSchema:
+  type: object
+  properties:
+    code: { type: string, pattern: "(" }
+outputSchema: { type: object, properties: {} }
+effects: none
+runtime: { container: { image: example.test/m-bad-pattern:1.0.0 } }

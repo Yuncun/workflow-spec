@@ -112,8 +112,9 @@ class _Checker:
         self.inputs_usable = False  # whether values can be compared with the input schemas
         try:
             Draft202012Validator.check_schema(self.inputs)
-        except SchemaError as exc:
-            self.error("invalid_workflow", pointer("inputSchema", *exc.path), f"not a valid JSON Schema: {exc.message}")
+        except SchemaError as exc:  # once, at the schema (SPEC.md, [check.paths])
+            where = pointer("inputSchema", *exc.path)
+            self.error("invalid_workflow", pointer("inputSchema"), f"not a valid JSON Schema, at {where}: {exc.message}")
             return
         references = reference_issues(self.inputs, ("inputSchema",))
         for path, message in references:

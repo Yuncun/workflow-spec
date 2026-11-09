@@ -1,0 +1,11 @@
+# The workflow inside test/m-default-output. The input style is optional but has a default, so
+# it can't be missing, and the output style is required (SPEC.md, [publish.as-step]).
+inputSchema:
+  type: object
+  properties:
+    style: { type: string, default: short }
+steps:
+  file: { uses: acme/open-issue@1.0.3, with: { repo: acme/web, title: Weekly report, body: All builds passed. } }
+outputs:
+  url: { from: steps.file.outputs.url }
+  style: { from: inputs.style }

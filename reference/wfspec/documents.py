@@ -280,8 +280,8 @@ def manifest_issues(doc, file: str | None = None) -> list[Issue]:
     for key in ("inputSchema", "outputSchema"):
         try:
             Draft202012Validator.check_schema(doc[key])
-        except SchemaError as exc:
-            problem(pointer(key, *exc.path), f"not a valid JSON Schema: {exc.message}")
+        except SchemaError as exc:  # once, at the schema (SPEC.md, [check.paths])
+            problem(pointer(key), f"not a valid JSON Schema, at {pointer(key, *exc.path)}: {exc.message}")
             continue
         references = reference_issues(doc[key], (key,))
         for path, message in references:

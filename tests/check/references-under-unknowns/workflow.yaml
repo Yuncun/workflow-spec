@@ -1,0 +1,25 @@
+# References are read as references even in the with of a step that isn't in the catalog, and for an
+# input a step doesn't have: they are checked, and count as uses and as dependencies. A step that
+# isn't in the catalog counts as a root, so the step it references is needed too
+# (SPEC.md, [workflow.reference-form], [check.step-never-runs]).
+inputSchema:
+  type: object
+  properties:
+    topic: { type: string }
+    other: { type: string }
+  required: [topic, other]
+steps:
+  emit: { uses: test/emit-values@1.0.0 }
+  ghost:
+    uses: test/not-in-catalog@1.0.0
+    with:
+      text: { from: inputs.topic }
+      label: { from: steps.emit.outputs.label }
+  take:
+    uses: test/take-values@1.0.0
+    with:
+      text: hi
+      txt: { from: inputs.other }
+      bad: { from: nonsense }
+outputs:
+  done: { from: steps.take.outputs.done }

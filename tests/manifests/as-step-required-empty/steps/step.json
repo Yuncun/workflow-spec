@@ -1,0 +1,32 @@
+{
+  "name": "test/m-no-required-outputs",
+  "version": "1.0.0",
+  "description": "A workflow step none of whose outputs is required.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "note": {
+        "type": "string"
+      }
+    }
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "note": {
+        "type": "string"
+      }
+    },
+    "required": []
+  },
+  "effects": "writes",
+  "secrets": [
+    "GITHUB_TOKEN"
+  ],
+  "runtime": {
+    "workflow": {
+      "path": "flows/inner.yaml",
+      "digest": "sha256:2ed930458543d73e7eb763a50ef0519df624922555a76a8ff9c56ecbd6911a67"
+    }
+  }
+}

@@ -1,0 +1,10 @@
+# The workflow inside test/m-no-required-outputs. Its one output may be missing, so the derived
+# outputSchema has required: [], which the manifest must declare too (SPEC.md, [publish.as-step]).
+inputSchema:
+  type: object
+  properties:
+    note: { type: string }
+steps:
+  file: { uses: acme/open-issue@1.0.3, with: { repo: acme/web, title: Weekly report, body: All builds passed. } }
+outputs:
+  note: { from: inputs.note }

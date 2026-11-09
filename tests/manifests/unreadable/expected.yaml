@@ -1,0 +1,2 @@
+errors:
+  - { code: parse_error, path: "" }

@@ -1,5 +1,8 @@
+# A policy applies to every step, needed or not (SPEC.md, [check.policy]): logs never runs, but it
+# needs a secret this caller doesn't have.
 steps:
   post:
     uses: test/post-summary@1.0.0
     with:
       summary: { title: Build broke, body: See the logs. }
+  logs: { uses: acme/fetch-ci-logs@2.1.0, with: { repo: acme/web, run_id: 7 } }

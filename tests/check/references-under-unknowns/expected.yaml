@@ -1,0 +1,7 @@
+ok: false
+errors:
+  - { code: unknown_step, path: "/steps/ghost/uses" }
+  - { code: unknown_input, path: "/steps/take/with/txt" }
+  - { code: unknown_input, path: "/steps/take/with/bad" }
+  - { code: bad_reference, path: "/steps/take/with/bad" }
+warnings: []

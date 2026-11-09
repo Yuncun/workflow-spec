@@ -1,0 +1,41 @@
+{
+  "name": "test/m-default-output",
+  "version": "1.0.0",
+  "description": "A workflow step with an output taken from an input that has a default.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "style": {
+        "type": "string",
+        "default": "short"
+      }
+    }
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "url": {
+        "type": "string",
+        "format": "uri"
+      },
+      "style": {
+        "type": "string",
+        "default": "short"
+      }
+    },
+    "required": [
+      "url",
+      "style"
+    ]
+  },
+  "effects": "writes",
+  "secrets": [
+    "GITHUB_TOKEN"
+  ],
+  "runtime": {
+    "workflow": {
+      "path": "flows/inner.yaml",
+      "digest": "sha256:3ee0842444b069856b997165eeab6626a23ea9b3290d9b50df9bf0f6cf81126b"
+    }
+  }
+}

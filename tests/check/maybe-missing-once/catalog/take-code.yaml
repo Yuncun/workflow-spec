@@ -1,0 +1,16 @@
+name: test/take-code
+version: 1.0.0
+description: Take a required code with a pattern, for checker tests.
+inputSchema:
+  type: object
+  properties:
+    code: { type: string, pattern: "^[A-Z]" }
+  required: [code]
+outputSchema:
+  type: object
+  properties:
+    done: { type: boolean }
+  required: [done]
+effects: none
+deterministic: true
+runtime: { container: { image: example.test/take-code:1.0.0 } }

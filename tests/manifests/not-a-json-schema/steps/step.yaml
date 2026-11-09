@@ -1,3 +1,5 @@
+# A schema that isn't valid JSON Schema is reported once, at the schema, however many of its keywords
+# are invalid (SPEC.md, [check.paths]).
 name: test/m8
 version: 1.0.0
 effects: none
@@ -8,3 +10,4 @@ inputSchema:
   type: object
   properties:
     x: { type: 5 }
+    y: { type: str }

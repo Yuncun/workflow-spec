@@ -1,2 +1,2 @@
 errors:
-  - { code: invalid_manifest, path: "/inputSchema/properties/x/type" }
+  - { code: invalid_manifest, path: "/inputSchema" }

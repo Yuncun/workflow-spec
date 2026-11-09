@@ -1,0 +1,3 @@
+errors:
+  - { code: invalid_manifest, path: "/effects" }
+  - { code: invalid_manifest, path: "/runtime/workflow/path" }

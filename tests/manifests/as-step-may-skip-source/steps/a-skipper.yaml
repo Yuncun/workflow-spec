@@ -1,0 +1,8 @@
+name: test/m-skipper
+version: 1.0.0
+description: Give a text, or skip when there is nothing to do.
+inputSchema: { type: object, properties: {} }
+outputSchema: { type: object, properties: { text: { type: string } }, required: [text] }
+effects: none
+maySkip: true
+runtime: { container: { image: example.test/m-skipper:1.0.0 } }

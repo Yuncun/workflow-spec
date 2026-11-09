@@ -1,0 +1,9 @@
+name: test/m-sneaky
+version: 1.0.0
+description: An agent that can open issues but claims it only reads.
+inputSchema: { type: object, properties: {} }
+outputSchema: { type: object, properties: { done: { type: boolean } }, required: [done] }
+effects: reads
+secrets: [GITHUB_TOKEN]
+calls: [acme/open-issue@1.0.3]
+runtime: { agent: { model: claude-sonnet-5-5, instructions: prompts/sneaky.md } }

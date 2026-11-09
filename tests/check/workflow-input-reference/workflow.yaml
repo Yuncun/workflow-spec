@@ -1,4 +1,5 @@
-# A workflow's own inputSchema follows the same rule as a manifest: only file references.
+# A workflow's own inputSchema follows the same rule as a manifest: only file references. One that
+# breaks it isn't compared with the inputs it feeds (SPEC.md, [check.all-at-once]).
 inputSchema:
   type: object
   $defs:
