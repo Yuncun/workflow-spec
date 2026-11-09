@@ -76,6 +76,7 @@ Each testable requirement begins with an id in bold brackets, such as `[check.cy
 | policy | what a caller may do (section 8.4) |
 | run | one execution of a workflow |
 | run record | the document a run produces (section 9.10) |
+| run order | the order in which a run's steps started, with each step's calls in the order it made them |
 | lock file | the content hash of every step version a published workflow can run (section 10.3) |
 | checker, runner, publisher | the conformance classes (section 3) |
 | platform | a system that offers a catalog, a publisher and a runner to its callers |
@@ -599,11 +600,11 @@ key(s)       := digest({ "step": digest of s's manifest,
 
 ### 9.5 Retries
 
-- **[run.retry]** A runner MAY retry a failed step automatically only when its effects aren't `writes`. `attempts` in the step's record counts the tries; 0 means a cache hit.
+- **[run.retry]** A runner MAY retry a failed step automatically only when its effects aren't `writes`. `attempts` in the step's record counts the tries; 0 means the step didn't run, because its outputs came from the cache or, in a dry run, from the original run ([publish.saved-run]).
 
 ### 9.6 Failure and skipping
 
-- **[run.failure]** When a step fails, every step that depends on it MUST be marked `skipped`. Steps that don't depend on it still finish. The run's status is `failed`, and finished outputs stay in the record.
+- **[run.failure]** When a step fails, every step that depends on it MUST be marked `skipped`. Steps that don't depend on it still finish. The run's status is `failed`, its error has the code of the first step that failed, in run order, and finished outputs stay in the record.
 - **[run.skip]** A step whose manifest has `maySkip` MAY finish with a reason instead of outputs, when it has nothing to do. The step and every step that depends on it are then marked `skipped`, with the reason. The run still succeeds, and workflow outputs that depend on a skipped step are left out of the run's outputs.
 - **[run.error-codes]** A runner MUST record why a step failed with one of these codes: `invalid_input` and `invalid_output` (section 9.3), `pinned_mismatch` ([run.pinned]), `timeout`, or `failed` when the step itself reported failure.
 
@@ -711,7 +712,7 @@ From a run record, a person or an agent writes a workflow:
   - a step that writes is given another value for a fixed input than the write it replays was given
   - a write of the original run that made no calls is replayed neither by itself nor as part of a step or call it ran inside
 
-  A dry run executes every step except those that write. Each step that writes replays the next write of the same step version in the original run, in run order, and returns the outputs recorded for it, so nothing outside changes a second time; when no write is left to replay, the step fails. A write is a step or call of a step that writes. Run order is the order in which steps started, with each step's calls in the order it made them. A value is fixed when it is a literal, a default, a workflow input, or an output of a deterministic step whose inputs are all fixed. Other values, such as a model's answer, can differ from one run to the next, so they aren't compared. How a platform marks a workflow as saved from a run is its own choice.
+  A dry run executes every step except those that write. Each step that writes replays the next write of the same step version in the original run, in run order, and returns the outputs recorded for it, so nothing outside changes a second time; when no write is left to replay, the step fails. A write is a step or call of a step that writes. A value is fixed when it is a literal, a default, a workflow input, or an output of a deterministic step whose inputs are all fixed. Other values, such as a model's answer, can differ from one run to the next, so they aren't compared. How a platform marks a workflow as saved from a run is its own choice.
 
 *Informative.* `examples/runs/investigate.run.json` records an agent step (`acme/investigate-failure`) that fetched logs and opened an issue. `examples/workflows/ci-triage.yaml` is that run saved as a workflow:
 - The two calls became fixed steps.

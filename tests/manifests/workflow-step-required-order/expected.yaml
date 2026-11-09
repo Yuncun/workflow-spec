@@ -1,0 +1,3 @@
+# A workflow step whose manifest lists a nested `required` in another order than its workflow
+# derives is valid: the order is ignored at every depth (SPEC.md, [manifest.workflow-derived]).
+errors: []

@@ -18,7 +18,7 @@ from pathlib import Path
 
 from .check import INPUT_REF, OUTPUT_REF, check, split_value
 from .documents import Catalog, load_document, media_type_problems, value_problem
-from .publish import cache_key, digest, lock
+from .publish import cache_key, digest, lock, pinned_workflow
 from .runtimes import Model, Outcome, StepFailed, inside, readable, run_agent, run_process
 from .store import Store
 
@@ -258,8 +258,8 @@ class Runner:
             path = folder / runtime["path"]
             if not inside(path, folder) or not path.is_file():
                 raise StepFailed("pinned_mismatch", f"the workflow file {runtime['path']} isn't in the step's folder")
-            inner = load_document(path)
-            if digest(inner) != runtime["digest"]:  # [run.pinned]
+            inner = pinned_workflow(path, runtime["digest"])
+            if inner is None:  # [run.pinned]
                 raise StepFailed("pinned_mismatch", f"{runtime['path']} has changed since the step was published")
             result = check(inner, self.catalog, self.options.policy)
             if not result.ok:

@@ -6,7 +6,7 @@ from __future__ import annotations
 from pathlib import Path
 
 from .check import check, closure
-from .documents import EFFECT_ORDER, FILE_REF, REGISTRY, Catalog, Issue, ParseError, canonical_json, digest, load_document, pointer
+from .documents import _DATA_KEYWORDS, EFFECT_ORDER, FILE_REF, REGISTRY, Catalog, Issue, ParseError, canonical_json, digest, load_document, pointer
 from .documents import mcp_name as tool_name
 
 __all__ = ["canonical_json", "digest"]  # re-exported from documents, where the checker also needs them
@@ -62,12 +62,19 @@ def _all_refs(start: list[str], catalog: Catalog) -> set[str]:
         stack.extend(manifest.get("calls", []))
         runtime = manifest["runtime"]
         if "workflow" in runtime:
-            target = Path(catalog.files[ref]).parent / runtime["workflow"]["path"]
-            if not target.is_file():
-                raise ValueError(f"{ref}: there is no workflow file at {target}")
-            inner = load_document(target)
-            stack.extend(step["uses"] for step in inner["steps"].values())
+            inner = pinned_workflow(Path(catalog.files[ref]).parent / runtime["workflow"]["path"], runtime["workflow"]["digest"])
+            if inner is not None:  # a file changed since the catalog was loaded fails its step when it runs ([run.pinned])
+                stack.extend(step["uses"] for step in inner["steps"].values())
     return seen
+
+
+def pinned_workflow(path: Path, pinned: str) -> dict | None:
+    """The workflow in `path` when it still has the digest its manifest pins, otherwise None."""
+    try:
+        doc = load_document(path)
+    except (ParseError, OSError):
+        return None
+    return doc if digest(doc) == pinned else None
 
 
 def as_step(workflow: dict, catalog: Catalog, path: str) -> dict:
@@ -120,8 +127,30 @@ def _derived(workflow: dict, catalog: Catalog, result) -> dict:
 
 
 def _meaning(schema: dict) -> str:
-    """A schema's digest with the order of `required` ignored, at the top level."""
-    return digest({**schema, "required": sorted(schema.get("required", []))}) if "required" in schema else digest(schema)
+    """A schema's digest with the order of every `required` list ignored, at any depth."""
+    return digest(_required_sorted(schema))
+
+
+_NAMED_SCHEMAS = ("properties", "patternProperties", "$defs", "definitions", "dependentSchemas")  # names, then schemas
+
+
+def _required_sorted(node):
+    """A schema with each `required` list sorted, leaving data such as defaults as they are."""
+    if isinstance(node, list):
+        return [_required_sorted(v) for v in node]
+    if not isinstance(node, dict):
+        return node
+    out = {}
+    for key, value in node.items():
+        if key in _DATA_KEYWORDS or key.startswith("x-"):
+            out[key] = value
+        elif key == "required" and isinstance(value, list):
+            out[key] = sorted(value, key=str)
+        elif key in _NAMED_SCHEMAS and isinstance(value, dict):
+            out[key] = {name: _required_sorted(schema) for name, schema in value.items()}
+        else:
+            out[key] = _required_sorted(value)
+    return out
 
 
 def self_reach_issues(ref: str, manifest: dict, catalog: Catalog, file: str | None) -> list[Issue]:

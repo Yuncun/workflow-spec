@@ -19,6 +19,7 @@ Every run record must fit schemas/run.schema.json.
 
 import json
 import os
+import shutil
 import socket
 import threading
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -171,3 +172,21 @@ def test_run_case(case: Path, tmp_path: Path):
         for stored in (tmp_path / "store").rglob("*"):
             if stored.is_file():
                 assert hidden.encode() not in stored.read_bytes(), f"{hidden} reached {stored.relative_to(tmp_path)}"
+
+
+def test_a_workflow_file_changed_after_loading_fails_its_step(tmp_path: Path):
+    """A workflow step's file that changes after the catalog is loaded, here into text that no
+    longer parses, fails that step with pinned_mismatch, and the run still gets its record
+    (SPEC.md, [run.pinned], [run.record])."""
+    case = ROOT / "tests" / "run" / "workflow-step"
+    shutil.copytree(case / "catalog", tmp_path / "catalog")
+    catalog = load_catalog([ROOT / "tests" / "run-catalog", tmp_path / "catalog"])
+    assert catalog.problems == []
+    (tmp_path / "catalog" / "workflows" / "shout.yaml").write_text("steps: [\n")
+    store = Store(tmp_path / "store")
+    options = Options(store=store, sandbox=SANDBOX is not None, readable=PYTHON)
+    record = Runner(catalog, options).run(load_document(case / "workflow.yaml"), {})
+    assert record["status"] == "failed"
+    assert record["steps"]["shout"]["error"]["code"] == "pinned_mismatch", record["steps"]["shout"]
+    assert record["error"]["code"] == "pinned_mismatch"
+    assert (tmp_path / "store" / "runs" / f"{record['id']}.json").is_file()

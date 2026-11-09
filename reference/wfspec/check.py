@@ -127,8 +127,8 @@ class _Checker:
                 self.error("invalid_workflow", pointer("inputSchema", "required"), f"{name!r} is required but not declared in properties")
         for name, schema in props.items():
             if _has_default(schema):
-                problem = value_problem(schema, schema["default"])
-                if problem:
+                problem = value_problem(schema, schema["default"]) or next(iter(media_type_problems(schema["default"], schema)), None)
+                if problem:  # [check.invalid-value], [types.media-type]
                     self.error("invalid_value", pointer("inputSchema", "properties", name, "default"), f"the default doesn't fit the input: {problem}")
 
     def _manifest(self, sid: str, step: dict) -> dict | None:

@@ -1,0 +1,13 @@
+# A workflow input's default must fit the input's media type too (SPEC.md, [check.invalid-value],
+# [types.media-type]).
+inputSchema:
+  type: object
+  properties:
+    doc:
+      $ref: urn:wfspec:file
+      x-mediaType: text/plain
+      default: { digest: "sha256:0000000000000000000000000000000000000000000000000000000000000000", mediaType: image/png, size: 1 }
+steps:
+  read: { uses: test/read-file@1.0.0, with: { doc: { from: inputs.doc } } }
+outputs:
+  lines: { from: steps.read.outputs.lines }

@@ -55,9 +55,10 @@
       ]
     },
     "error": {
-      "description": "Why the run failed or never started, for example 'check_failed' with the checker's result in the message.",
+      "description": "Why the run failed or never started: 'check_failed', 'invalid_input' or 'lock_mismatch' for a run that never started, otherwise the code of the first step that failed.",
       "type": "object",
       "required": [
+        "code",
         "message"
       ],
       "properties": {
@@ -65,7 +66,15 @@
           "type": "string"
         },
         "code": {
-          "type": "string"
+          "enum": [
+            "check_failed",
+            "invalid_input",
+            "lock_mismatch",
+            "invalid_output",
+            "pinned_mismatch",
+            "timeout",
+            "failed"
+          ]
         }
       },
       "additionalProperties": false
@@ -155,6 +164,7 @@
         "error": {
           "type": "object",
           "required": [
+            "code",
             "message"
           ],
           "properties": {
@@ -162,7 +172,13 @@
               "type": "string"
             },
             "code": {
-              "type": "string"
+              "enum": [
+                "invalid_input",
+                "invalid_output",
+                "pinned_mismatch",
+                "timeout",
+                "failed"
+              ]
             }
           },
           "additionalProperties": false
@@ -188,9 +204,22 @@
       "type": "object",
       "required": [
         "uses",
+        "digest",
         "inputs",
         "status"
       ],
+      "if": {
+        "properties": {
+          "status": {
+            "const": "succeeded"
+          }
+        }
+      },
+      "then": {
+        "required": [
+          "outputs"
+        ]
+      },
       "properties": {
         "uses": {
           "$ref": "urn:wfspec:schema:step#/$defs/stepRef"

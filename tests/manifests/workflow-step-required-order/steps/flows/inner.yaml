@@ -1,0 +1,14 @@
+# The workflow inside test/m-required-order. Its input lists `required` as [first, last].
+inputSchema:
+  type: object
+  properties:
+    person:
+      type: object
+      properties: { first: { type: string }, last: { type: string } }
+      required: [first, last]
+  required: [person]
+steps:
+  file: { uses: acme/open-issue@1.0.3, with: { repo: acme/web, title: Weekly report, body: All builds passed. } }
+outputs:
+  url: { from: steps.file.outputs.url }
+  person: { from: inputs.person }

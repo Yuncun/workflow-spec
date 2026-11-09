@@ -1,0 +1,67 @@
+{
+  "name": "test/m-required-order",
+  "version": "1.0.0",
+  "description": "Open a weekly report issue for a person, as a workflow.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "person": {
+        "type": "object",
+        "properties": {
+          "first": {
+            "type": "string"
+          },
+          "last": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "last",
+          "first"
+        ]
+      }
+    },
+    "required": [
+      "person"
+    ]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "url": {
+        "type": "string",
+        "format": "uri"
+      },
+      "person": {
+        "type": "object",
+        "properties": {
+          "first": {
+            "type": "string"
+          },
+          "last": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "last",
+          "first"
+        ]
+      }
+    },
+    "required": [
+      "url",
+      "person"
+    ]
+  },
+  "effects": "writes",
+  "deterministic": false,
+  "secrets": [
+    "GITHUB_TOKEN"
+  ],
+  "runtime": {
+    "workflow": {
+      "path": "flows/inner.yaml",
+      "digest": "sha256:1ee10737cb7927ab38dae508e0bd119d7b85561d5593db4c1fb187be31284977"
+    }
+  }
+}

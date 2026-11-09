@@ -10,7 +10,12 @@
 ## Unreleased
 
 **Changed**
-- [publish.saved-run]: a dry run also compares what a saved workflow would write. Each step that writes must be given the same value as the write it replays for every fixed input, meaning one that doesn't come from a model's answer or another step that isn't deterministic. Before, the dry run replayed writes without looking at their inputs, so a saved workflow that would write something else still passed. A write of the original run that the saved workflow leaves out is now reported too. The rule also defines run order, which decides which write each step replays.
+- [publish.saved-run]: a dry run also compares what a saved workflow would write. Each step that writes must be given the same value as the write it replays for every fixed input, meaning one that doesn't come from a model's answer or another step that isn't deterministic. Before, the dry run replayed writes without looking at their inputs, so a saved workflow that would write something else still passed. A write of the original run that the saved workflow leaves out is now reported too. Run order, which decides which write each step replays, is now a term (section 2.3).
+- [run.failure]: a failed run's error has the code of the first step that failed. The test cases already required it.
+- [run.retry]: `attempts` of 0 also covers a write replayed in a dry run.
+- `schemas/run.schema.json` now holds what section 9 already required: an error always has a code, from the lists in [run.error-codes] and section 9.1, and a call records its step digest, and its outputs when it succeeded ([run.calls-recorded]).
+- [manifest.workflow-derived] ignores the order of `required` lists at every depth, as it says; the reference checker sorted only the top level.
+- [check.invalid-value]: the reference checker now checks a workflow input default's media type too, as the rule says.
 
 **Security**, in the reference runner
 - Output files are read without following symbolic links, through a handle to the work folder opened before the program starts. A process the program left running could otherwise swap in a link to a file the sandbox denied it.
