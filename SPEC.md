@@ -8,7 +8,7 @@ This specification defines a text format for jobs built from published steps. It
 
 *This section is informative.*
 
-A **step** is a published, versioned unit of work with typed inputs and outputs. It can be a program, an agent, a tool on a remote server, or another workflow. A **workflow** connects steps. Each input of a step gets either a literal value or a reference to a workflow input or to another step's output. A workflow holds no logic: decisions live inside steps.
+A **step** is a published, versioned unit of work with typed inputs and outputs. It can be a program, an agent, a tool on a remote server, or another workflow. A **workflow** connects steps. Each input of a step gets either a literal value or a reference to a workflow input or to another step's output. A workflow is data, not a program: all computation, including decisions, lives inside steps.
 
 Systems that run workflows are built in layers. This specification covers the format layer, which includes what a run must produce. Each other layer has its own document or is left to platforms:
 
@@ -34,7 +34,7 @@ How the parts turn into each other:
 
 The design rests on six principles:
 1. **Everything runnable has the same interface:** JSON Schema inputs and outputs, declared effects, and a name@version. That interface is an MCP tool definition plus a few fields, so any step can be offered to an agent as a tool.
-2. **A workflow holds no logic.** It has no expressions, conditions or loops. This keeps checking simple and complete, and keeps the file readable by the people who review it.
+2. **A workflow is data, not a program.** It only connects steps. It has no expressions, conditions or loops; all computation, including decisions, happens inside steps. So a workflow can be checked completely before it runs, and every runner reads it the same way. This follows the [Rule of Least Power](https://www.w3.org/2001/tag/doc/leastPower.html): use the least powerful language that does the job.
 3. **Checking reports every problem at once,** each with a code whose meaning never changes, so an agent can fix a workflow from the codes alone.
 4. **Shared files pin everything.** A workflow names exact step versions, and a published workflow's lock file records the content hash of each one.
 5. **Steps declare whether they are safe to reuse or retry.** Nothing is cached or retried unless the manifest says it is safe.
