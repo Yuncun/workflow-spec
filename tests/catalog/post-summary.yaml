@@ -17,7 +17,5 @@ outputSchema:
     id: { type: string }
   required: [id]
 effects: writes
-idempotent: true
-destructive: false
 secrets: [CHAT_TOKEN]
 runtime: { container: { image: example.test/post-summary:1.0.0 } }

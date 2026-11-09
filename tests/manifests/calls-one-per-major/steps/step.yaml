@@ -1,0 +1,8 @@
+name: test/m15
+version: 1.0.0
+description: An agent that lists two versions of one step with the same major version.
+inputSchema: { type: object, properties: {} }
+outputSchema: { type: object, properties: {} }
+effects: reads
+calls: [acme/fetch-ci-logs@2.1.0, acme/fetch-ci-logs@2.0.0]
+runtime: { agent: { model: claude-sonnet-5-5, instructions: prompts/m15.md } }

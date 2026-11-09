@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "urn:wfspec:schema:run",
   "title": "Run record",
-  "description": "What happened when a workflow ran: which step versions, with which inputs, giving which outputs. Enough to rerun it or save it as a new workflow. See SPEC.md, section 7.",
+  "description": "What happened when a workflow ran: which step versions, with which inputs, giving which outputs. Enough to rerun it or save it as a new workflow. See SPEC.md, section 9.9.",
   "type": "object",
   "required": [
     "id",
@@ -168,18 +168,14 @@
           "additionalProperties": false
         },
         "calls": {
-          "description": "Steps an agent step called as tools, in order.",
+          "description": "The steps this step called while it ran, in order (SPEC.md, section 9.8).",
           "type": "array",
           "items": {
             "$ref": "#/$defs/call"
           }
         },
-        "plan": {
-          "description": "The workflow an agent step returned instead of outputs.",
-          "$ref": "urn:wfspec:schema:workflow"
-        },
         "steps": {
-          "description": "How the plan's steps ran.",
+          "description": "For a step whose runtime is a workflow: how the steps inside it ran.",
           "type": "object",
           "additionalProperties": {
             "$ref": "#/$defs/stepRun"
@@ -245,7 +241,7 @@
         }
       },
       "additionalProperties": false,
-      "description": "A step an agent step called as a tool. It ran as a step, so it records the same facts."
+      "description": "A step another step called while it ran. It ran as a step, so it records the same facts."
     }
   }
 }

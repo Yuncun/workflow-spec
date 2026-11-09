@@ -1,10 +1,11 @@
-# A broad agent step: it decides for itself which of its tools to call. It can open
-# issues, so its effects are 'writes'. examples/runs/investigate.run.json records one
-# run of it, and examples/workflows/ci-triage.yaml is that run saved as a workflow.
+# An agent step that calls other steps: it decides for itself which of the steps in `calls`
+# to call. One of them opens issues, so its effects are 'writes', and it names that step's
+# secret. examples/runs/investigate.run.json records one run of it, and
+# examples/workflows/ci-triage.yaml is that run saved as a workflow.
 name: acme/investigate-failure
 version: 0.1.0
 title: Investigate a CI failure
-description: Look into a failed CI run using the allowed tools, and file an issue if the failure is real.
+description: Look into a failed CI run using the steps it can call, and file an issue if the failure is real.
 inputSchema:
   type: object
   properties:
@@ -26,14 +27,10 @@ outputSchema:
       format: uri
   required: [summary]
 effects: writes
-idempotent: false
-destructive: false
 secrets: [GITHUB_TOKEN]
+calls: [acme/fetch-ci-logs@2.1.0, acme/open-issue@1.0.3]
 runtime:
   agent:
     model: claude-opus-5-5
     instructions: prompts/investigate.md
-    tools: [acme/fetch-ci-logs@2.1.0, acme/open-issue@1.0.3]
     maxTurns: 40
-resources:
-  timeout: 30m

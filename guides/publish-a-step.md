@@ -40,7 +40,7 @@ examples:
 
 - **Write `description` for an agent.** Agents choose steps by reading it, so say what the step does and when to use it.
 - **Give inputs and outputs real types.** Use enums, ranges and required fields. Each one you leave out turns an error in someone's workflow into a failure at run time.
-- **Use only `{$ref: urn:wfspec:file}` for references** in schemas. Version 0.1 allows no other `$ref`, `$defs` or `$id`.
+- **Use only `{$ref: urn:wfspec:file}` for references** in schemas. No other `$ref`, `$defs` or `$id` is allowed (SPEC.md, [manifest.refs]).
 
 ## 2. Choose its effects
 
@@ -51,15 +51,13 @@ examples:
 | reads data that can change, or calls a model | `reads` | false |
 | creates, changes or deletes anything outside | `writes` | false |
 
-For a `writes` step, two more fields matter:
-- **`idempotent: true`** if repeating a call changes nothing more. A step that does this can be retried automatically.
-- **`destructive: false`** if the step only adds things.
+A `writes` step is never cached or retried automatically, and a platform may ask for approval before it runs.
 
 If your step can find it has nothing to do, such as an empty list, set **`maySkip: true`** and skip instead of failing (step 3). The steps that depend on it are skipped too, and the run still succeeds.
 
 ## 3. Read inputs and write outputs
 
-The platform passes input values in a JSON file and reads outputs from another:
+The platform passes input values in a JSON file and reads outputs from another. This contract is in drafts/runtime.md, section 1, a draft that the reference runner is testing:
 
 ```python
 import json, os
@@ -89,36 +87,38 @@ with open(os.environ["WF_OUTPUTS"], "w") as f:
 
 ```bash
 wfspec check-step step.yaml
-wfspec check-step step.yaml --catalog <catalog folder>   # for an agent step: also checks its tools
+wfspec check-step step.yaml --catalog <catalog folder>   # for a step with calls: also checks the steps it calls
 ```
 
 ## 5. Publish
 
 The platform does four things when you publish:
 - builds the image at your commit and pins it by digest
-- runs your `examples` and checks the outputs against `outputSchema`. Examples of a `writes` step are only checked against the schemas, so publishing never changes real data.
+- checks your `examples` against the schemas. Running them as tests is a proposal (proposals.md, P14).
 - refuses to reuse a name@version that already holds different content
 - adds `your-team/diff-stats@1.0.0` to the catalog
 
-After a change that breaks callers, publish under a new major version (SPEC.md, section 8.4). Old versions stay available, so published workflows keep working.
+After a change that breaks callers, publish under a new major version (SPEC.md, section 10.5). Old versions stay available, so published workflows keep working.
 
 ## Agent steps
 
 An agent step has the same manifest with `runtime.agent` instead of `runtime.container`:
 - **`instructions`:** a file next to the manifest, used as the agent's system prompt.
 - **`model`:** the model to run.
-- **`tools`:** the exact step versions the agent may call.
+- **`maxTurns`:** an optional limit on the agent's responses.
 
-Two rules keep an agent honest:
-- Its `effects` must be at least those of each tool.
-- Its `secrets` must include each tool's secrets.
+To let the agent use other steps as tools, list their exact versions in **`calls`**. Two rules keep the manifest honest, and they apply to any step with `calls`, not only agents:
+- Its `effects` must be at least those of each step it can call.
+- Its `secrets` must include each of those steps' secrets.
 
-`examples/steps/` has a narrow agent (`summarize-diff.yaml`) and a broad one with tools (`investigate-failure.yaml`).
+The runner offers each step in `calls` as a tool, plus a `finish` tool whose parameters are your `outputSchema`. It checks the agent's final answer against the schema and hands any problem back for another try (drafts/runtime.md, section 2).
+
+`examples/steps/` has an agent without calls (`summarize-diff.yaml`) and one with calls (`investigate-failure.yaml`).
 
 ## Let an agent draft it
 
 Give your agent this, in the repository:
 
-> Read SPEC.md section 3 and this repository's README, command-line help and tests. Write `step.yaml` for the main command. Use the narrowest types the code supports, and choose `effects` with the table in guides/publish-a-step.md. Add one example from the tests. Run `wfspec check-step step.yaml` and fix every error. Then run the command on the example in a container and confirm the outputs fit `outputSchema`. Open a pull request so a person can review the manifest.
+> Read SPEC.md section 5, drafts/runtime.md and this repository's README, command-line help and tests. Write `step.yaml` for the main command. Use the narrowest types the code supports, and choose `effects` with the table in guides/publish-a-step.md. Add one example from the tests. Run `wfspec check-step step.yaml` and fix every error. Then run the command on the example in a container and confirm the outputs fit `outputSchema`. Open a pull request so a person can review the manifest.
 
 The person reviewing should check `effects` first. That one field decides whether the step is cached, retried, or needs approval.

@@ -10,13 +10,13 @@
     "workflow": "acme/ci-triage@1.2.0",
     "steps": {
       "acme/fetch-ci-logs@2.1.0": {
-        "digest": "sha256:c5a48d74a450852979d4d718498e3e81e2913d4272ed60c5c6e31356b8dbcbeb"
+        "digest": "sha256:d3430eb9c4163bf5290c227fdd379ca064aac5f6e2505c048a7f2595e9971c06"
       },
       "acme/open-issue@1.0.3": {
-        "digest": "sha256:6f51a39faa93321d62993649e6c0cd9f8d33df655fba2a51c7d19c060952c104"
+        "digest": "sha256:e2d034a77d871b0c93b9cf67e9b49e492fe37304be332f75b70cc7d92237bb77"
       },
       "acme/triage-logs@0.4.1": {
-        "digest": "sha256:52965052354b7291f46fc7421d1cfa4b00449d8cca8bc5cb4d39abba50bbbb2d"
+        "digest": "sha256:788a8a49858469f0a43dacdb6150c7eec1306d62e0f0793a711353cabbe4cf91"
       }
     }
   },
@@ -38,9 +38,9 @@
   "steps": {
     "logs": {
       "uses": "acme/fetch-ci-logs@2.1.0",
-      "digest": "sha256:c5a48d74a450852979d4d718498e3e81e2913d4272ed60c5c6e31356b8dbcbeb",
+      "digest": "sha256:d3430eb9c4163bf5290c227fdd379ca064aac5f6e2505c048a7f2595e9971c06",
       "status": "succeeded",
-      "cacheKey": "sha256:dc86ac78e68e53987ac6c73b98f157e1376365a3ded677bd746c2e2a56632607",
+      "cacheKey": "sha256:52882076a6e59b777bd4d98757a354d77f9a7f170a8b16400cf0b0daa10b3e81",
       "cacheHit": true,
       "attempts": 0,
       "inputs": {
@@ -58,7 +58,7 @@
     },
     "triage": {
       "uses": "acme/triage-logs@0.4.1",
-      "digest": "sha256:52965052354b7291f46fc7421d1cfa4b00449d8cca8bc5cb4d39abba50bbbb2d",
+      "digest": "sha256:788a8a49858469f0a43dacdb6150c7eec1306d62e0f0793a711353cabbe4cf91",
       "status": "succeeded",
       "attempts": 1,
       "inputs": {
@@ -80,7 +80,7 @@
     },
     "file": {
       "uses": "acme/open-issue@1.0.3",
-      "digest": "sha256:6f51a39faa93321d62993649e6c0cd9f8d33df655fba2a51c7d19c060952c104",
+      "digest": "sha256:e2d034a77d871b0c93b9cf67e9b49e492fe37304be332f75b70cc7d92237bb77",
       "status": "succeeded",
       "attempts": 1,
       "inputs": {

@@ -1,6 +1,6 @@
 """Whether a value described by one JSON Schema can be passed where another is expected.
 
-SPEC.md, section 4.3. The checker proves shapes and leaves limits it can't prove to run time:
+SPEC.md, section 6.3. The checker proves shapes and leaves limits it can't prove to run time:
 - an error means the source can produce a value of the wrong shape for the target;
 - a warning means the shapes fit, but a limit on the target (a range, a pattern, a list of
   allowed values...) can't be proven from the source's schema, so the value is checked when
@@ -19,7 +19,7 @@ FILE_REF = "urn:wfspec:file"
 _ANNOTATIONS = frozenset({
     "title", "description", "examples", "default", "deprecated", "readOnly", "writeOnly",
     "$comment", "$schema", "$id", "$anchor",
-    "format",  # an annotation in version 0.1: neither checked nor enforced (SPEC.md, section 4.1)
+    "format",  # an annotation: neither checked nor enforced (SPEC.md, [types.format])
 })
 _SCHEMA_MAPS = ("properties", "patternProperties", "$defs", "dependentSchemas")
 _SCHEMA_VALUES = (
@@ -102,7 +102,7 @@ def assignable(src, dst, where: str = "") -> list[Finding]:
     if _is_file(src) or _is_file(dst):
         return _files(src, dst, where)
     if "$ref" in src or "$ref" in dst:
-        # Files that pass the manifest and workflow rules never get here (section 4.1); this keeps a
+        # Files that pass the manifest and workflow rules never get here (SPEC.md, [manifest.refs]); this keeps a
         # direct caller with other schemas from getting a wrong "fits".
         return [Finding(False, where, "the checker doesn't follow $ref, other than to files")]
     if any(k in dst for k in _COMPOSITION):

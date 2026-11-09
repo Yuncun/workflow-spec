@@ -1,0 +1,74 @@
+# Step runtimes
+
+Draft, 2026-11-08. **Not normative.** This document becomes a normative companion to [SPEC.md](../SPEC.md) once the reference runner's tests in `tests/run/` cover it. Until then, a runner may follow it or not.
+
+SPEC.md says what a run must produce. This document says how a runner starts one step, for each runtime kind a manifest can name in `runtime`. SPEC.md, section 5.3 defines the `workflow` kind.
+
+| Kind | Runs | Fields |
+|---|---|---|
+| `process` | a program started on the runner's machine | `command` |
+| `container` | a program in a container image | `image`, `command` |
+| `agent` | a model that answers, and may call steps | `model`, `instructions`, `maxTurns` |
+| `mcp` | a tool on a remote MCP server | `server`, `tool` |
+
+## 1. Programs: `process` and `container`
+
+Both kinds run a program under one contract. They differ only in how the program starts:
+- **`process`:** the runner starts `command` directly, with the manifest's folder as the working directory.
+- **`container`:** the runner starts `image`. When `command` is given, it replaces the image's entrypoint, as in Kubernetes. Without it, the image's own entrypoint and arguments run.
+
+The contract:
+- **Inputs.** The runner checks the input values and fills in defaults (SPEC.md, [run.input-check]). It then writes them as JSON to the file named by the environment variable `WF_INPUTS`.
+  - Wherever `inputSchema` declares a file, at any depth through `properties` and `items`, the value also gets a `path` field: a local, read-only copy of the file.
+  - `path` is added after the check and isn't part of the file value.
+- **Outputs.** The program writes a JSON object of its outputs to the file named by `WF_OUTPUTS`.
+  - Wherever `outputSchema` declares a file, the program writes `{"path": "...", "mediaType": "..."}`. It can leave out `mediaType` when the schema's `x-mediaType` names a single type.
+  - The runner stores each file, replaces it with a file value, and then checks the outputs ([run.output-check]).
+- **Skipping.** A step whose manifest has `maySkip` and that has nothing to do writes a reason to the file named by `WF_SKIP` instead of writing outputs ([run.skip]).
+- **Secrets.** Each secret named in `secrets` is set as an environment variable with the same name, and no other secret is set ([run.secrets-named]).
+- **Exit and logs.** Exit code 0 means success. Any other exit code fails the step with `failed`. Standard output and standard error are the step's logs.
+- **Pinning.** Before computing the digest, a publisher resolves `image` to `image@sha256:...` ([publish.resolve]). For `process`, the publisher pins the files in the manifest's folder, for example by including their digests in what it hashes.
+
+A program can't call steps under this draft (proposals.md, P16).
+
+## 2. Agents: `agent`
+
+- `model` names a model the runner can serve. How the runner maps names to models and providers is its choice.
+- `instructions` is the path of a text file, relative to the manifest's folder. A publisher pins it by its digest before computing the step's digest.
+- `maxTurns` limits the number of model responses. When it's left out, the runner chooses the limit.
+
+The runner:
+1. **Starts the model.** The instructions become the system prompt, and the input values, as JSON, the first user message. Every file input must be readable by the agent. Whether the runner puts the text in the message, attaches it, or relies on a step in `calls` that reads files is its choice.
+2. **Offers tools:**
+   - each step in `calls`, under its MCP tool name ([mcp.md](mcp.md), section 1), with its `inputSchema` as the parameters
+   - `finish`, whose parameters are the step's `outputSchema`
+   - `skip`, with one text parameter `reason`, when the manifest has `maySkip`
+3. **Runs each tool call as a step** ([run.calls-listed]) and returns the step's outputs, or its error, as the tool result. A response can contain several calls; the runner runs all of them in order and records each one ([run.calls-recorded]).
+4. **Finishes** when the model calls `finish` or `skip`.
+   - The runner checks the arguments of `finish` against `outputSchema`. When they don't fit, it returns the problems as the result of that call, and gives the model another turn.
+   - It allows a limited number of such retries; 2 is a sensible default.
+   - When the retries or `maxTurns` run out, the step fails with `invalid_output` or `failed`.
+5. **Handles models without tool calls.** A runner MAY run an agent step that has no `calls` by asking for one typed answer instead.
+   - The answer's JSON Schema wraps the outputs as `{"outputs": <outputSchema>}`.
+   - With `maySkip`, the answer may instead be `{"skip": "<reason>"}`.
+   - Wrapping the outputs keeps an output named `skip` unambiguous.
+
+*Informative.* On 2026-11-08, Qwen 3.8 27B, served locally by LM Studio, ran an agent step with two steps in `calls`:
+- It finished in 4 turns and 9.3 seconds.
+- It read two files in a single response.
+- Its first `finish` broke a `maxLength`, and it fixed the answer when the problem came back.
+
+LM Studio doesn't hold tool-call arguments to their schema, which is why step 4 checks them.
+
+## 3. Remote tools: `mcp`
+
+- `server` is the URL of an MCP server, and `tool` is the name of a tool on it.
+- The runner calls the tool with the input values as its arguments. It takes the `structuredContent` of the tool's result as the outputs.
+- A result with `isError` fails the step with `failed`.
+- The server's code can't be pinned by content hash, so the manifest's author vouches for `effects` and `deterministic`. A runner should treat such a step as not deterministic unless it trusts the server's owner.
+
+## 4. Open questions
+
+- Can a program step call steps? It would need an interface from the runner, which brings in a service API (proposals.md, P16).
+- What resource limits does a step declare (proposals.md, P4)?
+- How does a runner report a step's progress while it runs?

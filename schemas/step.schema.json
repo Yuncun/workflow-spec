@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "urn:wfspec:schema:step",
   "title": "Step manifest",
-  "description": "A published, versioned unit of work. name, title, description, inputSchema and outputSchema are the fields of an MCP tool definition; the rest say how the step behaves and how it runs. See SPEC.md, section 3.",
+  "description": "A published, versioned unit of work. name, title, description, inputSchema and outputSchema are the fields of an MCP tool definition; the rest say how the step behaves and how it runs. See SPEC.md, section 5.",
   "type": "object",
   "required": [
     "name",
@@ -47,15 +47,9 @@
     "deterministic": {
       "type": "boolean"
     },
-    "idempotent": {
-      "type": "boolean"
-    },
-    "destructive": {
-      "type": "boolean"
-    },
     "maySkip": {
       "type": "boolean",
-      "description": "The step can finish by skipping: it gives a reason instead of outputs, and the steps that depend on it are skipped (SPEC.md, section 7.5)."
+      "description": "The step can finish by skipping: it gives a reason instead of outputs, and the steps that depend on it are skipped (SPEC.md, section 9.6)."
     },
     "secrets": {
       "type": "array",
@@ -65,29 +59,16 @@
       },
       "uniqueItems": true
     },
+    "calls": {
+      "description": "The exact step versions this step may call while it runs (SPEC.md, section 5.4).",
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/stepRef"
+      },
+      "uniqueItems": true
+    },
     "runtime": {
       "$ref": "#/$defs/runtime"
-    },
-    "resources": {
-      "type": "object",
-      "properties": {
-        "timeout": {
-          "type": "string",
-          "pattern": "^[1-9][0-9]*(s|m|h)$"
-        },
-        "cpu": {
-          "type": "number",
-          "exclusiveMinimum": 0
-        },
-        "memory": {
-          "type": "string",
-          "pattern": "^[1-9][0-9]*(Mi|Gi)$"
-        }
-      },
-      "patternProperties": {
-        "^x-": {}
-      },
-      "additionalProperties": false
     },
     "examples": {
       "type": "array",
@@ -155,11 +136,27 @@
       }
     },
     "runtime": {
-      "description": "How the step runs. Exactly one kind; platform-specific kinds start with x-.",
+      "description": "How the step runs: exactly one kind. SPEC.md, section 5.3 defines workflow; drafts/runtime.md defines process, container, agent and mcp; kinds starting with x- belong to platforms.",
       "type": "object",
       "minProperties": 1,
       "maxProperties": 1,
       "properties": {
+        "process": {
+          "type": "object",
+          "required": [
+            "command"
+          ],
+          "properties": {
+            "command": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              },
+              "minItems": 1
+            }
+          },
+          "additionalProperties": false
+        },
         "container": {
           "type": "object",
           "required": [
@@ -194,19 +191,9 @@
               "type": "string",
               "minLength": 1
             },
-            "tools": {
-              "type": "array",
-              "items": {
-                "$ref": "#/$defs/stepRef"
-              },
-              "uniqueItems": true
-            },
             "maxTurns": {
               "type": "integer",
               "minimum": 1
-            },
-            "mayPlan": {
-              "type": "boolean"
             }
           },
           "additionalProperties": false

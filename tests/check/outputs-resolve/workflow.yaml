@@ -1,0 +1,6 @@
+# Workflow outputs resolve the way references in `with` do (SPEC.md, [check.outputs-resolve]).
+steps:
+  values: { uses: test/emit-values@1.0.0 }
+outputs:
+  missing: { from: steps.nope.outputs.text }
+  malformed: { from: steps.values.text }

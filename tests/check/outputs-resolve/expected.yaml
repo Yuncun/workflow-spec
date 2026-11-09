@@ -1,0 +1,6 @@
+ok: false
+errors:
+  - { code: unknown_reference, path: "/outputs/missing" }
+  - { code: bad_reference, path: "/outputs/malformed" }
+warnings:
+  - { code: step_never_runs, path: "/steps/values" }

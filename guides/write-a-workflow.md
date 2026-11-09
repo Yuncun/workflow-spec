@@ -91,14 +91,14 @@ Run it through the platform: its API, its MCP server, or a form built from `inpu
 
 ## 4. Share it
 
-- Publish it with `name`, `version` and `description`. The platform writes a lock file that pins, by content hash, every step it can run, including agents' tools.
-- The published workflow becomes a step that other workflows can use (SPEC.md, section 8.3).
-- It also appears as a tool in Copilot and other MCP clients.
+- Publish it with `name`, `version` and `description`. The platform writes a lock file that pins, by content hash, every step it can run, including the steps its steps can call.
+- The published workflow becomes a step that other workflows can use (SPEC.md, section 10.4).
+- On a platform with an MCP server, it also appears as a tool in MCP clients such as Copilot (drafts/mcp.md).
 - People who only want to run it get a form built from its inputs.
 
 ## Save an agent's run as a workflow
 
-When an agent step solves something you'll need again, save its run as a workflow (SPEC.md, section 8.5):
+When an agent step solves something you'll need again, save its run as a workflow (SPEC.md, section 10.6):
 1. Open the run record and list the steps the agent called, in order.
 2. Make each call a step with the same `uses`.
 3. Where a value came from an earlier call, reference that call's output.

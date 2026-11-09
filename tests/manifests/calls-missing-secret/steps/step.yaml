@@ -1,0 +1,8 @@
+name: test/m11
+version: 1.0.0
+description: An agent that can open issues but doesn't list the secret they need.
+inputSchema: { type: object, properties: {} }
+outputSchema: { type: object, properties: {} }
+effects: writes
+calls: [acme/open-issue@1.0.3]
+runtime: { agent: { model: claude-sonnet-5-5, instructions: prompts/m11.md } }

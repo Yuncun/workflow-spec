@@ -10,13 +10,13 @@
     "workflow": "acme/investigate@0.1.0",
     "steps": {
       "acme/fetch-ci-logs@2.1.0": {
-        "digest": "sha256:c5a48d74a450852979d4d718498e3e81e2913d4272ed60c5c6e31356b8dbcbeb"
+        "digest": "sha256:d3430eb9c4163bf5290c227fdd379ca064aac5f6e2505c048a7f2595e9971c06"
       },
       "acme/investigate-failure@0.1.0": {
-        "digest": "sha256:de1191940088019f244c8d172466ee0f5ba06f4cb513aae751f3b04d857d00d2"
+        "digest": "sha256:c63b573b78a4ec6c0ed4a561caa2812ee8a2251d5411f24c8dc090079e341d9d"
       },
       "acme/open-issue@1.0.3": {
-        "digest": "sha256:6f51a39faa93321d62993649e6c0cd9f8d33df655fba2a51c7d19c060952c104"
+        "digest": "sha256:e2d034a77d871b0c93b9cf67e9b49e492fe37304be332f75b70cc7d92237bb77"
       }
     }
   },
@@ -37,7 +37,7 @@
   "steps": {
     "investigate": {
       "uses": "acme/investigate-failure@0.1.0",
-      "digest": "sha256:de1191940088019f244c8d172466ee0f5ba06f4cb513aae751f3b04d857d00d2",
+      "digest": "sha256:c63b573b78a4ec6c0ed4a561caa2812ee8a2251d5411f24c8dc090079e341d9d",
       "status": "succeeded",
       "attempts": 1,
       "inputs": {
@@ -53,7 +53,7 @@
       "calls": [
         {
           "uses": "acme/fetch-ci-logs@2.1.0",
-          "digest": "sha256:c5a48d74a450852979d4d718498e3e81e2913d4272ed60c5c6e31356b8dbcbeb",
+          "digest": "sha256:d3430eb9c4163bf5290c227fdd379ca064aac5f6e2505c048a7f2595e9971c06",
           "inputs": {
             "repo": "acme/web",
             "run_id": 1234
@@ -72,7 +72,7 @@
         },
         {
           "uses": "acme/open-issue@1.0.3",
-          "digest": "sha256:6f51a39faa93321d62993649e6c0cd9f8d33df655fba2a51c7d19c060952c104",
+          "digest": "sha256:e2d034a77d871b0c93b9cf67e9b49e492fe37304be332f75b70cc7d92237bb77",
           "inputs": {
             "repo": "acme/web",
             "title": "test_checkout_total fails: rounding changed in currency.format",

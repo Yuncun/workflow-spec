@@ -1,0 +1,8 @@
+# Input names must be able to appear in references (SPEC.md, [types.json-schema]).
+name: test/m17
+version: 1.0.0
+description: A step with an input name that a reference can't name.
+inputSchema: { type: object, properties: { "first item": { type: string } } }
+outputSchema: { type: object, properties: { done: { type: boolean } }, required: [done] }
+effects: none
+runtime: { container: { image: example.test/m17:1.0.0 } }

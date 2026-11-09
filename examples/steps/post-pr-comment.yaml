@@ -15,7 +15,5 @@ outputSchema:
     url: { type: string, format: uri }
   required: [url]
 effects: writes
-idempotent: false
-destructive: false
 secrets: [GITHUB_TOKEN]
 runtime: { container: { image: ghcr.io/acme/post-pr-comment:1.1.0 } }

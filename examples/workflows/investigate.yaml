@@ -1,4 +1,4 @@
-# One agent step with tools. The agent works out what to do on each run.
+# One agent step that calls other steps. The agent works out what to do on each run.
 # Compare examples/workflows/ci-triage.yaml, which fixes the steps it took.
 name: acme/investigate
 version: 0.1.0

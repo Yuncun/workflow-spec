@@ -1,0 +1,7 @@
+name: test/save-link
+version: 1.0.0
+description: Save a link, for checker tests.
+inputSchema: { type: object, properties: { link: { type: string, format: uri } }, required: [link] }
+outputSchema: { type: object, properties: {} }
+effects: writes
+runtime: { container: { image: example.test/save-link:1.0.0 } }

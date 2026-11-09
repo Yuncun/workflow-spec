@@ -19,8 +19,8 @@ from ruamel.yaml.error import MarkedYAMLError, YAMLError
 SCHEMA_DIR = Path(__file__).resolve().parents[2] / "schemas"
 EFFECT_ORDER = {"none": 0, "reads": 1, "writes": 2}
 FILE_REF = "urn:wfspec:file"
-# Schema keywords that point elsewhere or name a part of a schema. Version 0.1 allows only
-# {"$ref": "urn:wfspec:file"} (SPEC.md, section 4.1).
+# Schema keywords that point elsewhere or name a part of a schema. Only {"$ref": "urn:wfspec:file"}
+# is allowed (SPEC.md, section 6.1, [manifest.refs]).
 _REFERENCE_KEYWORDS = ("$ref", "$dynamicRef", "$defs", "definitions", "$id", "$anchor", "$dynamicAnchor")
 
 
@@ -135,7 +135,7 @@ REGISTRY = _registry()
 def validator(schema: dict | str) -> Draft202012Validator:
     """A validator for an inline schema, or for one of the spec's schemas given by its $id.
 
-    `format` stays an annotation, as in JSON Schema 2020-12 by default (SPEC.md, section 4.1)."""
+    `format` stays an annotation, as in JSON Schema 2020-12 by default (SPEC.md, [types.format])."""
     if isinstance(schema, str):
         schema = REGISTRY.contents(schema)
     return Draft202012Validator(schema, registry=REGISTRY)
@@ -177,7 +177,7 @@ def reference_issues(schema, path: tuple) -> list[tuple[str, str]]:
     if isinstance(schema, dict):
         for key, value in schema.items():
             if key in _REFERENCE_KEYWORDS and not (key == "$ref" and value == FILE_REF):
-                found.append((pointer(*path, key), f"{key} isn't allowed in version 0.1; only {{\"$ref\": \"{FILE_REF}\"}} is"))
+                found.append((pointer(*path, key), f"{key} isn't allowed; the only reference allowed is {{\"$ref\": \"{FILE_REF}\"}}"))
             else:
                 found += reference_issues(value, (*path, key))
     elif isinstance(schema, list):
@@ -214,7 +214,7 @@ def _version_key(version: str) -> tuple:
 
 
 def manifest_issues(doc, file: str | None = None) -> list[Issue]:
-    """Problems with one step manifest on its own (SPEC.md, section 3.4)."""
+    """Problems with one step manifest on its own (SPEC.md, section 5)."""
     issues = schema_issues(doc, "urn:wfspec:schema:step", "invalid_manifest", file)
     if issues:
         return issues
@@ -250,21 +250,12 @@ def manifest_issues(doc, file: str | None = None) -> list[Issue]:
                 why = value_problem(doc[key], example[part])
                 if why:
                     problem(pointer("examples", n, part), f"the example's {part} don't fit {key}: {why}")
-    if doc["effects"] != "writes":
-        for flag in ("idempotent", "destructive"):
-            if flag in doc:
-                problem(pointer(flag), f"{flag!r} only applies to steps whose effects are 'writes'")
-    outputs = doc["outputSchema"]["properties"]
-    for flag, answer in (("maySkip", "skip"), ("mayPlan", "plan")):
-        allowed = doc.get(flag) or doc["runtime"].get("agent", {}).get(flag)
-        if allowed and answer in outputs:
-            problem(pointer("outputSchema", "properties", answer), f"with {flag}, no output may be named {answer!r}: an answer {{{answer}: ...}} would be ambiguous")
     seen: dict[str, str] = {}
-    for i, tool in enumerate(doc["runtime"].get("agent", {}).get("tools", [])):
-        name = mcp_name(*tool.split("@"))
+    for i, callee in enumerate(doc.get("calls", [])):
+        name = mcp_name(*callee.split("@"))
         if name in seen:
-            problem(pointer("runtime", "agent", "tools", i), f"{tool} and {seen[name]} would both be offered as {name}; list one version per major version")
-        seen.setdefault(name, tool)
+            problem(pointer("calls", i), f"{callee} and {seen[name]} have the same major version; list one version per major version")
+        seen.setdefault(name, callee)
     return issues
 
 
@@ -286,23 +277,20 @@ def workflow_runtime_issues(manifest: dict, file: str | None) -> list[Issue]:
     return []
 
 
-def agent_tool_issues(manifest: dict, catalog: Catalog, file: str | None = None) -> list[Issue]:
-    """An agent may call only catalog steps, and declares at least their effects and secrets."""
-    agent = manifest["runtime"].get("agent")
-    if not agent:
-        return []
+def calls_issues(manifest: dict, catalog: Catalog, file: str | None = None) -> list[Issue]:
+    """A step may call only catalog steps, and declares at least their effects and secrets (SPEC.md, section 5.4)."""
     issues = []
     secrets = set(manifest.get("secrets", []))
-    for i, tool in enumerate(agent.get("tools", [])):
-        target = catalog.steps.get(tool)
+    for i, callee in enumerate(manifest.get("calls", [])):
+        target = catalog.steps.get(callee)
         if target is None:
-            issues.append(Issue("unknown_step", pointer("runtime", "agent", "tools", i), f"the agent's tool {tool} isn't in the catalog", file=file))
+            issues.append(Issue("unknown_step", pointer("calls", i), f"{callee}, which this step can call, isn't in the catalog", file=file))
             continue
         if EFFECT_ORDER[target["effects"]] > EFFECT_ORDER[manifest["effects"]]:
             issues.append(Issue(
                 "invalid_manifest",
                 pointer("effects"),
-                f"the agent can call {tool}, whose effects are {target['effects']!r}, so its own effects must be at least that",
+                f"this step can call {callee}, whose effects are {target['effects']!r}, so its own effects must be at least that",
                 file=file,
             ))
         missing = sorted(set(target.get("secrets", [])) - secrets)
@@ -310,7 +298,7 @@ def agent_tool_issues(manifest: dict, catalog: Catalog, file: str | None = None)
             issues.append(Issue(
                 "invalid_manifest",
                 pointer("secrets"),
-                f"the agent can call {tool}, which needs {', '.join(missing)}, so its secrets must include them",
+                f"this step can call {callee}, which needs {', '.join(missing)}, so its secrets must include them",
                 file=file,
             ))
     return issues
@@ -345,12 +333,12 @@ def load_catalog(dirs: list[Path]) -> Catalog:
                 continue
             catalog.steps[ref] = doc
             catalog.files[ref] = file
-    # Leaving an agent out can leave another agent without a tool, so repeat until nothing changes.
+    # Leaving a step out can leave another step calling one that is gone, so repeat until nothing changes.
     changed = True
     while changed:
         changed = False
         for ref, manifest in list(catalog.steps.items()):
-            issues = agent_tool_issues(manifest, catalog, catalog.files[ref])
+            issues = calls_issues(manifest, catalog, catalog.files[ref])
             if issues:
                 catalog.leave_out(ref, issues)
                 changed = True

@@ -69,7 +69,7 @@ def test_cache_key_ignores_file_names(catalog):
     assert one != cache_key(manifest, {"logs": file, "style": "long"})
 
 
-def test_lock_includes_an_agents_tools(catalog):
+def test_lock_includes_the_steps_a_step_can_call(catalog):
     steps = lock(workflow("investigate"), catalog)["steps"]
     assert set(steps) == {"acme/investigate-failure@0.1.0", "acme/fetch-ci-logs@2.1.0", "acme/open-issue@1.0.3"}
 
@@ -86,7 +86,7 @@ def test_workflow_published_as_step(catalog):
     assert schema_issues(manifest, "urn:wfspec:schema:step", "invalid") == []
     assert manifest["effects"] == "writes"
     assert manifest["deterministic"] is False
-    assert (manifest["idempotent"], manifest["destructive"]) == (False, False)
+    assert "idempotent" not in manifest and "destructive" not in manifest
     assert manifest["secrets"] == ["GITHUB_TOKEN"]
     assert manifest["outputSchema"]["required"] == ["report", "issue"]
 
@@ -94,12 +94,7 @@ def test_workflow_published_as_step(catalog):
 def test_mcp_tool_definitions(catalog):
     issue = mcp_tool(catalog.steps["acme/open-issue@1.0.3"])
     assert issue["name"] == "acme_open-issue_v1"
-    assert issue["annotations"] == {
-        "readOnlyHint": False,
-        "destructiveHint": False,
-        "idempotentHint": False,
-        "openWorldHint": True,
-    }
+    assert issue["annotations"] == {"readOnlyHint": False, "openWorldHint": True}
     logs = mcp_tool(catalog.steps["acme/fetch-ci-logs@2.1.0"])
     assert logs["annotations"] == {"readOnlyHint": True, "openWorldHint": True}
     assert "$ref" not in json.dumps(logs)

@@ -1,0 +1,97 @@
+# Which tests cover each requirement id in SPEC.md (section 2.2).
+#
+# An entry is either a list of tests or { untested: <why> }.
+# A test is a case folder, written check/<case>, manifests/<case> or run/<case>, or a test
+# function in reference/tests/, written <file>::<function>.
+# reference/tests/test_coverage.py keeps this file and SPEC.md in step, and fails when a case
+# folder covers no id.
+
+conform.checker-tests: [test_conformance.py::test_check_case, test_conformance.py::test_manifest_case]
+conform.runner-tests: { untested: "there are no cases in tests/run/ yet; they come with the reference runner" }
+
+doc.formats: [check/json-duplicate-key, check/yaml-1-2-words]
+doc.yaml-1.2: [check/yaml-1-2-words]
+doc.duplicate-keys: [check/parse-duplicate-key, check/json-duplicate-key]
+doc.text-keys: [check/parse-number-key]
+doc.merge-key: [check/yaml-merge-key, check/yaml-quoted-merge-key]
+doc.numbers: [check/yaml-nan, check/yaml-big-integer]
+doc.parse-error: [check/parse-duplicate-key, check/json-duplicate-key, check/yaml-nan]
+
+manifest.schema: [manifests/missing-effects]
+manifest.extensions: [manifests/extension-fields]
+manifest.workflow-file: [manifests/workflow-path-missing]
+manifest.calls-known: [manifests/calls-unknown]
+manifest.calls-effects: [manifests/calls-effects-below, check/left-out-step]
+manifest.calls-secrets: [manifests/calls-missing-secret]
+manifest.calls-one-per-major: [manifests/calls-one-per-major]
+manifest.json-schema: [manifests/not-a-json-schema]
+manifest.required-declared: [manifests/required-not-declared]
+manifest.default-fits: [manifests/bad-default]
+manifest.examples-fit: [manifests/bad-example]
+manifest.refs: [manifests/reference-not-allowed]
+manifest.invalid: [manifests/bad-default, manifests/calls-unknown]
+manifest.left-out: [check/left-out-step]
+manifest.duplicate: [manifests/duplicate-step]
+
+types.json-schema: [manifests/bad-input-name]
+types.format: [check/format-is-annotation]
+types.file-value: [check/files]
+types.file-store: { untested: "needs a runner" }
+types.fits-error: [check/shape-errors, check/shape-edges, check/shape-more, check/files, check/type-mismatch-scalars, check/type-mismatch-object, check/type-mismatch-enum, check/constant-fits, check/ok-integer-into-number, check/shape-fits]
+types.fits-warning: [check/shape-warnings, check/shape-edges, check/shape-more, check/warnings-only]
+types.maybe-missing: [check/type-mismatch-optional-input, check/type-mismatch-optional-output]
+
+workflow.schema: [check/invalid-missing-steps, check/invalid-uses-without-version]
+workflow.input-schema: [check/workflow-input-reference]
+workflow.input-default: [check/invalid-input-default]
+workflow.reference-form: [check/from-null, check/bad-reference]
+workflow.literal-form: [check/literal-wrapper]
+
+check.all-at-once: [check/unknown-and-missing-input, check/policy, check/outputs-resolve]
+check.invalid-workflow: [check/invalid-missing-steps, check/invalid-uses-without-version, check/workflow-input-reference]
+check.invalid-value: [check/invalid-values, check/invalid-input-default]
+check.unknown-step: [check/unknown-step-version, check/left-out-step]
+check.unknown-input: [check/unknown-and-missing-input]
+check.missing-input: [check/unknown-and-missing-input]
+check.bad-reference: [check/bad-reference, check/from-null]
+check.unknown-reference: [check/unknown-references]
+check.type-mismatch: [check/type-mismatch-scalars, check/type-mismatch-object, check/type-mismatch-enum, check/type-mismatch-optional-input, check/type-mismatch-optional-output]
+check.type-unchecked: [check/warnings-only, check/shape-warnings]
+check.outputs-resolve: [check/outputs-resolve]
+check.cycle: [check/cycle]
+check.no-outputs: [check/no-outputs]
+check.effects-not-allowed: [check/policy]
+check.secret-not-granted: [check/policy]
+check.step-never-runs: [check/warnings-only, check/bad-reference, check/outputs-resolve]
+check.unused-input: [check/warnings-only, check/unknown-references]
+check.codes-stable: { untested: "a promise about later versions, which no test can check" }
+check.output: [test_examples.py::test_cli_exit_codes]
+check.policy: [check/policy]
+
+run.check-first: { untested: "needs a runner" }
+run.lock: { untested: "needs a runner" }
+run.needed: { untested: "needs a runner; the checker computes the needed steps, but nothing runs them" }
+run.order: { untested: "needs a runner" }
+run.missing-value: { untested: "needs a runner" }
+run.input-check: { untested: "needs a runner" }
+run.output-check: { untested: "needs a runner" }
+run.cache-key: [test_examples.py::test_cache_key_is_step_digest_plus_input_values, test_examples.py::test_cache_key_ignores_file_names]
+run.cache-only-cacheable: { untested: "needs a runner" }
+run.retry: { untested: "needs a runner" }
+run.failure: { untested: "needs a runner" }
+run.skip: { untested: "needs a runner" }
+run.error-codes: { untested: "needs a runner" }
+run.secrets-named: { untested: "needs a runner" }
+run.secrets-hidden: { untested: "needs a runner" }
+run.effects: { untested: "needs a runner" }
+run.calls-listed: { untested: "needs a runner" }
+run.calls-recorded: { untested: "needs a runner" }
+run.record: { untested: "needs a runner; the example run records are written by hand" }
+
+publish.digest: [test_examples.py::test_lock_file_is_current, test_examples.py::test_run_records_are_valid_and_pinned]
+publish.resolve: { untested: "the reference implementation hashes manifests as written, because it builds nothing" }
+publish.immutable: { untested: "needs a publisher" }
+publish.lock: [test_examples.py::test_lock_file_is_current, test_examples.py::test_lock_includes_the_steps_a_step_can_call, test_examples.py::test_lock_includes_the_steps_inside_a_published_workflow]
+publish.as-step: [test_examples.py::test_workflow_published_as_step, test_examples.py::test_outputs_after_a_step_that_may_skip_are_optional]
+publish.versions: { untested: "nothing checks it yet (proposals.md, P13)" }
+publish.saved-run: { untested: "the dry run needs a runner" }

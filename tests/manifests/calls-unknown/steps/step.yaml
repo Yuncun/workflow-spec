@@ -1,0 +1,8 @@
+name: test/m10
+version: 1.0.0
+description: An agent that can call a step that doesn't exist.
+inputSchema: { type: object, properties: {} }
+outputSchema: { type: object, properties: {} }
+effects: writes
+calls: [acme/does-not-exist@1.0.0]
+runtime: { agent: { model: claude-sonnet-5-5, instructions: prompts/m10.md } }

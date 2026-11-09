@@ -1,6 +1,5 @@
-# A step that changes outside data. It always runs when its workflow runs, is never
-# cached, and isn't retried automatically, because it isn't idempotent. It adds an
-# issue rather than changing or deleting anything, so it isn't destructive.
+# A step that changes outside data. It always runs when its workflow runs, and it is
+# never cached or retried automatically.
 name: acme/open-issue
 version: 1.0.3
 title: Open an issue
@@ -31,12 +30,8 @@ outputSchema:
       format: uri
   required: [url]
 effects: writes
-idempotent: false
-destructive: false
 secrets: [GITHUB_TOKEN]
 runtime:
   container:
     image: ghcr.io/acme/open-issue:1.0.3
     command: [open-issue]
-resources:
-  timeout: 1m

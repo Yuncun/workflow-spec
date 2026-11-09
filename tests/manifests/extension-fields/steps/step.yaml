@@ -1,0 +1,10 @@
+# Fields starting with x- belong to platforms. A checker ignores them (SPEC.md, [manifest.extensions]).
+name: test/m16
+version: 1.0.0
+description: A step with platform fields.
+inputSchema: { type: object, properties: {} }
+outputSchema: { type: object, properties: { done: { type: boolean } }, required: [done] }
+effects: none
+x-team: platform
+x-cost: { per-run: 0.01 }
+runtime: { x-builtin: { name: noop } }

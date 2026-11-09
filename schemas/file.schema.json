@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "urn:wfspec:file",
   "title": "File value",
-  "description": "A file passed between steps, addressed by the hash of its content. In a step's schemas, write {\"$ref\": \"urn:wfspec:file\"}, optionally with \"x-mediaType\". See SPEC.md, section 4.",
+  "description": "A file passed between steps, addressed by the hash of its content. In a step's schemas, write {\"$ref\": \"urn:wfspec:file\"}, optionally with \"x-mediaType\". See SPEC.md, section 6.2.",
   "type": "object",
   "required": ["digest", "mediaType"],
   "properties": {

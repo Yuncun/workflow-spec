@@ -1,2 +1,0 @@
-errors:
-  - { code: unknown_step, path: "/runtime/agent/tools/0" }

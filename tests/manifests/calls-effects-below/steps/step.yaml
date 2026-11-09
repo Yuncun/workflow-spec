@@ -1,0 +1,10 @@
+name: test/m5
+version: 1.0.0
+description: A program that can open issues but claims to only read. The rules for calls apply to any runtime kind.
+inputSchema: { type: object, properties: {} }
+outputSchema: { type: object, properties: {} }
+effects: reads
+secrets: [GITHUB_TOKEN]
+calls: [acme/open-issue@1.0.3]
+runtime:
+  process: { command: [python3, m5.py] }

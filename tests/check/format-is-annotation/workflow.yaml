@@ -1,0 +1,4 @@
+# `format` is an annotation: a value that isn't a URI still fits an input whose schema says
+# format: uri (SPEC.md, [types.format]). The step checks the value itself when it runs.
+steps:
+  save: { uses: test/save-link@1.0.0, with: { link: "not a link" } }

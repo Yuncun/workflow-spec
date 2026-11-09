@@ -2,6 +2,8 @@
 
 Run on 2026-11-07, against spec version 0.1.
 
+The catalogs here use fields that version 0.2 removed (`idempotent`, `destructive`, `resources`), so today's checker leaves those manifests out. To rerun the test as recorded, check out commit `f1fb94e`, the last version 0.1 commit.
+
 **Result:** 16 of 16 workflows were correct. 15 passed checking on their first check, and the checker never reported an error in any attempt. The agents found every type mismatch by reading the step manifests. The test therefore shows that agents can write this format from typed manifests. It doesn't yet show that the checker's errors help them, because they never needed the errors.
 
 ## Method

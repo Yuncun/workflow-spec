@@ -1,4 +1,4 @@
-"""Checking a workflow against a catalog of step manifests (SPEC.md, section 6)."""
+"""Checking a workflow against a catalog of step manifests (SPEC.md, section 8)."""
 
 from __future__ import annotations
 
@@ -62,7 +62,7 @@ def split_value(value) -> tuple[str, object]:
     """("reference", path) for {from: path}; ("literal", x) for {literal: x} or any other value.
 
     An object whose only key is `from` is a reference whatever its value; a path that isn't
-    text is a bad_reference (SPEC.md, section 5.2)."""
+    text is a bad_reference (SPEC.md, [workflow.reference-form])."""
     if isinstance(value, dict) and len(value) == 1:
         if "from" in value:
             return "reference", value["from"]
@@ -72,7 +72,7 @@ def split_value(value) -> tuple[str, object]:
 
 
 def check(workflow, catalog: Catalog, policy: dict | None = None) -> Result:
-    """Every rule violation at once, plus warnings (SPEC.md, section 6)."""
+    """Every rule violation at once, plus warnings (SPEC.md, section 8)."""
     return _Checker(workflow, catalog, policy).run()
 
 

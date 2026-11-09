@@ -12,7 +12,7 @@ from .documents import (
     EFFECT_ORDER,
     Issue,
     ParseError,
-    agent_tool_issues,
+    calls_issues,
     load_catalog,
     load_document,
     manifest_issues,
@@ -33,7 +33,7 @@ def main(argv: list[str] | None = None) -> int:
 
     p = sub.add_parser("check-step", help="check one step manifest")
     p.add_argument("manifest", type=Path)
-    p.add_argument("--catalog", type=Path, action="append", default=[], help="folder of step manifests, to check an agent's tools (repeatable)")
+    p.add_argument("--catalog", type=Path, action="append", default=[], help="folder of step manifests, to check the steps it calls (repeatable)")
     p.add_argument("--json", action="store_true", help="print the result as JSON")
 
     for name, text in (
@@ -84,7 +84,7 @@ def _check_step(args) -> int:
     if not found:
         found = workflow_runtime_issues(manifest, str(args.manifest))
     if not found and args.catalog:
-        found = agent_tool_issues(manifest, load_catalog(args.catalog))
+        found = calls_issues(manifest, load_catalog(args.catalog))
     issues = [i.to_dict() for i in found]
     if args.json:
         print(json.dumps({"ok": not issues, "errors": issues}, indent=2, ensure_ascii=False))

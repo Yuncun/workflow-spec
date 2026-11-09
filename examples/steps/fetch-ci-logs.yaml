@@ -29,7 +29,5 @@ runtime:
   container:
     image: ghcr.io/acme/fetch-ci-logs:2.1.0
     command: [fetch-ci-logs]
-resources:
-  timeout: 5m
 examples:
   - inputs: { repo: acme/web, run_id: 1234 }

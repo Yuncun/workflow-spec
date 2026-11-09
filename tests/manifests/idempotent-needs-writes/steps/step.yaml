@@ -1,8 +1,0 @@
-name: test/m4
-version: 1.0.0
-description: A test step.
-runtime: { container: { image: example.test/x:1.0.0 } }
-inputSchema: { type: object, properties: {} }
-outputSchema: { type: object, properties: {} }
-effects: reads
-idempotent: true

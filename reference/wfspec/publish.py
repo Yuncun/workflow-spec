@@ -1,5 +1,5 @@
-"""Publishing helpers (SPEC.md, sections 7.3, 8 and 9): digests, cache keys, lock files, the
-manifest a workflow gets when it is published as a step, and MCP tool definitions."""
+"""Publishing helpers: digests, cache keys, lock files and the manifest a workflow gets when it
+is published as a step (SPEC.md, sections 9.4 and 10), and MCP tool definitions (drafts/mcp.md)."""
 
 from __future__ import annotations
 
@@ -26,7 +26,7 @@ def digest(doc) -> str:
 
 
 def cache_key(manifest: dict, inputs: dict) -> str:
-    """The cache key of one step call (SPEC.md, section 7.3).
+    """The cache key of one step call (SPEC.md, [run.cache-key]).
 
     `inputs` are the values the step receives, defaults filled in. Each file value counts only
     by its digest and media type, so a file's name doesn't change the key."""
@@ -49,7 +49,8 @@ def _file_identities(value, schema):
 def lock(workflow: dict, catalog: Catalog) -> dict:
     """The lock file for a workflow: the digest of every step version it can run, directly or not.
 
-    That includes the tools of its agent steps and the steps inside workflows it uses as steps."""
+    That includes the steps its steps can call and the steps inside workflows it uses as steps
+    (SPEC.md, [publish.lock])."""
     refs = _all_refs([step["uses"] for step in workflow["steps"].values()], catalog)
     out: dict = {"lockVersion": 1}
     if workflow.get("name") and workflow.get("version"):
@@ -69,9 +70,8 @@ def _all_refs(start: list[str], catalog: Catalog) -> set[str]:
         if manifest is None:
             raise ValueError(f"not in the catalog: {ref}")
         seen.add(ref)
+        stack.extend(manifest.get("calls", []))
         runtime = manifest["runtime"]
-        if "agent" in runtime:
-            stack.extend(runtime["agent"].get("tools", []))
         if "workflow" in runtime:
             target = Path(catalog.files[ref]).parent / runtime["workflow"]["path"]
             if not target.is_file():
@@ -82,7 +82,8 @@ def _all_refs(start: list[str], catalog: Catalog) -> set[str]:
 
 
 def as_step(workflow: dict, catalog: Catalog, path: str) -> dict:
-    """The manifest a checked workflow gets when it is published, so other workflows can use it.
+    """The manifest a checked workflow gets when it is published, so other workflows can use it
+    (SPEC.md, [publish.as-step]).
 
     `path` is where the workflow file will sit, relative to the folder of the manifest."""
     result = check(workflow, catalog)
@@ -117,10 +118,6 @@ def as_step(workflow: dict, catalog: Catalog, path: str) -> dict:
         "effects": effects,
         "deterministic": bool(manifests) and all(m.get("deterministic", False) for m in manifests.values()),
     })
-    if effects == "writes":
-        writers = [m for m in manifests.values() if m["effects"] == "writes"]
-        manifest["idempotent"] = all(m.get("idempotent", False) for m in writers)
-        manifest["destructive"] = any(m.get("destructive", True) for m in writers)
     secrets = sorted({s for m in manifests.values() for s in m.get("secrets", [])})
     if secrets:
         manifest["secrets"] = secrets
@@ -129,22 +126,17 @@ def as_step(workflow: dict, catalog: Catalog, path: str) -> dict:
 
 
 def mcp_name(manifest: dict) -> str:
-    """The MCP tool name of a step (SPEC.md, section 9.1)."""
+    """The MCP tool name of a step (drafts/mcp.md, section 1)."""
     return tool_name(manifest["name"], manifest["version"])
 
 
 def mcp_tool(manifest: dict) -> dict:
-    """The MCP tool definition for a step (SPEC.md, section 9.1)."""
+    """The MCP tool definition for a step (drafts/mcp.md, section 1).
+
+    For steps that write, destructiveHint and idempotentHint are left to MCP's defaults:
+    destructive, and not idempotent."""
     effects = manifest["effects"]
-    if effects == "writes":
-        hints = {
-            "readOnlyHint": False,
-            "destructiveHint": manifest.get("destructive", True),
-            "idempotentHint": manifest.get("idempotent", False),
-            "openWorldHint": True,
-        }
-    else:
-        hints = {"readOnlyHint": True, "openWorldHint": effects == "reads"}
+    hints = {"readOnlyHint": effects != "writes", "openWorldHint": effects != "none"}
     tool = {"name": mcp_name(manifest)}
     if "title" in manifest:
         tool["title"] = manifest["title"]
