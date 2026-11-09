@@ -120,13 +120,12 @@ def _check_step(args) -> int:
 def _run(args) -> int:
     catalog = load_catalog(args.catalog)
     store = Store(args.store)
+    workflow = load_document(args.workflow)
+    declared = (workflow.get("inputSchema") or {}).get("properties", {})
     inputs = dict(load_document(args.inputs)) if args.inputs else {}
     for item in args.input:
         name, _, raw = item.partition("=")
-        try:
-            inputs[name] = json.loads(raw)
-        except json.JSONDecodeError:
-            inputs[name] = raw
+        inputs[name] = _input_value(raw, declared.get(name))
     for item in args.file:
         name, _, rest = item.partition("=")
         path, media_type = rest, None
@@ -149,7 +148,7 @@ def _run(args) -> int:
         replay=replay,
         lock=load_document(args.lock) if args.lock else None,
     )
-    record = Runner(catalog, options).run(load_document(args.workflow), inputs)
+    record = Runner(catalog, options).run(workflow, inputs)
     differences = compare_dry_run(replay, record, catalog) if replay else []
     if args.json:
         print(json.dumps(record, indent=2, ensure_ascii=False))
@@ -158,6 +157,19 @@ def _run(args) -> int:
         if replay:
             print("dry run: " + ("the outputs match the original run" if not differences else "; ".join(differences)))
     return 0 if record["status"] == "succeeded" and not differences else 1
+
+
+def _input_value(raw: str, schema) -> object:
+    """A value given on the command line: text when the input is declared as text, otherwise JSON
+    when it parses as JSON, otherwise text. A commit hash such as 584e862 stays text."""
+    schema = schema if isinstance(schema, dict) else {}
+    texts = schema.get("type") == "string" or (schema.get("enum") and all(isinstance(v, str) for v in schema["enum"]))
+    if texts:
+        return raw
+    try:
+        return json.loads(raw)
+    except json.JSONDecodeError:
+        return raw
 
 
 def _print_run(record: dict, store: Store) -> None:

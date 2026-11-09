@@ -155,3 +155,11 @@ def test_guide_manifest_passes(tmp_path):
     (tmp_path / "step.yaml").write_text(_first_yaml_block("publish-a-step.md"))
     from wfspec.documents import manifest_issues
     assert manifest_issues(load_document(tmp_path / "step.yaml")) == []
+
+
+def test_cli_reads_an_input_declared_as_text_as_text():
+    from wfspec.cli import _input_value
+    assert _input_value("584e862", {"type": "string"}) == "584e862"  # a commit hash, not 584 x 10^862
+    assert _input_value("everyone", {"enum": ["engineers", "everyone"]}) == "everyone"
+    assert _input_value("5", {"type": "integer"}) == 5
+    assert _input_value("[1, 2]", None) == [1, 2]
