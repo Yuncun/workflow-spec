@@ -54,8 +54,6 @@ The fourth row is what would set this format apart from similar tools. If it doe
 
 ## Rules for agents working on this
 
-- Run the tests after any change to a checker or the spec: `python -m pytest reference/tests`. All must pass.
+- Follow [CONTRIBUTING.md](CONTRIBUTING.md): how a change to the spec is made, the writing rules, and the tests, which must all pass after any change.
 - Don't add conditions, loops or expressions to the workflow format. Put logic in steps (SPEC.md, sections 1 and 7.4).
-- Every new rule gets a requirement id, an error code if checking reports it (SPEC.md, section 8.2), a test case, and an entry in `tests/coverage.yaml`.
-- Keep examples consistent. `reference/tests/test_examples.py` checks that the lock file and run records match the manifests and workflows. After changing an example step or workflow, run `examples/regenerate.py`.
 - `experiments/agent-authoring/` holds a test of agents writing workflows in version 0.1 of the format, with its method and results. Repeat it with your own steps and models; its README says what it didn't test.

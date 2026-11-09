@@ -20,6 +20,7 @@ Read [SPEC.md](SPEC.md) first. If you're a team adopting the format, read [HANDO
 | [drafts/mcp.md](drafts/mcp.md): steps as MCP tools | draft, not normative |
 | [proposals.md](proposals.md): features left out, open questions | not normative |
 | [CHANGELOG.md](CHANGELOG.md): changes and the versioning policy | |
+| [CONTRIBUTING.md](CONTRIBUTING.md): how to change the spec | |
 
 ```text
 schemas/                JSON Schemas: step, workflow, file value, lock file, run record
