@@ -35,43 +35,6 @@ tests/                  test cases for checkers and runners, and coverage.yaml
 reference/              a small Python checker and runner that pass them
 ```
 
-## Try it
-
-```bash
-uv venv .venv && uv pip install --python .venv/bin/python -e "reference[test]"
-
-# check a workflow (0 errors, 0 warnings)
-.venv/bin/wfspec check examples/workflows/ci-triage.yaml --catalog examples/steps
-
-# see errors an agent would get
-.venv/bin/wfspec check tests/check/unknown-references/workflow.yaml \
-  --catalog examples/steps --catalog tests/catalog
-
-# the manifest a workflow gets when published, and a step as an MCP tool
-.venv/bin/wfspec as-step examples/workflows/ci-triage.yaml --catalog examples/steps
-.venv/bin/wfspec mcp-tool examples/steps/open-issue.yaml
-
-# run a workflow with the reference runner (programs only; agent steps need a model server)
-.venv/bin/wfspec run tests/run/order-and-values/workflow.yaml --catalog tests/run-catalog --input text=hi
-
-# run every test case, example check and the coverage check
-.venv/bin/python -m pytest reference/tests
-```
-
-## Status
-
-- Version 0.3, a draft dated 2026-11-09.
-- The reference checker passes every test case, and so does the reference runner on macOS. Elsewhere the runner can't enforce effects for programs, so it skips the case that tests it.
-- 85 of SPEC.md's 89 requirements have tests. [tests/coverage.yaml](tests/coverage.yaml) says why the other four have none.
-- The runner runs on one machine. It runs `process` steps (programs), `agent` steps (any OpenAI-compatible model API, such as LM Studio's) and workflows used as steps.
-- On macOS it runs programs that don't write in the system sandbox:
-  - They can't write outside their work folder or signal other processes.
-  - They can't read under your home folder, except their own step's folder and folders you grant with `--allow-read`.
-  - A `none` program also gets no network, and can't read the shared temporary folders or other volumes.
-  - The sandbox can't stop a program from reading the environment your other programs started with.
-
-  Steps that write run with your full access, so run only steps you trust.
-
 ## License
 
 Apache-2.0, the license OpenAPI and Arazzo use. See [LICENSE](LICENSE).
