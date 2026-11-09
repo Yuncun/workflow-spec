@@ -33,7 +33,6 @@ SECTIONS = [
         ("CHANGELOG.md", "changelog.md"),
     ]),
     ("Guides", [
-        ("README.md", "#try-it"),
         ("guides/write-a-workflow.md", "guides/write-a-workflow.md"),
         ("guides/publish-a-step.md", "guides/publish-a-step.md"),
     ]),
