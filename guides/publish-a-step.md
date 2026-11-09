@@ -80,7 +80,7 @@ with open(os.environ["WF_OUTPUTS"], "w") as f:
 ```
 
 - **File outputs:** write `{"path": "...", "mediaType": "..."}`. The platform stores the file and passes it on by its digest.
-- **Secrets:** those named in `secrets` arrive as environment variables. Your step gets no others, so a step that calls a model must name the model's key.
+- **Secrets:** those named in `secrets` arrive as environment variables. The runner gives your step no others, so a step that calls a model must name the model's key.
 - **Failing and skipping:** exit with a non-zero code to fail. To skip, write a reason to the file named by `WF_SKIP`.
 
 ## 4. Check the manifest
