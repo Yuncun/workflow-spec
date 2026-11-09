@@ -7,6 +7,12 @@
 - **Error codes never change meaning** (SPEC.md, [check.codes-stable]), and requirement ids are never reused.
 - **Each version lists its changes here,** by section.
 
+## Unreleased
+
+**Editorial.** No requirement changed.
+- Shorter sentences and plainer wording in [manifest.workflow-file], [manifest.no-self], [manifest.refs], [manifest.left-out], [types.fits], [types.fits-warning], [run.check-first], [run.pinned], [run.calls-listed], [publish.resolve] and [publish.saved-run], and in sections 1, 3, 4 and 11.
+- How requirement ids map to tests is described in CONTRIBUTING.md instead of section 2.2.
+
 ## 0.3, 2026-11-09 (draft)
 
 Version 0.3 fixes what a third review of version 0.2 found, and removes material that belongs to platforms or to version 0.1.
