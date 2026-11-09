@@ -1,0 +1,5 @@
+/* A requirement id in SPEC.md, such as [check.cycle], is an anchor. Opened directly from a
+   link such as spec#check.cycle, it should land below the navigation bar, as headings do. */
+.vp-doc a[id] {
+  scroll-margin-top: calc(var(--vp-nav-height) + 24px);
+}
