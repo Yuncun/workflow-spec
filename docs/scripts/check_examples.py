@@ -1,18 +1,4 @@
-"""Check the YAML and JSON examples written into the documents on the site.
-
-Every fenced block in those documents is classified by its contents and checked:
-- a step manifest (it has `runtime`): `wfspec check-step`, with examples/steps/ as the catalog
-- a workflow (it has `steps`): `wfspec check`, with examples/steps/ as the catalog
-- a caller policy (only `maxEffects` and `secrets`): schemas/policy.schema.json
-- a file value (`digest` and `mediaType`): schemas/file.schema.json, unless its digest is a
-  placeholder such as "sha256:<64 hex>"
-
-Blocks in other languages, and data of other shapes, are listed as not checked.
-
-    python docs/scripts/check_examples.py [--verbose]
-
-Run it with a Python that has the reference package installed (pip install -e "reference[test]").
-"""
+"""Check every YAML and JSON example in the site's documents: python docs/scripts/check_examples.py [--verbose]"""
 
 from __future__ import annotations
 

@@ -1,24 +1,4 @@
-"""Build the documentation site's pages from the files in this repository.
-
-Each page is either a copy of a Markdown file in the repository, with its links adjusted for
-the site, or is generated from a source the repository already keeps:
-- the JSON Schemas in schemas/
-- the requirement ids in SPEC.md, with tests/coverage.yaml
-- the error codes in SPEC.md and schemas/run.schema.json, with the test cases that expect them
-- the files in examples/
-- the help of the wfspec command
-
-The only text this script adds is page titles, table headings and a line naming each
-generated page's sources. The pages go to docs/.generated, which VitePress renders.
-
-    python docs/scripts/build_pages.py
-
-Run it with a Python that has the reference package installed (pip install -e "reference[test]").
-It fails when:
-- a Markdown file at the top level, in guides/ or in drafts/ has no place on the site
-- a page links to a repository file that doesn't exist, or to a heading another page doesn't have
-- a page cites a requirement id, such as [check.cycle], that SPEC.md doesn't define
-"""
+"""Write the site's pages to docs/.generated from the repository's own files: python docs/scripts/build_pages.py"""
 
 from __future__ import annotations
 
@@ -85,9 +65,7 @@ class BuildError(Exception):
 
 
 def slugify(text: str) -> str:
-    """A heading's anchor, made the way GitHub makes it, so that a link such as
-    SPEC.md#82-codes works both on GitHub and on the site. docs/.vitepress/config.mts
-    gives VitePress the same rule."""
+    """A heading's anchor as GitHub makes it; docs/.vitepress/config.mts gives VitePress the same rule."""
     text = re.sub(r"[^\w\s-]", "", text.lower())
     return re.sub(r"\s", "-", text)
 
@@ -144,8 +122,7 @@ def relative(page: str, target_page: str) -> str:
 
 
 def plain(text: str) -> str:
-    """Text from a schema or a YAML file, made safe for a page: VitePress compiles each page as a
-    Vue template, where <name> would be read as an element and {{ }} as an expression."""
+    """Text from a schema or a YAML file, made safe for a page."""
     return (text.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
             .replace("{{", "&#123;&#123;"))
 
@@ -192,7 +169,7 @@ def check_every_document_placed(pages: list[tuple[str, str]]) -> None:
 
 
 def copy_page(source: str, page: str, page_of: dict[str, str], anchors: dict[str, set[str]],
-              defined: set[str], label_of: dict[str, str]) -> str:
+              defined: set[str], titles: dict[str, str] | None) -> str:
     text = (ROOT / source).read_text()
     spec_page = page_of["SPEC.md"]
 
@@ -210,8 +187,8 @@ def copy_page(source: str, page: str, page_of: dict[str, str], anchors: dict[str
             target_page = page_of[repo_path]
             if anchor and anchor not in anchors[target_page]:
                 raise BuildError(f"{source}: link to {target}, but {repo_path} has no heading or id '{anchor}'")
-            if not anchor and is_file_name(label, path, repo_path):
-                label = label_of[target_page]  # on the site, a page goes by its title
+            if titles and not anchor and is_file_name(label, path, repo_path):
+                label = titles[target_page]
             return f"[{label}]({relative(page, target_page)}{'#' + anchor if anchor else ''})"
         if not (ROOT / repo_path).exists():
             raise BuildError(f"{source}: link to {target}, which doesn't exist")
@@ -230,9 +207,8 @@ def copy_page(source: str, page: str, page_of: dict[str, str], anchors: dict[str
 
     def change(part: str) -> str:
         part = LINK.sub(link, part)
-        # A file name described after a colon, such as "drafts/mcp.md: steps as MCP tools", can
-        # repeat the title it now shows. Leave out a description that only repeats it.
-        part = re.sub(r"(\[([^\]]+)\]\([^)\s]+\)): ([^|\n]+?)(?=\s*(\||$))",
+        # "drafts/mcp.md: steps as MCP tools" would read "Steps as MCP tools: steps as MCP tools".
+        part = part if not titles else re.sub(r"(\[([^\]]+)\]\([^)\s]+\)): ([^|\n]+?)(?=\s*(\||$))",
                       lambda m: m.group(1) if m.group(3).strip().lower() == m.group(2).lower() else m.group(0),
                       part, flags=re.M)
         part = CITATION.sub(requirement, part)  # a definition, **[id]**, isn't a citation
@@ -502,8 +478,7 @@ def spec_sections(spec: str) -> dict[str, str]:
 
 
 def spec_field_tables(spec: str) -> dict[str, dict[str, tuple[str, str]]]:
-    """SPEC.md's "| Field | Required | Meaning |" tables, by the title of the section they're in:
-    each field name with its Required and Meaning cells, as written."""
+    """SPEC.md's "| Field | Required | Meaning |" tables, by the title of the section they're in."""
     tables: dict[str, dict[str, tuple[str, str]]] = {}
     lines = FENCE.sub("", spec).splitlines()
     chapter = ""
@@ -524,8 +499,7 @@ def spec_field_tables(spec: str) -> dict[str, dict[str, tuple[str, str]]]:
 
 
 def spec_cell(text: str, page: str, sections: dict[str, str]) -> str:
-    """A cell copied from SPEC.md, with its "section N" mentions linked to those sections,
-    since on another page they would no longer say which document they mean."""
+    """A cell copied from SPEC.md, with its "section N" mentions linked to those sections."""
     spec = relative(page, "spec.md")
 
     def link(match: re.Match) -> str:
@@ -725,8 +699,11 @@ def build() -> None:
         first_page = next(e for e in entries if "link" in e and "#" not in e["link"])
         nav.append({"text": title, "link": first_page["link"]})
 
+    # Only the home page shows page titles in place of file names: it lists the documents, while
+    # the documents themselves name each other by file name in their running text.
     for source, page in pages:
-        written[page] = copy_page(source, page, page_of, anchors, defined, label_of)
+        titles = label_of if source == "README.md" else None
+        written[page] = copy_page(source, page, page_of, anchors, defined, titles)
 
     # The home page is the README in VitePress's home layout: its title becomes the large
     # heading, with a button for each section that starts somewhere to read.

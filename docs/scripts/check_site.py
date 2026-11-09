@@ -1,11 +1,4 @@
-"""Check every link inside the built site: the page it names exists, and so does the heading or
-id it points to. VitePress fails a build on a link to a missing page, but not on a link to a
-missing anchor, such as spec#check.no-such-rule.
-
-    python docs/scripts/check_site.py      # after building the site into docs/.vitepress/dist
-
-Links to other sites are left to a link checker that can reach them.
-"""
+"""Check that every link inside the built site reaches a page and anchor that exist: python docs/scripts/check_site.py"""
 
 from __future__ import annotations
 
