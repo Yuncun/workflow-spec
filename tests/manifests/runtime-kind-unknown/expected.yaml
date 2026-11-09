@@ -1,0 +1,2 @@
+errors:
+  - { code: invalid_manifest, path: "/runtime" }

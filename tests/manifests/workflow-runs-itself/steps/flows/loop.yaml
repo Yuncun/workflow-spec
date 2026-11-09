@@ -1,0 +1,4 @@
+steps:
+  again: { uses: test/m25@1.0.0 }
+outputs:
+  done: { from: steps.again.outputs.done }

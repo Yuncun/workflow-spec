@@ -18,7 +18,7 @@ Version 0.2 cuts the specification down to the format layer. Rules for a runner 
 - The BCP 14 key words: MUST, SHOULD and MAY in capitals.
 - `calls` (section 5.4). Any step may list the steps it can call, and the rules for calls apply whatever the runtime kind. It replaces `runtime.agent.tools`.
 - The `process` runtime kind: a program started directly, under the same contract as `container` ([drafts/runtime.md](drafts/runtime.md)).
-- Test cases for runners in `tests/run/` (section 9.10), and a reference runner that passes them.
+- Test cases for runners in `tests/run/` (section 9.11), and a reference runner that passes them.
 - Run-level error codes `invalid_input` and `lock_mismatch` for runs that never start ([run.check-first], [run.lock]).
 - Where each problem points, and how many times it's reported ([check.paths]), and the order in which manifest rules apply ([manifest.invalid]), so a second checker can pass the test cases without copying this one.
 - [types.fits]: the comparison of two schemas is normative, not an example.
@@ -26,6 +26,10 @@ Version 0.2 cuts the specification down to the format layer. Rules for a runner 
 - [manifest.workflow-derived]: a `workflow` step's manifest can't claim lower effects, fewer secrets or more determinism than its workflow has. The `workflow` runtime kind now pins its file with `digest`.
 - [workflow.extensions]: `x-` fields in workflows, like those in manifests.
 - `schemas/policy.schema.json` for caller policies ([check.policy]).
+- [run.pinned] and the step error code `pinned_mismatch`: a runner checks the content a manifest pins before the step runs.
+- [manifest.no-self]: a step can't be able to run itself, through calls or its workflow.
+- The comparison in section 6.3 lists every keyword it handles, and says where it stops.
+- The order a checker reads a catalog's files in ([manifest.duplicate]), and the derived `inputSchema` of a workflow without one ([publish.as-step]).
 
 **Moved**
 - To [drafts/runtime.md](drafts/runtime.md): the contracts for containers and agents (0.1, section 3.3) and for remote tools (0.1, `mcp`). Agent steps now finish by calling a `finish` tool, and a runner hands schema problems back for another turn.

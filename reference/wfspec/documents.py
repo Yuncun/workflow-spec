@@ -322,6 +322,8 @@ def workflow_runtime_issues(manifest: dict, file: str | None) -> list[Issue]:
         return []
     where = pointer("runtime", "workflow", "path")
     target = Path(file).parent / runtime["path"]
+    if not target.resolve().is_relative_to(Path(file).parent.resolve()):
+        return [Issue("invalid_manifest", where, f"{runtime['path']} isn't inside the manifest's folder", file=file)]
     if not target.is_file():
         return [Issue("invalid_manifest", where, f"there is no workflow file at {target}", file=file)]
     try:
@@ -367,7 +369,7 @@ def load_catalog(dirs: list[Path]) -> Catalog:
     """Load every *.yaml, *.yml and *.json manifest in the given folders (not recursive).
 
     A manifest with problems is left out, so no workflow can use it."""
-    from .publish import workflow_step_issues  # publish imports check, which imports this module
+    from .publish import self_reach_issues, workflow_step_issues  # publish imports check, which imports this module
 
     catalog = Catalog()
     seen: dict[str, str] = {}  # name@version -> the file that first had it, valid or not
@@ -401,7 +403,9 @@ def load_catalog(dirs: list[Path]) -> Catalog:
     while changed:
         changed = False
         for ref, manifest in list(catalog.steps.items()):
-            issues = calls_issues(manifest, catalog, catalog.files[ref]) or workflow_step_issues(manifest, catalog, catalog.files[ref])
+            file = catalog.files[ref]
+            issues = (calls_issues(manifest, catalog, file) or self_reach_issues(ref, manifest, catalog, file)
+                      or workflow_step_issues(manifest, catalog, file))
             if issues:
                 catalog.leave_out(ref, issues)
                 changed = True

@@ -14,6 +14,8 @@ from dataclasses import dataclass
 
 import rfc8785
 
+from .documents import media_type_fits
+
 FILE_REF = "urn:wfspec:file"
 
 _ANNOTATIONS = frozenset({
@@ -152,7 +154,7 @@ def _files(src: dict, dst: dict, where: str) -> list[Finding]:
         return []
     if have is None:
         return [Finding(False, where, f"the input expects {want} files and the source doesn't say what kind it gives")]
-    if want.endswith("/*") and have.split("/")[0] == want.split("/")[0]:
+    if media_type_fits(have, want):
         return []
     return [Finding(True, where, f"a {have} file can't be given where {want} is expected")]
 

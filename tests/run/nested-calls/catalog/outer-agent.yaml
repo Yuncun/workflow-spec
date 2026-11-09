@@ -1,0 +1,8 @@
+name: test/outer-agent
+version: 1.0.0
+description: An agent that can call another agent.
+inputSchema: { type: object, properties: { task: { type: string } }, required: [task] }
+outputSchema: { type: object, properties: { answer: { type: string } }, required: [answer] }
+effects: reads
+calls: [test/helper-agent@1.0.0]
+runtime: { agent: { model: test-model, instructions: prompts/outer.md, maxTurns: 5 } }

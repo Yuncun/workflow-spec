@@ -1,0 +1,9 @@
+replies:
+  - tool_calls:
+      - { name: test_helper-agent_v1, arguments: { task: shout hi } }
+  - tool_calls:
+      - { name: test_upper_v1, arguments: { text: hi } }
+  - tool_calls:
+      - { name: finish, arguments: { answer: HI } }
+  - tool_calls:
+      - { name: finish, arguments: { answer: done } }

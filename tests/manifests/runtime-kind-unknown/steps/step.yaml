@@ -1,0 +1,8 @@
+# A runtime kind is one of the five named kinds, or a platform's own starting with x- (SPEC.md, [manifest.schema]).
+name: test/m23
+version: 1.0.0
+description: A step with a misspelled runtime kind.
+inputSchema: { type: object, properties: {} }
+outputSchema: { type: object, properties: {} }
+effects: none
+runtime: { procss: { command: [python3, step.py] } }

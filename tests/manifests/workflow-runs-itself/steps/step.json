@@ -1,0 +1,27 @@
+{
+  "name": "test/m25",
+  "version": "1.0.0",
+  "description": "A workflow step whose workflow runs this same step (SPEC.md, [manifest.no-self]).",
+  "inputSchema": {
+    "type": "object",
+    "properties": {}
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "done": {
+        "type": "boolean"
+      }
+    },
+    "required": [
+      "done"
+    ]
+  },
+  "effects": "none",
+  "runtime": {
+    "workflow": {
+      "path": "flows/loop.yaml",
+      "digest": "sha256:65ca5d008b5e1733771a7ab7e3e8c57aff91bebf5b89f4839bbc349687ad9678"
+    }
+  }
+}

@@ -1,2 +1,4 @@
 status: succeeded
 outputs: { text: hello file }
+steps:
+  made: { outputs: { file: { digest: "sha256:f3877e8a3d98f809d9f844060fbea2864a4b66980a22ff22297014d0c168db2e", mediaType: text/plain, size: 10, name: out.txt } } }

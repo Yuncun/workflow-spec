@@ -1,7 +1,10 @@
-# A literal file value must fit the input's x-mediaType (SPEC.md, [types.media-type]).
+# A literal file value must fit file.schema.json (SPEC.md, [types.file-value]) and the input's
+# x-mediaType ([types.media-type]).
 steps:
   good: { uses: acme/triage-logs@0.4.1, with: { logs: { digest: "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", mediaType: text/plain, size: 120 } } }
   wrong: { uses: acme/triage-logs@0.4.1, with: { logs: { digest: "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb", mediaType: image/png } } }
+  broken: { uses: acme/triage-logs@0.4.1, with: { logs: { digest: "md5:1234", mediaType: text/plain } } }
 outputs:
   good: { from: steps.good.outputs.report }
   wrong: { from: steps.wrong.outputs.report }
+  broken: { from: steps.broken.outputs.report }

@@ -3,14 +3,18 @@
 tests/run/<case>/   workflow.yaml and expected.yaml, plus any of:
   inputs.yaml       the workflow's inputs
   secrets.yaml      the caller's secrets, by name
-  options.yaml      runs (how many times to run), retries, sandbox, macos_only, lock, replay
+  options.yaml      runs (a count, or one inputs object per run), retries, sandbox, macos_only,
+                    allow_read (folders programs may read), lock (a file, or "current"), replay
   model.yaml        scripted replies for agent steps, served as an OpenAI-compatible API
   catalog/          steps only this case uses; tests/run-catalog/ holds the shared ones
 
 expected.yaml says what the last run must give: status, error (the run's error code), outputs,
-and for chosen steps their status, error code, cacheHit, attempts and reason. It can also list
-calls (step id to the steps it called), model_saw_tools, dry_run_differences, and logs_hide
-(values no stored log may contain). Every run record must fit schemas/run.schema.json.
+and for chosen steps the fields of their records, such as status, error code, cacheHit, attempts,
+reason or outputs. It can also give calls (step id to the records of the calls it made),
+model_saw_tools, dry_run_differences, and logs_hide (values nothing in the store may contain).
+Records match when every field the expectation gives matches; other fields are free. Placeholders
+in inputs and options: {tmp} (a scratch folder), {port} (a listening port), {case} (the case folder).
+Every run record must fit schemas/run.schema.json.
 """
 
 import json
@@ -23,6 +27,7 @@ import pytest
 
 from wfspec import load_catalog, load_document
 from wfspec.documents import schema_issues
+from wfspec.publish import lock
 from wfspec.run import Options, Runner, compare_dry_run
 from wfspec.runtimes import SANDBOX, Model
 from wfspec.store import Store
@@ -68,6 +73,19 @@ class FakeModel:
         self.server.shutdown()
 
 
+def matches(actual, expected) -> bool:
+    """Whether a record matches an expectation: every field given must match, recursively; an error
+    may be given by its code alone."""
+    if isinstance(expected, dict):
+        if not isinstance(actual, dict):
+            return False
+        return all(matches(actual.get("error", {}).get("code") if k == "error" and isinstance(v, str) else actual.get(k), v)
+                   for k, v in expected.items())
+    if isinstance(expected, list):
+        return isinstance(actual, list) and len(actual) == len(expected) and all(matches(a, e) for a, e in zip(actual, expected))
+    return actual == expected
+
+
 def optional(case: Path, name: str, default):
     path = case / name
     return load_document(path) if path.exists() else default
@@ -93,13 +111,15 @@ def test_run_case(case: Path, tmp_path: Path):
     opts = optional(case, "options.yaml", {})
     if opts.get("macos_only") and not SANDBOX:
         pytest.skip("needs the macOS sandbox")
+    if SANDBOX is None and opts.get("sandbox", True):
+        opts["sandbox"] = False  # without a sandbox the runner refuses programs that don't write
     dirs = [ROOT / "tests" / "run-catalog"] + ([case / "catalog"] if (case / "catalog").is_dir() else [])
     catalog = load_catalog(dirs)
     assert catalog.problems == []
     listener = socket.socket()
     listener.bind(("127.0.0.1", 0))
     listener.listen()
-    places = {"{tmp}": str(tmp_path), "{port}": listener.getsockname()[1]}
+    places = {"{tmp}": str(tmp_path), "{port}": listener.getsockname()[1], "{case}": str(case)}
     workflow = substitute(load_document(case / "workflow.yaml"), places)
     inputs = substitute(optional(case, "inputs.yaml", {}), places)
     replay = optional(case, opts["replay"], None) if "replay" in opts else None
@@ -114,10 +134,12 @@ def test_run_case(case: Path, tmp_path: Path):
             sandbox=opts.get("sandbox", True),
             model=Model(url=model.url),
             replay=replay,
-            lock=optional(case, opts["lock"], None) if "lock" in opts else None,
+            lock=(lock(workflow, catalog) if opts["lock"] == "current" else optional(case, opts["lock"], None)) if "lock" in opts else None,
+            readable=[Path(p) for p in substitute(opts.get("allow_read", []), places)],
         )
-        for _ in range(opts.get("runs", 1)):
-            record = Runner(catalog, options).run(workflow, inputs)
+        runs = opts.get("runs", 1)
+        for run_inputs in (substitute(runs, places) if isinstance(runs, list) else [inputs] * runs):
+            record = Runner(catalog, options).run(workflow, run_inputs)
     finally:
         model.close()
         listener.close()
@@ -130,18 +152,18 @@ def test_run_case(case: Path, tmp_path: Path):
     if "outputs" in expected:
         assert record.get("outputs", {}) == expected["outputs"]
     for sid, want in (expected.get("steps") or {}).items():
-        got = record["steps"][sid]
-        for key, value in want.items():
-            actual = got.get("error", {}).get("code") if key == "error" else got.get(key)
-            assert actual == value, f"{sid}.{key}: {actual!r} != {value!r} ({got.get('error')})"
+        assert matches(record["steps"][sid], want), f"{sid}: {json.dumps(record['steps'][sid])[:600]}"
     if expected.get("steps") == {}:
         assert record["steps"] == {}
-    for sid, uses in (expected.get("calls") or {}).items():
-        assert [c["uses"] for c in record["steps"][sid].get("calls", [])] == uses
+    for sid, calls in (expected.get("calls") or {}).items():
+        got = record["steps"][sid].get("calls", [])
+        want = [{"uses": c} if isinstance(c, str) else c for c in calls]
+        assert matches(got, want), f"{sid} calls: {json.dumps(got)[:600]}"
     if "model_saw_tools" in expected:
         assert [t["function"]["name"] for t in model.requests[0]["tools"]] == expected["model_saw_tools"]
     if "dry_run_differences" in expected:
         assert compare_dry_run(replay, record, catalog) == expected["dry_run_differences"]
     for hidden in expected.get("logs_hide", []):
-        for log in (tmp_path / "store" / "files").iterdir():
-            assert hidden.encode() not in log.read_bytes(), f"{hidden} reached a stored file"
+        for stored in (tmp_path / "store").rglob("*"):
+            if stored.is_file():
+                assert hidden.encode() not in stored.read_bytes(), f"{hidden} reached {stored.relative_to(tmp_path)}"

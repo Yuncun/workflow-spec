@@ -1,0 +1,4 @@
+status: failed
+error: invalid_output
+steps:
+  made: { status: failed, error: invalid_output }

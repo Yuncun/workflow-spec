@@ -1,0 +1,5 @@
+status: succeeded
+steps:
+  skipped: { status: skipped, reason: "nothing to do; token=[secret]" }
+  after: { status: skipped }
+logs_hide: [alpha-secret-1]

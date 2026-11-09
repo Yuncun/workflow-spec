@@ -1,0 +1,7 @@
+name: test/pinned-ok
+version: 1.0.0
+description: A program whose program matches the digest its manifest pins.
+inputSchema: { type: object, properties: {} }
+outputSchema: { type: object, properties: { text: { type: string } }, required: [text] }
+effects: none
+runtime: { process: { command: [python3, programs/hello.py], digests: { programs/hello.py: "sha256:2d95311cee166305d917d530d95bf2a9e164fabee2b8c32cca415178a9960c80" } } }

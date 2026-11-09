@@ -55,6 +55,8 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--model-url", default="http://127.0.0.1:1234/v1", help="OpenAI-compatible API for agent steps")
     p.add_argument("--model", help="use this model for every agent step")
     p.add_argument("--no-sandbox", action="store_true", help="don't enforce effects with the macOS sandbox")
+    p.add_argument("--allow-read", type=Path, action="append", default=[], metavar="FOLDER",
+                   help="let programs that don't write read this folder under your home folder (repeatable)")
     p.add_argument("--lock", type=Path, help="the workflow's lock file; the run is refused if it no longer matches")
     p.add_argument("--dry-run-of", type=Path, metavar="RUN_RECORD", help="replay the outputs of steps that write from this run, and compare")
     p.add_argument("--json", action="store_true", help="print the run record as JSON")
@@ -120,8 +122,13 @@ def _check_step(args) -> int:
 def _run(args) -> int:
     catalog = load_catalog(args.catalog)
     store = Store(args.store)
-    workflow = load_document(args.workflow)
-    declared = (workflow.get("inputSchema") or {}).get("properties", {})
+    try:
+        workflow = load_document(args.workflow)
+    except ParseError as exc:  # SPEC.md, [run.check-first]: a run that never starts still gets a record
+        record = Runner(catalog, Options(store=store)).unreadable(Path(args.workflow).read_bytes(), str(exc))
+        _print_run(record, store)
+        return 1
+    declared = (workflow.get("inputSchema") or {}).get("properties", {}) if isinstance(workflow, dict) else {}
     inputs = dict(load_document(args.inputs)) if args.inputs else {}
     for item in args.input:
         name, _, raw = item.partition("=")
@@ -132,6 +139,8 @@ def _run(args) -> int:
         if ":" in rest and "/" in rest.rsplit(":", 1)[1]:
             path, media_type = rest.rsplit(":", 1)
         media_type = media_type or mimetypes.guess_type(path)[0] or "application/octet-stream"
+        if not Path(path).is_file():
+            raise ValueError(f"--file {name}: there is no file at {path}")
         inputs[name] = store.put_file(Path(path), media_type)
     missing = [s for s in args.secret if s not in os.environ]
     if missing:
@@ -147,6 +156,7 @@ def _run(args) -> int:
         sandbox=not args.no_sandbox,
         replay=replay,
         lock=load_document(args.lock) if args.lock else None,
+        readable=args.allow_read,
     )
     record = Runner(catalog, options).run(workflow, inputs)
     differences = compare_dry_run(replay, record, catalog) if replay else []

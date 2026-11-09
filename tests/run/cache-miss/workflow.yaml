@@ -1,0 +1,6 @@
+# A changed input changes the key, so a deterministic step runs again (SPEC.md, [run.cache-key]).
+inputSchema: { type: object, properties: { text: { type: string } }, required: [text] }
+steps:
+  said: { uses: test/echo@1.0.0, with: { text: { from: inputs.text } } }
+outputs:
+  said: { from: steps.said.outputs.text }

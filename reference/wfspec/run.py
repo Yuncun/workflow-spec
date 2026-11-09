@@ -19,11 +19,12 @@ from pathlib import Path
 from .check import INPUT_REF, OUTPUT_REF, check, split_value
 from .documents import Catalog, load_document, media_type_problems, value_problem
 from .publish import cache_key, digest, lock
-from .runtimes import Model, Outcome, StepFailed, readable, run_agent, run_process
+from .runtimes import Model, Outcome, StepFailed, inside, readable, run_agent, run_process
 from .store import Store
 
 CALL_FIELDS = ("uses", "digest", "cacheKey", "cacheHit", "attempts", "inputs", "outputs", "status", "reason",
-               "started", "ended", "error", "logs")
+               "started", "ended", "error", "logs", "calls", "steps")
+MAX_DEPTH = 32  # how deeply steps may nest, through calls and workflow steps
 
 
 def now() -> str:
@@ -51,6 +52,7 @@ class Options:
     caller: str = field(default_factory=getpass.getuser)
     replay: dict | None = None  # a run record: steps that write return its outputs (a dry run)
     lock: dict | None = None  # the workflow's lock file, when it was published
+    readable: list[Path] = field(default_factory=list)  # folders programs may read under the home folder
 
 
 class Runner:
@@ -94,15 +96,32 @@ class Runner:
             first = steps[failed[0]]["error"]
             record["error"] = {"code": first["code"], "message": f"step {failed[0]!r}: {first['message']}"}
         record["ended"] = now()
-        self.store.save_run(record)
-        return record
+        return self._save(record)
 
     def _refuse(self, record: dict, code: str, message: str) -> dict:
         record.update(status="failed", error={"code": code, "message": message}, ended=now())
+        return self._save(record)
+
+    def _save(self, record: dict) -> dict:
+        """Save the record with every secret value replaced, wherever it ended up ([run.secrets-hidden])."""
+        text = json.dumps(record, ensure_ascii=False)
+        for value in self._secret_values():
+            for form in (value, json.dumps(value, ensure_ascii=False)[1:-1]):
+                text = text.replace(form, "[secret]")
+        record = json.loads(text)
         self.store.save_run(record)
         return record
 
-    def _steps(self, workflow: dict, result, values: dict) -> tuple[dict, dict, list[str]]:
+    def unreadable(self, raw: bytes, message: str) -> dict:
+        """The record of a run refused because its workflow can't be read ([run.check-first])."""
+        import hashlib
+
+        record = {"id": "run_" + uuid.uuid4().hex[:12], "workflow": {"digest": "sha256:" + hashlib.sha256(raw).hexdigest()},
+                  "lock": {"lockVersion": 1, "steps": {}}, "inputs": {}, "status": "running", "caller": self.options.caller,
+                  "created": now(), "traceId": tokens.token_hex(16), "steps": {}}
+        return self._refuse(record, "check_failed", f"the workflow can't be read: {message}")
+
+    def _steps(self, workflow: dict, result, values: dict, depth: int = 0) -> tuple[dict, dict, list[str]]:
         """Run the needed steps in order (SPEC.md, sections 9.2 to 9.6). Returns the step records, the
         workflow's outputs, and the ids of the steps that failed."""
         done: dict[str, dict] = {}
@@ -123,7 +142,7 @@ class Runner:
                 found, v = self._resolve(x, values, done)
                 if found:  # a missing value leaves the input unset, so its default applies ([run.missing-value])
                     given[name] = v
-            done[sid] = self.run_step(step["uses"], given)
+            done[sid] = self.run_step(step["uses"], given, depth)
         steps = {sid: done.get(sid, {"uses": workflow["steps"][sid]["uses"], "status": "not_needed"}) for sid in workflow["steps"]}
         outputs = {}
         for name, source in result.outputs.items():
@@ -144,12 +163,17 @@ class Runner:
 
     # ---- one step -------------------------------------------------------------------------
 
-    def run_step(self, ref: str, given: dict) -> dict:
+    def run_step(self, ref: str, given, depth: int = 0) -> dict:
         """Run one step version with the given input values, and return its record (SPEC.md, sections 9.3 to 9.8)."""
         manifest = self.catalog.steps[ref]
-        entry: dict = {"uses": ref, "digest": digest(manifest), "status": "running", "started": now()}
+        entry: dict = {"uses": ref, "digest": digest(manifest), "status": "running", "started": now(),
+                       "inputs": given if isinstance(given, dict) else {}}
         cacheable = manifest.get("deterministic", False) and manifest["effects"] != "writes"
         try:
+            if not isinstance(given, dict):  # a model can send anything as a call's arguments
+                raise StepFailed("invalid_input", f"the input values aren't a JSON object: {json.dumps(given)[:200]}")
+            if depth > MAX_DEPTH:
+                raise StepFailed("failed", f"steps nest more than {MAX_DEPTH} levels deep")
             inputs = with_defaults(manifest["inputSchema"], given)
             entry["inputs"] = inputs
             problem = value_problem(manifest["inputSchema"], inputs) or next(iter(media_type_problems(inputs, manifest["inputSchema"])), None)
@@ -171,9 +195,9 @@ class Runner:
                 entry.update(status="succeeded", outputs=recorded, attempts=0, ended=now(),
                              reason=f"dry run: outputs recorded in {self.options.replay['id']}")
                 return entry
-            outcome = self._attempts(ref, manifest, inputs, entry)
+            outcome = self._attempts(ref, manifest, inputs, entry, depth)
             if outcome.skipped is not None:
-                entry.update(status="skipped", reason=outcome.skipped)
+                entry.update(status="skipped", reason=self._redact(outcome.skipped))
             else:
                 entry.update(status="succeeded", outputs=outcome.outputs)
                 if key:
@@ -187,19 +211,20 @@ class Runner:
         entry["ended"] = now()
         return entry
 
-    def _attempts(self, ref: str, manifest: dict, inputs: dict, entry: dict) -> Outcome:
+    def _attempts(self, ref: str, manifest: dict, inputs: dict, entry: dict, depth: int) -> Outcome:
         """Run a step, retrying a failure only when the step doesn't write ([run.retry])."""
         attempts = 0
         while True:
             attempts += 1
             entry["attempts"] = attempts
             try:
-                outcome = self._execute(ref, manifest, inputs, entry)
+                outcome = self._execute(ref, manifest, inputs, entry, depth)
                 if outcome.logs:
                     entry["logs"] = self.store.put_bytes(self._redact(outcome.logs), "text/plain", f"{ref.split('/')[1]}.log")
                 if outcome.skipped is None:
-                    problem = value_problem(manifest["outputSchema"], outcome.outputs)
-                    if problem:  # [run.output-check]
+                    problem = value_problem(manifest["outputSchema"], outcome.outputs) or next(
+                        iter(media_type_problems(outcome.outputs, manifest["outputSchema"])), None)
+                    if problem:  # [run.output-check], [types.media-type]
                         raise StepFailed("invalid_output", problem, outcome.logs)
                     if self._holds_secret(outcome.outputs):  # [run.secrets-hidden]
                         raise StepFailed("failed", "the outputs contain a secret's value", outcome.logs)
@@ -209,7 +234,7 @@ class Runner:
                     continue
                 raise
 
-    def _execute(self, ref: str, manifest: dict, inputs: dict, entry: dict) -> Outcome:
+    def _execute(self, ref: str, manifest: dict, inputs: dict, entry: dict, depth: int) -> Outcome:
         kind = next(iter(manifest["runtime"]))
         folder = Path(self.catalog.files[ref]).parent
         missing = [s for s in manifest.get("secrets", []) if s not in self.options.secrets]
@@ -217,12 +242,13 @@ class Runner:
             raise StepFailed("failed", f"secrets this run doesn't have: {', '.join(missing)}")
         named = {s: self.options.secrets[s] for s in manifest.get("secrets", [])}  # [run.secrets-named]
         if kind == "process":
-            return run_process(manifest, folder, inputs, named, self.store, self.options.timeout, self.options.sandbox)
+            return run_process(manifest, folder, inputs, named, self.store, self.options.timeout, self.options.sandbox,
+                               self.options.readable)
         if kind == "agent":
             calls = entry.setdefault("calls", [])
 
             def call(callee: str, args: dict) -> dict:  # [run.calls-listed], [run.calls-recorded]
-                child = self.run_step(callee, args)
+                child = self.run_step(callee, args, depth + 1)
                 calls.append({k: child[k] for k in CALL_FIELDS if k in child})
                 if child["status"] == "succeeded":
                     return {"outputs": readable(child["outputs"], self.catalog.steps[callee]["outputSchema"], self.store)}
@@ -232,11 +258,17 @@ class Runner:
 
             return run_agent(manifest, folder, inputs, self.store, self.options.model, self.catalog.steps.__getitem__, call)
         if kind == "workflow":
-            inner = load_document(folder / manifest["runtime"]["workflow"]["path"])
+            runtime = manifest["runtime"]["workflow"]
+            path = folder / runtime["path"]
+            if not inside(path, folder) or not path.is_file():
+                raise StepFailed("pinned_mismatch", f"the workflow file {runtime['path']} isn't in the step's folder")
+            inner = load_document(path)
+            if digest(inner) != runtime["digest"]:  # [run.pinned]
+                raise StepFailed("pinned_mismatch", f"{runtime['path']} has changed since the step was published")
             result = check(inner, self.catalog, self.options.policy)
             if not result.ok:
                 raise StepFailed("failed", "the workflow inside this step fails checking")
-            steps, outputs, failed = self._steps(inner, result, with_defaults(inner.get("inputSchema", {}), inputs))
+            steps, outputs, failed = self._steps(inner, result, with_defaults(inner.get("inputSchema", {}), inputs), depth + 1)
             entry["steps"] = steps
             if failed:
                 raise StepFailed("failed", f"step {failed[0]!r} inside the workflow failed")
@@ -253,9 +285,14 @@ class Runner:
             text = text.replace(value.encode(), b"[secret]") if isinstance(text, bytes) else text.replace(value, "[secret]")
         return text
 
-    def _holds_secret(self, outputs) -> bool:
-        dumped = json.dumps(outputs, ensure_ascii=False)
-        return any(value in dumped for value in self._secret_values())
+    def _holds_secret(self, value) -> bool:
+        if isinstance(value, str):
+            return any(secret in value for secret in self._secret_values())
+        if isinstance(value, dict):
+            return any(self._holds_secret(k) or self._holds_secret(v) for k, v in value.items())
+        if isinstance(value, list):
+            return any(self._holds_secret(v) for v in value)
+        return False
 
     # ---- dry runs (SPEC.md, [publish.saved-run]) --------------------------------------------
 

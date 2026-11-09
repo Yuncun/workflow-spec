@@ -1,0 +1,7 @@
+name: test/escape-output
+version: 1.0.0
+description: Give an output file that is a link to a file outside the work folder.
+inputSchema: { type: object, properties: {} }
+outputSchema: { type: object, properties: { file: { $ref: urn:wfspec:file } }, required: [file] }
+effects: none
+runtime: { process: { command: [python3, programs/step.py, escape-output] } }

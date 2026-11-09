@@ -23,7 +23,7 @@ The contract:
   - `path` is added after the check and isn't part of the file value.
 - **Outputs.** The program writes a JSON object of its outputs to the file named by `WF_OUTPUTS`.
   - Wherever `outputSchema` declares a file, the program writes `{"path": "...", "mediaType": "..."}`. It can leave out `mediaType` when the schema's `x-mediaType` names a single type.
-  - A relative `path` is relative to the folder that holds the `WF_OUTPUTS` file, which is the program's work folder.
+  - A relative `path` is relative to the folder that holds the `WF_OUTPUTS` file, which is the program's work folder. The file, with links followed, must be inside that folder; the runner refuses any other with `invalid_output`, because it reads the file outside any sandbox.
   - The runner stores each file, replaces it with a file value, and then checks the outputs ([run.output-check]).
 - **Environment.** The program gets only these environment variables: `PATH`, `LANG`, `HOME` and `TMPDIR` (both set to its work folder), `WF_INPUTS`, `WF_OUTPUTS`, `WF_SKIP`, and its secrets.
 - **Skipping.** A step whose manifest has `maySkip` and that has nothing to do writes a reason to the file named by `WF_SKIP` instead of writing outputs ([run.skip]).
@@ -31,20 +31,24 @@ The contract:
 - **Exit and logs.** Exit code 0 means success. Any other exit code fails the step with `failed`. Standard output and standard error are the step's logs.
 - **Pinning** ([publish.resolve]). Before computing the step's digest, a publisher writes content digests into the manifest, so the step's digest covers them:
   - for `container`, the image reference becomes `image@sha256:...`
-  - for `process`, the runtime object gets `digests`, mapping each file the program needs, by its path relative to the manifest's folder, to its digest
+  - for `process`, the runtime object gets `digests`, mapping each file the program needs, by its path relative to the manifest's folder, to the SHA-256 of its bytes, written `sha256:<hex>`
+
+  A runner checks each digest before the step runs, and fails the step with `pinned_mismatch` when a file differs or isn't inside the manifest's folder (SPEC.md, [run.pinned]).
 
 A program can't call steps under this draft (proposals.md, P16).
 
 *Informative.* The reference runner (`reference/wfspec/run.py`) enforces `effects` for programs on macOS with the system sandbox (`sandbox-exec`):
 - A `none` step gets no network.
 - Neither a `none` nor a `reads` step may write outside its work folder.
+- Neither may read files under `/Users` or the home folder, except its manifest's folder, its work folder, the installation of the program it starts, and folders the caller grants with `wfspec run --allow-read FOLDER`.
+- A step that writes runs without a sandbox, with the person's full access.
 
-The test case `tests/run/effects/` checks that the sandbox applies.
+Where `sandbox-exec` isn't available, the runner refuses programs that don't write, unless the caller passes `--no-sandbox`. The test cases `tests/run/effects/` and `tests/run/allow-read/` check the sandbox.
 
 ## 2. Agents: `agent`
 
 - `model` names a model the runner can serve. How the runner maps names to models and providers is its choice.
-- `instructions` is the path of a text file, relative to the manifest's folder. Before computing the step's digest, a publisher writes the file's digest into the runtime object as `instructionsDigest` ([publish.resolve]).
+- `instructions` is the path of a text file inside the manifest's folder, relative to it. Before computing the step's digest, a publisher writes the SHA-256 of the file's bytes into the runtime object as `instructionsDigest` ([publish.resolve]), and a runner checks it before the step runs ([run.pinned]).
 - `maxTurns` limits the number of model responses. When it's left out, the runner chooses the limit.
 
 The runner:

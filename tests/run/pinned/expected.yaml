@@ -1,0 +1,6 @@
+status: failed
+error: pinned_mismatch
+outputs: { ok: hello }
+steps:
+  ok: { status: succeeded }
+  changed: { status: failed, error: pinned_mismatch }

@@ -1,0 +1,8 @@
+status: succeeded
+outputs: { answer: done }
+calls:
+  outer:
+    - uses: test/helper-agent@1.0.0
+      outputs: { answer: HI }
+      calls:
+        - { uses: test/upper@1.0.0, inputs: { text: hi }, outputs: { text: HI }, status: succeeded }

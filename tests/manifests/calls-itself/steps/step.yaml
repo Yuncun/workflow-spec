@@ -1,0 +1,9 @@
+# A step may not be able to run itself (SPEC.md, [manifest.no-self]).
+name: test/m24
+version: 1.0.0
+description: An agent that lists itself among the steps it can call.
+inputSchema: { type: object, properties: {} }
+outputSchema: { type: object, properties: {} }
+effects: reads
+calls: [test/m24@1.0.0]
+runtime: { agent: { model: claude-sonnet-5-5, instructions: prompts/m24.md } }

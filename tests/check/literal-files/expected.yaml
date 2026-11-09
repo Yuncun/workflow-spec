@@ -1,4 +1,5 @@
 ok: false
 errors:
   - { code: invalid_value, path: "/steps/wrong/with/logs" }
+  - { code: invalid_value, path: "/steps/broken/with/logs" }
 warnings: []

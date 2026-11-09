@@ -1,0 +1,5 @@
+status: succeeded
+outputs: { answer: ok }
+calls:
+  helper:
+    - { uses: test/upper@1.0.0, status: failed, error: invalid_input, inputs: {} }

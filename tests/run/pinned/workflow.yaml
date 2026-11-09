@@ -1,0 +1,7 @@
+# A runner checks the content a manifest pins before the step runs (SPEC.md, [run.pinned]).
+steps:
+  ok: { uses: test/pinned-ok@1.0.0 }
+  changed: { uses: test/pinned-changed@1.0.0 }
+outputs:
+  ok: { from: steps.ok.outputs.text }
+  changed: { from: steps.changed.outputs.text }

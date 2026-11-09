@@ -1,0 +1,4 @@
+status: succeeded
+outputs: { said: ho }
+steps:
+  said: { status: succeeded, cacheHit: false, attempts: 1 }

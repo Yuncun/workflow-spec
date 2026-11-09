@@ -5,6 +5,7 @@ chat completions API, such as LM Studio's).
 
 from __future__ import annotations
 
+import hashlib
 import json
 import os
 import shutil
@@ -59,19 +60,67 @@ def map_files(value, schema, fn: Callable[[dict, dict], object]):
 # ---- process --------------------------------------------------------------------------------
 
 
-def sandbox_profile(effects: str, work: Path) -> str:
-    """A macOS sandbox profile: no writes outside the work folder, and for `none` no network either."""
-    rules = ["(version 1)", "(allow default)", "(deny file-write*)",
-             f'(allow file-write* (subpath "{work}") (subpath "/dev"))']
+def _quoted(path: Path) -> str:
+    return '"' + str(path).replace("\\", "\\\\").replace('"', '\\"') + '"'
+
+
+def sandbox_profile(effects: str, work: Path, readable: list[Path]) -> str:
+    """A macOS sandbox profile for a program that doesn't write outside data:
+    - no reading files under /Users or the home folder, except the folders in `readable`
+    - no writing outside the work folder
+    - for `none`, no network either"""
+    homes = {Path("/Users"), Path.home().resolve()}
+    rules = ["(version 1)", "(allow default)"]
+    rules += [f"(deny file-read-data (subpath {_quoted(h)}))" for h in sorted(homes)]
+    rules += [f"(allow file-read-data (subpath {_quoted(r)}))" for r in readable]
+    rules += ["(deny file-write*)", f'(allow file-write* (subpath {_quoted(work)}) (subpath "/dev"))']
     if effects == "none":
         rules.append("(deny network*)")
     return "\n".join(rules)
 
 
+def inside(path: Path, folder: Path) -> bool:
+    """Whether `path`, with symbolic links followed, is inside `folder`."""
+    try:
+        return path.resolve().is_relative_to(folder.resolve())
+    except OSError:
+        return False
+
+
+def file_digest(path: Path) -> str:
+    return "sha256:" + hashlib.sha256(path.read_bytes()).hexdigest()
+
+
+def check_pinned(folder: Path, digests: dict[str, str]) -> None:
+    """Fail with pinned_mismatch when a file a manifest pins no longer has its digest (SPEC.md, [run.pinned])."""
+    for name, expected in digests.items():
+        path = folder / name
+        if not inside(path, folder) or not path.is_file():
+            raise StepFailed("pinned_mismatch", f"the pinned file {name} isn't in the step's folder")
+        if file_digest(path) != expected:
+            raise StepFailed("pinned_mismatch", f"{name} has changed since the step was published")
+
+
+def _interpreter_home(command: list[str], path: str) -> Path | None:
+    """The installation folder of the program a command starts, when it lives under a home folder."""
+    found = shutil.which(command[0], path=path)
+    if not found:
+        return None
+    real = Path(found).resolve()
+    return real.parent.parent if inside(real, Path("/Users")) or inside(real, Path.home()) else None
+
+
 def run_process(manifest: dict, folder: Path, inputs: dict, secrets: dict[str, str], store: Store,
-                timeout: float, sandbox: bool) -> Outcome:
-    """drafts/runtime.md, section 1: inputs in WF_INPUTS, outputs in WF_OUTPUTS, a reason in WF_SKIP."""
-    command = manifest["runtime"]["process"]["command"]
+                timeout: float, sandbox: bool, readable: list[Path]) -> Outcome:
+    """drafts/runtime.md, section 1: inputs in WF_INPUTS, outputs in WF_OUTPUTS, a reason in WF_SKIP.
+    `readable` lists folders the caller lets programs read, besides their own folder and work folder."""
+    runtime = manifest["runtime"]["process"]
+    command = runtime["command"]
+    effects = manifest["effects"]
+    if sandbox and effects != "writes" and not SANDBOX:
+        raise StepFailed("failed", "this runner can't enforce effects for programs here, because sandbox-exec isn't available; "
+                                   "run with --no-sandbox to run the step anyway")
+    check_pinned(folder, runtime.get("digests", {}))
     with tempfile.TemporaryDirectory(prefix="wfspec-step-") as tmp:
         work = Path(tmp).resolve()
         counter = iter(range(1_000_000))
@@ -93,8 +142,12 @@ def run_process(manifest: dict, folder: Path, inputs: dict, secrets: dict[str, s
             **secrets,  # only the secrets the manifest names (SPEC.md, [run.secrets-named])
         }
         argv = list(command)
-        if sandbox and SANDBOX and manifest["effects"] != "writes":
-            argv = [SANDBOX, "-p", sandbox_profile(manifest["effects"], work), *argv]
+        if sandbox and effects != "writes":
+            allowed = [folder.resolve(), work, *(Path(r).resolve() for r in readable)]
+            interpreter = _interpreter_home(command, env["PATH"])
+            if interpreter:
+                allowed.append(interpreter)
+            argv = [SANDBOX, "-p", sandbox_profile(effects, work, allowed), *argv]
         try:
             proc = subprocess.run(argv, cwd=folder, env=env, capture_output=True, timeout=timeout)
         except subprocess.TimeoutExpired as exc:
@@ -103,7 +156,9 @@ def run_process(manifest: dict, folder: Path, inputs: dict, secrets: dict[str, s
             raise StepFailed("failed", f"couldn't start {command[0]}: {exc}")
         logs = proc.stdout + proc.stderr
         if proc.returncode != 0:
-            raise StepFailed("failed", f"the program exited with code {proc.returncode}", logs)
+            hint = ("; it ran in a sandbox, so if it needs a folder under your home folder, grant it with --allow-read"
+                    if sandbox and effects != "writes" else "")
+            raise StepFailed("failed", f"the program exited with code {proc.returncode}{hint}", logs)
         skip = work / "skip.txt"
         if skip.exists():
             if not manifest.get("maySkip"):
@@ -120,8 +175,9 @@ def run_process(manifest: dict, folder: Path, inputs: dict, secrets: dict[str, s
         def stored(value: dict, schema: dict):
             if "path" not in value:
                 return value
-            path = Path(value["path"])
-            path = path if path.is_absolute() else work / path  # relative to the folder of WF_OUTPUTS
+            path = work / value["path"]  # relative to the folder of WF_OUTPUTS; an absolute path stays as it is
+            if not inside(path, work):  # the runner reads it outside any sandbox, so it must be the step's own file
+                raise StepFailed("invalid_output", f"the output file {value['path']} isn't inside the step's work folder", logs)
             if not path.is_file():
                 raise StepFailed("invalid_output", f"the output file {value['path']} doesn't exist", logs)
             declared = schema.get("x-mediaType", "")
@@ -182,8 +238,12 @@ def run_agent(manifest: dict, folder: Path, inputs: dict, store: Store, model: M
     as a step and returns the tool result."""
     spec = manifest["runtime"]["agent"]
     path = folder / spec["instructions"]
+    if not inside(path, folder):
+        raise StepFailed("failed", f"the instructions file {spec['instructions']} isn't in the step's folder")
     if not path.is_file():
         raise StepFailed("failed", f"the instructions file {spec['instructions']} doesn't exist")
+    if "instructionsDigest" in spec:
+        check_pinned(folder, {spec["instructions"]: spec["instructionsDigest"]})
     out_schema = manifest["outputSchema"]
     messages = [
         {"role": "system", "content": path.read_text()},

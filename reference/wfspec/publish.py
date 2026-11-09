@@ -6,7 +6,7 @@ from __future__ import annotations
 from pathlib import Path
 
 from .check import check, closure
-from .documents import EFFECT_ORDER, FILE_REF, REGISTRY, Catalog, Issue, canonical_json, digest, load_document, pointer
+from .documents import EFFECT_ORDER, FILE_REF, REGISTRY, Catalog, Issue, ParseError, canonical_json, digest, load_document, pointer
 from .documents import mcp_name as tool_name
 
 __all__ = ["canonical_json", "digest"]  # re-exported from documents, where the checker also needs them
@@ -119,6 +119,50 @@ def _derived(workflow: dict, catalog: Catalog, result) -> dict:
     }
 
 
+def _meaning(schema: dict) -> str:
+    """A schema's digest with the order of `required` ignored, at the top level."""
+    return digest({**schema, "required": sorted(schema.get("required", []))}) if "required" in schema else digest(schema)
+
+
+def self_reach_issues(ref: str, manifest: dict, catalog: Catalog, file: str | None) -> list[Issue]:
+    """A step may not be able to run itself, through calls or the workflow it runs (SPEC.md, [manifest.no-self])."""
+    issues = []
+    for i, callee in enumerate(manifest.get("calls", [])):
+        if callee == ref or ref in _reachable(callee, catalog):
+            issues.append(Issue("invalid_manifest", pointer("calls", i), f"{callee} can lead back to {ref}, so the step could run itself", file=file))
+    runtime = manifest["runtime"].get("workflow")
+    if runtime and file is not None:
+        inner = load_document(Path(file).parent / runtime["path"])
+        starts = [step["uses"] for step in inner.get("steps", {}).values()]
+        if any(uses == ref or ref in _reachable(uses, catalog) for uses in starts):
+            issues.append(Issue("invalid_manifest", pointer("runtime", "workflow", "path"), f"the workflow can run {ref} itself", file=file))
+    return issues
+
+
+def _reachable(start: str, catalog: Catalog) -> set[str]:
+    """Every step version `start` can run, through calls and workflow steps, not counting itself."""
+    seen: set[str] = set()
+    stack = [start]
+    while stack:
+        manifest = catalog.steps.get(stack.pop())
+        if manifest is None:
+            continue
+        nexts = list(manifest.get("calls", []))
+        runtime = manifest["runtime"].get("workflow")
+        if runtime:
+            ref = f"{manifest['name']}@{manifest['version']}"
+            try:
+                inner = load_document(Path(catalog.files[ref]).parent / runtime["path"])
+                nexts += [step["uses"] for step in inner.get("steps", {}).values()]
+            except (KeyError, OSError, ParseError):
+                pass
+        for n in nexts:
+            if n not in seen:
+                seen.add(n)
+                stack.append(n)
+    return seen
+
+
 def workflow_step_issues(manifest: dict, catalog: Catalog, file: str | None) -> list[Issue]:
     """A workflow step's manifest may not claim less than its workflow does (SPEC.md, [manifest.workflow-derived]).
 
@@ -134,7 +178,7 @@ def workflow_step_issues(manifest: dict, catalog: Catalog, file: str | None) -> 
         return [Issue("invalid_manifest", pointer("runtime", "workflow", "path"), f"the workflow inside this step fails checking ({codes})", file=file)]
     derived, issues = _derived(inner, catalog, result), []
     for key in ("inputSchema", "outputSchema"):
-        if digest(manifest[key]) != digest(derived[key]):
+        if _meaning(manifest[key]) != _meaning(derived[key]):
             issues.append(Issue("invalid_manifest", pointer(key), f"{key} isn't the one the workflow derives; see wfspec as-step", file=file))
     if EFFECT_ORDER[manifest["effects"]] < EFFECT_ORDER[derived["effects"]]:
         issues.append(Issue("invalid_manifest", pointer("effects"), f"the workflow's steps have effects {derived['effects']!r}, so the step's must be at least that", file=file))

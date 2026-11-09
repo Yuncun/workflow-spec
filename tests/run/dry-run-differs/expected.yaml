@@ -1,0 +1,2 @@
+status: succeeded
+dry_run_differences: ["test/echo@1.0.0 gave different outputs for the same inputs"]

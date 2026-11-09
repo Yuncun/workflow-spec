@@ -1,0 +1,7 @@
+name: test/try-read-reads
+version: 1.0.0
+description: Try to read a file, as a step that reads outside data.
+inputSchema: { type: object, properties: { path: { type: string } }, required: [path] }
+outputSchema: { type: object, properties: { read: { type: boolean } }, required: [read] }
+effects: reads
+runtime: { process: { command: [python3, programs/step.py, try-read] } }

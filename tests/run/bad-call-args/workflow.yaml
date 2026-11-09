@@ -1,0 +1,6 @@
+# Call arguments that aren't a JSON object fail that call with invalid_input, and the record still
+# fits run.schema.json (SPEC.md, [run.record]).
+steps:
+  helper: { uses: test/helper-agent@1.0.0, with: { task: anything } }
+outputs:
+  answer: { from: steps.helper.outputs.answer }

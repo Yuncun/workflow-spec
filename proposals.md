@@ -148,4 +148,4 @@ A proposal joins the specification only through a new version of SPEC.md, with r
 - **Status:** open.
 - **Problem:** a run can't stop to ask a person something, such as approving a draft before it's posted.
 - **Idea:** a step kind that waits for a person's answer, with a typed output. A platform can already ask for approval before a step that writes (SPEC.md, [run.effects]).
-- **Settled by:** a workflow where approval by policy isn't enough.
+- **Settled by:** a workflow where the platform's approval before a step that writes isn't enough.

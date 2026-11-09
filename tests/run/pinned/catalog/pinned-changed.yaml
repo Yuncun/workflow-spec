@@ -1,0 +1,7 @@
+name: test/pinned-changed
+version: 1.0.0
+description: A program whose program no longer matches the digest its manifest pins.
+inputSchema: { type: object, properties: {} }
+outputSchema: { type: object, properties: { text: { type: string } }, required: [text] }
+effects: none
+runtime: { process: { command: [python3, programs/hello.py], digests: { programs/hello.py: "sha256:0000000000000000000000000000000000000000000000000000000000000000" } } }

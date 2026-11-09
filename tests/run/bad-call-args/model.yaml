@@ -1,0 +1,5 @@
+replies:
+  - tool_calls:
+      - { name: test_upper_v1, arguments: x }
+  - tool_calls:
+      - { name: finish, arguments: { answer: ok } }

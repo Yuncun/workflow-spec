@@ -73,5 +73,17 @@ elif behaviour == "make-file":
     give({"file": {"path": "out.txt"}})
 elif behaviour == "read-file":
     give({"text": Path(inputs["file"]["path"]).read_text()})
+elif behaviour == "try-read":
+    try:
+        Path(inputs["path"]).read_bytes()
+        give({"read": True})
+    except OSError:
+        give({"read": False})
+elif behaviour == "escape-output":
+    link = Path(os.environ["TMPDIR"]) / "link.txt"
+    link.symlink_to("/etc/hosts")
+    give({"file": {"path": "link.txt", "mediaType": "text/plain"}})
+elif behaviour == "skip-with-secret":
+    Path(os.environ["WF_SKIP"]).write_text("nothing to do; token=" + os.environ["TOKEN_A"])
 else:
     sys.exit(f"unknown behaviour {behaviour}")

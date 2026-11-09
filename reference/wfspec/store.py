@@ -2,7 +2,7 @@
 
     <root>/files/<sha256 hex>    file contents (SPEC.md, [types.file-store])
     <root>/cache/<key hex>.json  the outputs of a cacheable step call (SPEC.md, section 9.4)
-    <root>/runs/<run id>.json    run records (SPEC.md, section 9.9)
+    <root>/runs/<run id>.json    run records (SPEC.md, section 9.10)
 """
 
 from __future__ import annotations

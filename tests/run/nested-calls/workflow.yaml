@@ -1,0 +1,5 @@
+# The calls of a called agent are recorded inside the call (SPEC.md, [run.calls-recorded]).
+steps:
+  outer: { uses: test/outer-agent@1.0.0, with: { task: shout hi } }
+outputs:
+  answer: { from: steps.outer.outputs.answer }

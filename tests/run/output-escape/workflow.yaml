@@ -1,0 +1,6 @@
+# An output file must be the step's own: one that leads outside its work folder is refused
+# (drafts/runtime.md, section 1), since the runner reads it outside any sandbox.
+steps:
+  made: { uses: test/escape-output@1.0.0 }
+outputs:
+  file: { from: steps.made.outputs.file }

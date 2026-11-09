@@ -1,0 +1,6 @@
+# A secret in a skip reason reaches neither the run record nor anything else in the store (SPEC.md, [run.secrets-hidden]).
+steps:
+  skipped: { uses: test/skip-with-secret@1.0.0 }
+  after: { uses: test/upper@1.0.0, with: { text: { from: steps.skipped.outputs.item } } }
+outputs:
+  after: { from: steps.after.outputs.text }

@@ -136,7 +136,7 @@
       }
     },
     "runtime": {
-      "description": "How the step runs: an object with exactly one key, the runtime kind. SPEC.md, section 5.3 defines `workflow`, whose fields are fixed here. drafts/runtime.md describes process, container, agent and mcp; those and platform kinds are open objects, so a change to a draft doesn't make manifests invalid.",
+      "description": "How the step runs: an object with exactly one key, the runtime kind. The kind is workflow, defined in SPEC.md, section 5.3, whose fields are fixed here; process, container, agent or mcp, described in drafts/runtime.md, whose fields are open, so a change to a draft doesn't make manifests invalid; or a platform's own kind, whose name starts with x-.",
       "type": "object",
       "minProperties": 1,
       "maxProperties": 1,
@@ -161,6 +161,9 @@
       },
       "additionalProperties": {
         "type": "object"
+      },
+      "propertyNames": {
+        "pattern": "^(process|container|agent|mcp|workflow|x-.+)$"
       }
     }
   }

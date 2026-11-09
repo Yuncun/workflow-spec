@@ -1,7 +1,12 @@
-# A runner enforces effects: no network for a `none` step, no writes outside its folder for `reads` (SPEC.md, [run.effects]).
+# A runner enforces effects (SPEC.md, [run.effects]). On macOS the reference runner also keeps programs
+# that don't write from reading files under the home folder that the caller hasn't granted.
 steps:
   network: { uses: test/try-network@1.0.0, with: { port: "{port}" } }
   write: { uses: test/try-write@1.0.0, with: { path: "{tmp}/should-not-exist.txt" } }
+  read: { uses: test/try-read@1.0.0, with: { path: "{case}/expected.yaml" } }
+  read_ungranted: { uses: test/try-read-reads@1.0.0, with: { path: "{case}/expected.yaml" } }
 outputs:
   connected: { from: steps.network.outputs.connected }
   written: { from: steps.write.outputs.written }
+  read: { from: steps.read.outputs.read }
+  read_ungranted: { from: steps.read_ungranted.outputs.read }
