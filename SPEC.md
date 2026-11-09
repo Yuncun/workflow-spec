@@ -706,9 +706,10 @@ From a run record, a person or an agent writes a workflow:
 - **Values a step made up between calls**, such as the issue text an agent wrote, become the outputs of a narrower step with a typed schema, or fixed values.
 - **Values** that came out of an earlier step become references to it. Values that came from the run's inputs become workflow inputs. The rest become literals.
 
-- **[publish.saved-run]** When a workflow is published as saved from a run, the publisher MUST check that it checks without errors, and that a dry run of it with the original run's inputs differs from the original run in neither of these ways:
+- **[publish.saved-run]** When a workflow is published as saved from a run, the publisher MUST check that it checks without errors, and that a dry run of it with the original run's inputs differs from the original run in none of these ways:
   - a deterministic step gives other outputs than the original run recorded for a step or call of the same step version with equal inputs
   - a step that writes is given another value for a fixed input than the write it replays was given
+  - a write of the original run that made no calls is replayed neither by itself nor as part of a step or call it ran inside
 
   A dry run executes every step except those that write. Each step that writes replays the next write of the same step version in the original run, in run order, and returns the outputs recorded for it, so nothing outside changes a second time; when no write is left to replay, the step fails. A write is a step or call of a step that writes. Run order is the order in which steps started, with each step's calls in the order it made them. A value is fixed when it is a literal, a default, a workflow input, or an output of a deterministic step whose inputs are all fixed. Other values, such as a model's answer, can differ from one run to the next, so they aren't compared. How a platform marks a workflow as saved from a run is its own choice.
 

@@ -316,19 +316,24 @@ class Runner:
 def _entries(record: dict) -> list[dict]:
     """Every step and call in a run record, in run order: steps by start time, each followed by
     what ran inside it."""
+    return [entry for entry, _ in _walk(record)]
+
+
+def _walk(record: dict, outer: tuple = ()) -> list[tuple[dict, tuple]]:
+    """Every step and call in a run record, in run order, each with the steps and calls it ran inside."""
     found = []
     for entry in sorted(record.get("steps", {}).values(), key=lambda e: e.get("started", "")):
-        found.extend(_with_inner(entry))
+        found.extend(_walk_entry(entry, outer))
     return found
 
 
-def _with_inner(entry: dict) -> list[dict]:
+def _walk_entry(entry: dict, outer: tuple) -> list[tuple[dict, tuple]]:
     """A step or call, then the calls it made and the steps of its workflow, at every depth."""
-    found = [entry]
+    found, inside = [(entry, outer)], (*outer, entry)
     for call in entry.get("calls", []):
-        found.extend(_with_inner(call))
+        found.extend(_walk_entry(call, inside))
     if "steps" in entry:
-        found.extend(_entries(entry))
+        found.extend(_walk(entry, inside))
     return found
 
 
@@ -341,8 +346,8 @@ def _recorded_write(record: dict, ref: str, k: int) -> dict | None:
 def compare_dry_run(original: dict, dry: dict, catalog: Catalog, workflow: dict) -> list[str]:
     """How a dry run of a saved workflow differs from the run it was saved from (SPEC.md,
     [publish.saved-run]): a deterministic step that gave other outputs than the original run
-    recorded for the same inputs, or a step that writes given another value for a fixed input
-    than the write it replayed was given."""
+    recorded for the same inputs, a step that writes given another value for a fixed input than
+    the write it replayed was given, or a write of the original run that nothing replayed."""
     differences = []
     before = _entries(original)
     for entry in _entries(dry):
@@ -354,20 +359,28 @@ def compare_dry_run(original: dict, dry: dict, catalog: Catalog, workflow: dict)
             differences.append(f"{entry['uses']} gave different outputs for the same inputs")
     order = check(workflow, catalog).order  # the order the dry run replayed its writes in
     fixed = _fixed_steps(workflow, catalog, order)
-    replayed: dict[str, int] = {}
+    counted: dict[str, int] = {}
+    replayed: set[int] = set()  # the original run's writes the dry run replayed
     for sid in order:
         entry = dry["steps"].get(sid, {})
         if entry.get("status") != "succeeded" or catalog.steps[entry["uses"]]["effects"] != "writes":
             continue
-        k = replayed.get(entry["uses"], 0)
-        replayed[entry["uses"]] = k + 1
-        recorded = _recorded_write(original, entry["uses"], k) or {}
+        k = counted.get(entry["uses"], 0)
+        counted[entry["uses"]] = k + 1
+        recorded = _recorded_write(original, entry["uses"], k)
+        if recorded is None:
+            continue
+        replayed.add(id(recorded))
         given = workflow["steps"][sid].get("with") or {}
         for name in sorted(set(entry.get("inputs", {})) | set(recorded.get("inputs", {}))):
             if name in given and not _is_fixed(given[name], fixed):
                 continue  # a value that can differ from one run to the next, such as a model's answer
             if digest(entry.get("inputs", {}).get(name)) != digest(recorded.get("inputs", {}).get(name)):
                 differences.append(f"{entry['uses']} gets a different {name!r} than in the original run")
+    for entry, outer in _walk(original):  # a write that made no calls, replayed neither by itself nor with what it ran inside
+        if (catalog.steps.get(entry["uses"], {}).get("effects") == "writes" and entry.get("status") == "succeeded"
+                and not entry.get("calls") and "steps" not in entry and not any(id(e) in replayed for e in (entry, *outer))):
+            differences.append(f"{entry['uses']} wrote in the original run, but no step of the saved workflow replays it")
     return differences
 
 

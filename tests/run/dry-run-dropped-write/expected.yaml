@@ -1,0 +1,3 @@
+status: succeeded
+outputs: { path: /original/note.txt }
+dry_run_differences: ["test/save-text@1.0.0 wrote in the original run, but no step of the saved workflow replays it"]

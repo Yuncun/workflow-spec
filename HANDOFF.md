@@ -48,7 +48,7 @@ Each row passes or fails on evidence:
 1. **Agents write jobs.** The agent reaches a workflow with no errors using only the MCP server's answers. Record how many checks it took.
 2. **Cache.** The rerun's record shows `cacheHit: true` for the unchanged steps.
 3. **Sharing.** The second person needs no help beyond the form or the chat.
-4. **Saved runs.** The saved workflow passes checking. A dry run with the original inputs gives the same outputs for its deterministic steps, and gives each step that writes the same fixed inputs the original run gave it, with steps that write returning their recorded outputs instead of running again (SPEC.md, section 10.6).
+4. **Saved runs.** The saved workflow passes checking. A dry run with the original inputs gives the same outputs for its deterministic steps, gives each step that writes the same fixed inputs the original run gave it, and leaves out none of the original run's writes, with steps that write returning their recorded outputs instead of running again (SPEC.md, section 10.6).
 
 The fourth row is what would set this format apart from similar tools. If it doesn't hold up, say so plainly: the case for the format is much weaker without it.
 

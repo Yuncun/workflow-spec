@@ -1,0 +1,23 @@
+{
+  "id": "run_original",
+  "steps": {
+    "agent": {
+      "uses": "test/helper-agent@1.0.0",
+      "status": "succeeded",
+      "calls": [
+        {
+          "uses": "test/save-text@1.0.0",
+          "inputs": { "folder": "/original", "name": "note.txt", "text": "hi" },
+          "outputs": { "path": "/original/note.txt" },
+          "status": "succeeded"
+        },
+        {
+          "uses": "test/save-text@1.0.0",
+          "inputs": { "folder": "/original", "name": "other.txt", "text": "more" },
+          "outputs": { "path": "/original/other.txt" },
+          "status": "succeeded"
+        }
+      ]
+    }
+  }
+}

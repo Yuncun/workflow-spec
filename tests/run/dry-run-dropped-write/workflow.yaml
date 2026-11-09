@@ -1,0 +1,6 @@
+# A dry run of a saved workflow that leaves out one of the original run's writes reports it
+# (SPEC.md, [publish.saved-run]).
+steps:
+  saved: { uses: test/save-text@1.0.0, with: { folder: /original, name: note.txt, text: hi } }
+outputs:
+  path: { from: steps.saved.outputs.path }

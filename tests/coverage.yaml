@@ -101,4 +101,4 @@ publish.immutable: { untested: "needs a publisher" }
 publish.lock: [test_examples.py::test_lock_file_is_current, test_examples.py::test_lock_includes_the_steps_a_step_can_call, test_examples.py::test_lock_includes_the_steps_inside_a_published_workflow]
 publish.as-step: [test_examples.py::test_workflow_published_as_step, test_examples.py::test_outputs_after_a_step_that_may_skip_are_optional]
 publish.versions: { untested: "nothing checks it yet (proposals.md, P13)" }
-publish.saved-run: [run/dry-run, run/dry-run-differs, run/dry-run-write-differs, run/dry-run-order]
+publish.saved-run: [run/dry-run, run/dry-run-differs, run/dry-run-write-differs, run/dry-run-order, run/dry-run-dropped-write]
