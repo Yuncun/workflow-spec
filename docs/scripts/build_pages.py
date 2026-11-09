@@ -40,7 +40,8 @@ REF = os.environ.get("DOCS_SOURCE_REF", "main")
 HOME = ("README.md", "index.md")
 
 # Where each Markdown file of the repository appears on the site, in sidebar order.
-# A group nested in a section is a (label, [(source, page), ...]) pair.
+# A group nested in a section is a (label, [(source, page), ...]) pair. A (source, "#anchor")
+# pair links to a heading inside a page placed elsewhere, under that heading's own text.
 SECTIONS = [
     ("Specification", [
         ("SPEC.md", "spec.md"),
@@ -52,6 +53,7 @@ SECTIONS = [
         ("CHANGELOG.md", "changelog.md"),
     ]),
     ("Guides", [
+        ("README.md", "#try-it"),
         ("guides/write-a-workflow.md", "guides/write-a-workflow.md"),
         ("guides/publish-a-step.md", "guides/publish-a-step.md"),
     ]),
@@ -166,8 +168,17 @@ def copied_pages() -> list[tuple[str, str]]:
         if items == "generated":
             continue
         for item in items:
-            pages.extend(item[1] if isinstance(item[1], list) else [item])
+            if isinstance(item[1], list):
+                pages.extend(item[1])
+            elif not item[1].startswith("#"):
+                pages.append(item)
     return pages
+
+
+def is_file_name(label: str, written: str, repo_path: str) -> bool:
+    """Whether a link's text is only the file name it links to, such as [SPEC.md](SPEC.md)."""
+    label = label.strip("`")
+    return label in (written, repo_path, os.path.basename(repo_path))
 
 
 def check_every_document_placed(pages: list[tuple[str, str]]) -> None:
@@ -181,7 +192,7 @@ def check_every_document_placed(pages: list[tuple[str, str]]) -> None:
 
 
 def copy_page(source: str, page: str, page_of: dict[str, str], anchors: dict[str, set[str]],
-              defined: set[str]) -> str:
+              defined: set[str], label_of: dict[str, str]) -> str:
     text = (ROOT / source).read_text()
     spec_page = page_of["SPEC.md"]
 
@@ -199,6 +210,8 @@ def copy_page(source: str, page: str, page_of: dict[str, str], anchors: dict[str
             target_page = page_of[repo_path]
             if anchor and anchor not in anchors[target_page]:
                 raise BuildError(f"{source}: link to {target}, but {repo_path} has no heading or id '{anchor}'")
+            if not anchor and is_file_name(label, path, repo_path):
+                label = label_of[target_page]  # on the site, a page goes by its title
             return f"[{label}]({relative(page, target_page)}{'#' + anchor if anchor else ''})"
         if not (ROOT / repo_path).exists():
             raise BuildError(f"{source}: link to {target}, which doesn't exist")
@@ -217,6 +230,11 @@ def copy_page(source: str, page: str, page_of: dict[str, str], anchors: dict[str
 
     def change(part: str) -> str:
         part = LINK.sub(link, part)
+        # A file name described after a colon, such as "drafts/mcp.md: steps as MCP tools", can
+        # repeat the title it now shows. Leave out a description that only repeats it.
+        part = re.sub(r"(\[([^\]]+)\]\([^)\s]+\)): ([^|\n]+?)(?=\s*(\||$))",
+                      lambda m: m.group(1) if m.group(3).strip().lower() == m.group(2).lower() else m.group(0),
+                      part, flags=re.M)
         part = CITATION.sub(requirement, part)  # a definition, **[id]**, isn't a citation
         if page == spec_page:
             part = DEFINITION.sub(definition, part)
@@ -390,6 +408,11 @@ SCHEMA_PAGES = [
     ("policy.schema.json", "reference/schemas/policy.md"),
 ]
 
+# The section of SPEC.md whose "| Field | Required | Meaning |" table describes a schema's
+# fields. The build fails when the table and the schema don't list the same fields, or don't
+# agree on which are required.
+FIELD_TABLES = {"step.schema.json": "Step manifest", "workflow.schema.json": "Workflow file"}
+
 SCHEMA_IDS: dict[str, tuple[str, str]] = {}
 
 
@@ -468,38 +491,123 @@ def type_of(schema, page: str) -> str:
     return "; ".join([" or ".join(parts)] + limits)
 
 
-def field_rows(schema: dict, page: str, prefix: str = "", depth: int = 0) -> list[str]:
+def spec_sections(spec: str) -> dict[str, str]:
+    """Each numbered section of SPEC.md, such as "5.2", with its heading's anchor."""
+    found = {}
+    for line in FENCE.sub("", spec).splitlines():
+        match = re.match(r"^#{2,3}\s+(\d+(?:\.\d+)*)\.?\s", line)
+        if match:
+            found[match.group(1)] = slugify(heading_text(line))
+    return found
+
+
+def spec_field_tables(spec: str) -> dict[str, dict[str, tuple[str, str]]]:
+    """SPEC.md's "| Field | Required | Meaning |" tables, by the title of the section they're in:
+    each field name with its Required and Meaning cells, as written."""
+    tables: dict[str, dict[str, tuple[str, str]]] = {}
+    lines = FENCE.sub("", spec).splitlines()
+    chapter = ""
+    for i, line in enumerate(lines):
+        heading = re.match(r"^##\s+\d+\.\s+(.*)$", line)
+        if heading:
+            chapter = heading_text(heading.group(1))
+        if not re.match(r"^\|\s*Field\s*\|\s*Required\s*\|\s*Meaning\s*\|", line):
+            continue
+        fields = tables.setdefault(chapter, {})
+        for row in lines[i + 2:]:
+            if not row.startswith("|"):
+                break
+            cells = [c.strip() for c in row.strip().strip("|").split("|")]
+            for name in cells[0].split(","):
+                fields[name.strip().strip("`")] = (cells[1], cells[2])
+    return tables
+
+
+def spec_cell(text: str, page: str, sections: dict[str, str]) -> str:
+    """A cell copied from SPEC.md, with its "section N" mentions linked to those sections,
+    since on another page they would no longer say which document they mean."""
+    spec = relative(page, "spec.md")
+
+    def link(match: re.Match) -> str:
+        number = match.group(2)
+        if number not in sections:
+            raise BuildError(f"SPEC.md's field table mentions section {number}, which SPEC.md doesn't have")
+        return f"[{match.group(1)}]({spec}#{sections[number]})"
+
+    return re.sub(r"\b((?:section|Section) (\d+(?:\.\d+)*))\b", link, text)
+
+
+def field_rows(schema: dict, page: str, meanings: dict[str, str] | None = None, prefix: str = "",
+               depth: int = 0) -> list[tuple[str, str, str, str]]:
     rows = []
     required = set(schema.get("required", []))
     for name, sub in (schema.get("properties") or {}).items():
         path = f"{prefix}{name}"
         sub = sub if isinstance(sub, dict) else {}
-        description = sub.get("description", "")
-        rows.append(f"| {code(path)} | {table_cell(type_of(sub, page))} | {'yes' if name in required else 'no'} "
-                    f"| {table_cell(description)} |")
+        description = (meanings or {}).get(name) or table_cell(sub.get("description", ""))
+        rows.append((code(path), table_cell(type_of(sub, page)), "yes" if name in required else "no", description))
         if depth < 3:
             if sub.get("type") == "object" and sub.get("properties"):
-                rows += field_rows(sub, page, path + ".", depth + 1)
+                rows += field_rows(sub, page, None, path + ".", depth + 1)
             items = sub.get("items")
             if sub.get("type") == "array" and isinstance(items, dict) and items.get("properties"):
-                rows += field_rows(items, page, path + "[].", depth + 1)
+                rows += field_rows(items, page, None, path + "[].", depth + 1)
     for pattern in schema.get("patternProperties") or {}:
-        rows.append(f"| fields matching {code(pattern)} | {table_cell(type_of(schema['patternProperties'][pattern], page))} "
-                    f"| no | |")
+        rows.append((f"fields matching {code(pattern)}",
+                     table_cell(type_of(schema["patternProperties"][pattern], page)), "no", ""))
     return rows
 
 
-def schema_page(file: str, page: str) -> str:
+def field_table(rows: list[tuple[str, str, str, str]]) -> list[str]:
+    """A table of fields; the Description column is left out when no field has one."""
+    if any(row[3] for row in rows):
+        return ["| Field | Type | Required | Description |", "|---|---|---|---|",
+                *(f"| {a} | {b} | {c} | {d} |" for a, b, c, d in rows), ""]
+    return ["| Field | Type | Required |", "|---|---|---|", *(f"| {a} | {b} | {c} |" for a, b, c, _ in rows), ""]
+
+
+def meanings_from_spec(file: str, schema: dict, page: str, spec: str) -> tuple[dict[str, str], str]:
+    """The Meaning cells of the SPEC.md table for this schema, checked against the schema."""
+    title = FIELD_TABLES.get(file)
+    if not title:
+        return {}, ""
+    table = spec_field_tables(spec).get(title)
+    if not table:
+        raise BuildError(f"SPEC.md has no | Field | Required | Meaning | table in a section titled '{title}'")
+    declared = {name for name in schema.get("properties", {}) if name != "$schema"}
+    if set(table) != declared:
+        raise BuildError(
+            f"schemas/{file} and the field table in SPEC.md, section '{title}', list different fields: "
+            f"only in the schema {sorted(declared - set(table))}, only in SPEC.md {sorted(set(table) - declared)}")
+    required = set(schema.get("required", []))
+    for name, (needed, _) in table.items():
+        if needed.startswith("yes") != (name in required):
+            raise BuildError(f"schemas/{file} and SPEC.md, section '{title}', disagree on whether "
+                             f"'{name}' is required")
+    sections = spec_sections(spec)
+    number = next((n for n, slug in sections.items() if slug.endswith(slugify(title)) and "." not in n), None)
+    if number is None:
+        raise BuildError(f"SPEC.md has no numbered section titled '{title}'")
+    meanings = {name: spec_cell(meaning, page, sections) for name, (_, meaning) in table.items()}
+    source = f"[SPEC.md, section {number}]({relative(page, 'spec.md')}#{sections[number]})"
+    return meanings, source
+
+
+def schema_page(file: str, page: str, spec: str) -> str:
     schema = json.loads((ROOT / "schemas" / file).read_text())
+    meanings, meanings_source = meanings_from_spec(file, schema, page, spec)
+    sources = f"[schemas/{file}]({github_url('schemas/' + file)})"
+    if meanings_source:
+        sources += f", with the descriptions of its fields from {meanings_source}"
     out = [front_matter(editLink=False),
            f"# {schema.get('title', file)}", "",
-           f"Generated from [schemas/{file}]({github_url('schemas/' + file)}).", ""]
+           f"Generated from {sources}.", ""]
     if schema.get("description"):
         out += [plain(schema["description"]), ""]
     out += [f"`$id`: {code(schema.get('$id', ''))}", ""]
-    rows = field_rows(schema, page)
+    rows = field_rows(schema, page, meanings)
     if rows:
-        out += ["## Fields", "", "| Field | Type | Required | Description |", "|---|---|---|---|", *rows, ""]
+        out += ["## Fields", "", *field_table(rows)]
     definitions = schema.get("$defs") or {}
     if definitions:
         out += ["## Definitions", ""]
@@ -510,7 +618,7 @@ def schema_page(file: str, page: str) -> str:
             out += [f"Type: {type_of({k: v for k, v in sub.items() if k != 'description'}, page)}", ""]
             rows = field_rows(sub, page)
             if rows:
-                out += ["| Field | Type | Required | Description |", "|---|---|---|---|", *rows, ""]
+                out += field_table(rows)
     out += ["## Schema", "", "```json", (ROOT / "schemas" / file).read_text().rstrip(), "```", ""]
     return "\n".join(out)
 
@@ -571,40 +679,40 @@ def build() -> None:
     requirements = requirement_index(spec)
     spec_page = page_of["SPEC.md"]
 
-    if OUT.exists():
-        shutil.rmtree(OUT)
     written: dict[str, str] = {}
-    for source, page in pages:
-        written[page] = copy_page(source, page, page_of, anchors, defined)
     written["reference/requirements.md"] = requirements_page(requirements, spec_page)
     written["reference/codes.md"] = codes_page(spec, requirements, spec_page)
     for file, page in SCHEMA_PAGES:
-        written[page] = schema_page(file, page)
+        written[page] = schema_page(file, page, spec)
     written["reference/cli.md"] = cli_page()
     written["reference/examples.md"] = examples_page()
 
-    for page, text in written.items():
-        target = OUT / page
-        target.parent.mkdir(parents=True, exist_ok=True)
-        target.write_text(text)
+    # Each page's title on the site: its first heading, and for SPEC.md its version.
+    label_of = {page: first_heading(texts[source]) for source, page in pages}
+    version = re.search(r"^Version ([0-9.]+)", spec, re.M)
+    label_of[spec_page] = f"Specification {version.group(1)}" if version else "Specification"
+    label_of.update({page: first_heading(text) for page, text in written.items()})
 
-    def item(source: str, page: str) -> dict:
-        label = first_heading(texts[source])
-        if source == "SPEC.md":
-            version = re.search(r"^Version ([0-9.]+)", spec, re.M)
-            label = f"Specification {version.group(1)}" if version else "Specification"
-        return {"text": label, "link": "/" + page.removesuffix(".md")}
+    def route(page: str) -> str:
+        return "/" + page.removesuffix(".md").removesuffix("index")
 
-    def generated_item(page: str) -> dict:
-        return {"text": first_heading(written[page]), "link": "/" + page.removesuffix(".md")}
+    def item(source: str, target: str) -> dict:
+        if target.startswith("#"):
+            anchor = target[1:]
+            heading = next((heading_text(line) for line in FENCE.sub("", texts[source]).splitlines()
+                            if re.match(r"^#{1,6}\s", line) and slugify(heading_text(line)) == anchor), None)
+            if heading is None:
+                raise BuildError(f"SECTIONS names {source}{target}, a heading {source} doesn't have")
+            return {"text": heading, "link": route(page_of[source]) + target}
+        return {"text": label_of[target], "link": route(target)}
 
     sidebar, nav = [], []
     for title, items in SECTIONS:
         if items == "generated":
-            entries = [generated_item("reference/requirements.md"), generated_item("reference/codes.md"),
+            entries = [item("", "reference/requirements.md"), item("", "reference/codes.md"),
                        {"text": "Schemas", "collapsed": False,
-                        "items": [generated_item(page) for _, page in SCHEMA_PAGES]},
-                       generated_item("reference/cli.md"), generated_item("reference/examples.md")]
+                        "items": [item("", page) for _, page in SCHEMA_PAGES]},
+                       item("", "reference/cli.md"), item("", "reference/examples.md")]
         else:
             entries = []
             for entry in items:
@@ -614,9 +722,29 @@ def build() -> None:
                 else:
                     entries.append(item(*entry))
         sidebar.append({"text": title, "items": entries})
-        nav.append({"text": title, "link": entries[0]["link"]})
+        first_page = next(e for e in entries if "link" in e and "#" not in e["link"])
+        nav.append({"text": title, "link": first_page["link"]})
 
+    for source, page in pages:
+        written[page] = copy_page(source, page, page_of, anchors, defined, label_of)
+
+    # The home page is the README in VitePress's home layout: its title becomes the large
+    # heading, with a button for each section that starts somewhere to read.
     readme = texts["README.md"]
+    home_page = page_of["README.md"]
+    body = written[home_page].split("---\n", 2)[2]
+    body = re.sub(r"\A\s*# .*\n", "", body)
+    actions = [{"theme": "brand" if i == 0 else "alt", "text": n["text"], "link": n["link"]}
+               for i, n in enumerate(nav[:3])]
+    written[home_page] = front_matter(layout="home", hero={"name": first_heading(readme), "actions": actions}) + body
+
+    if OUT.exists():
+        shutil.rmtree(OUT)
+    for page, text in written.items():
+        target = OUT / page
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_text(text)
+
     description = next(line for line in readme.splitlines()[1:] if line.strip() and not line.startswith("#"))
     site = {"title": first_heading(readme), "description": description.strip(), "repository": REPOSITORY,
             "ref": REF, "nav": nav, "sidebar": sidebar}
