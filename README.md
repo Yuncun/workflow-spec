@@ -15,7 +15,7 @@ Read [SPEC.md](SPEC.md) first. If you're a team adopting the format, read [HANDO
 
 | Document | Status |
 |---|---|
-| [SPEC.md](SPEC.md): the format layer | normative; version 0.2 draft |
+| [SPEC.md](SPEC.md): the format layer | normative; version 0.3 draft |
 | [drafts/runtime.md](drafts/runtime.md): how a runner starts a step | draft, not normative |
 | [drafts/mcp.md](drafts/mcp.md): steps as MCP tools | draft, not normative |
 | [proposals.md](proposals.md): features left out, open questions | not normative |
@@ -30,10 +30,9 @@ examples/
 ├─ runs/                run records for the first two
 ├─ ci-triage.lock.json  the lock file for the fixed workflow
 └─ regenerate.py        recomputes the digests above after an example changes
-guides/                 drafts for step authors, workflow authors and MCP client users
+guides/                 drafts for step authors and workflow authors
 tests/                  test cases for checkers and runners, and coverage.yaml
 reference/              a small Python checker and runner that pass them
-experiments/            agents writing workflows in version 0.1: method, runs, results
 ```
 
 ## Try it
@@ -61,7 +60,7 @@ uv venv .venv && uv pip install --python .venv/bin/python -e "reference[test]"
 
 ## Status
 
-- Version 0.2, a draft dated 2026-11-08.
+- Version 0.3, a draft dated 2026-11-09.
 - The reference checker passes every test case, and so does the reference runner on macOS. Elsewhere the runner can't enforce effects for programs, so it skips the case that tests it.
 - 85 of SPEC.md's 89 requirements have tests. [tests/coverage.yaml](tests/coverage.yaml) says why the other four have none.
 - The runner runs on one machine. It runs `process` steps (programs), `agent` steps (any OpenAI-compatible model API, such as LM Studio's) and workflows used as steps.

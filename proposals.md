@@ -1,6 +1,6 @@
 # Proposals
 
-Features left out of [SPEC.md](SPEC.md) version 0.2, and open questions. **Nothing here is normative.**
+Features left out of [SPEC.md](SPEC.md) version 0.3, and open questions. **Nothing here is normative.**
 
 Every entry has the same parts:
 - **Status:** `open` (undecided), `deferred` (decided to wait), or `rejected`
@@ -50,7 +50,7 @@ A proposal joins the specification only through a new version of SPEC.md, with r
 - **Status:** open.
 - **Problem:** a reference passes a whole output. Using one field of an object takes an extra step.
 - **Idea:** references such as `steps.x.outputs.y.z`, checked against the output's schema.
-- **Settled by:** how often the experiments, and real workflows, insert such a step.
+- **Settled by:** how often real workflows insert such a step.
 
 ## P7. Running a step once per item
 
@@ -61,7 +61,7 @@ A proposal joins the specification only through a new version of SPEC.md, with r
 
 ## P8. Generic steps
 
-- **Status:** open, and the gap the experiments hit most.
+- **Status:** open, and the gap that agents writing workflows hit most in a test on version 0.1.
 - **Problem:** steps such as "pick the first item" or "map a value" can only declare loose types, so the checker can't follow types through them and warns with `type_unchecked`.
 - **Idea:** type variables in a manifest, so that an output's schema follows an input's.
 - **Settled by:** whether the warnings hide real mistakes in a larger catalog.

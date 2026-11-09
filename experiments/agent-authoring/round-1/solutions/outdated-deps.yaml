@@ -1,8 +1,0 @@
-inputSchema: { type: object, properties: { repo: { type: string, pattern: "^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$" } }, required: [repo] }
-outputs:
-  issue: { from: steps.issue.outputs.url }
-steps:
-  deps: { uses: acme/list-dependencies@1.0.0, with: { repo: { from: inputs.repo } } }
-  outdated: { uses: acme/check-outdated@2.0.0, with: { packages: { from: steps.deps.outputs.packages } } }
-  table: { uses: acme/render-table@1.0.0, with: { rows: { from: steps.outdated.outputs.outdated }, columns: [name, current, latest] } }
-  issue: { uses: acme/open-issue@1.0.3, with: { repo: { from: inputs.repo }, title: Outdated dependencies, body: { from: steps.table.outputs.markdown } } }

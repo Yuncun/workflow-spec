@@ -1,6 +1,6 @@
 # Workflow format for shared jobs
 
-Version 0.2, draft, 2026-11-08. Changes from version 0.1 are listed in [CHANGELOG.md](CHANGELOG.md).
+Version 0.3, draft, 2026-11-09. Changes from earlier versions are listed in [CHANGELOG.md](CHANGELOG.md).
 
 This specification defines a text format for jobs built from published steps. It says how such a job is checked before it runs, and what running it must produce. A job written in the format can be shared as a file, and it runs the same way on any conforming runner.
 

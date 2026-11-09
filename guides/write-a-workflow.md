@@ -34,7 +34,7 @@ steps:
 ```
 
 **Naming steps:**
-- `uses` is the step's `name` and `version`, exactly as its manifest gives them. Find steps through the catalog, or through the MCP server's `find_steps` and `get_step`.
+- `uses` is the step's `name` and `version`, exactly as its manifest gives them. Find steps through your platform's catalog.
 - When a step has several versions, use the newest, unless your workflow needs an older one's interface. Older versions stay so that published workflows keep working.
 
 **Writing values in `with`:**
@@ -50,7 +50,7 @@ steps:
 
 **There are no conditions or loops.** Put a decision in a step:
 - **A fixed rule** goes in a small code step. Some steps already decide for themselves; for example, one might open an issue only if there are failures. Read step descriptions for that.
-- **A lookup** goes in a step that maps values, such as `acme/map-value` in `experiments/agent-authoring/round-2/catalog/`.
+- **A lookup** goes in a step that maps one value to another.
 - **A judgment** goes in an agent step with a typed output.
 - **"Only if there's something to do"** is a step with `maySkip`. When it skips, the steps after it are skipped too.
 
@@ -62,7 +62,7 @@ steps:
 wfspec check workflow.yaml --catalog <folder of step manifests>
 ```
 
-The platform runs the same check before every run, and through the MCP server's `check_workflow`. Each problem has a code and a JSON Pointer to where it is:
+The platform runs the same check before every run. Each problem has a code and a JSON Pointer to where it is:
 
 | Code | Usual fix |
 |---|---|

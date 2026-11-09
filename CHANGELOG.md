@@ -7,7 +7,9 @@
 - **Error codes never change meaning** (SPEC.md, [check.codes-stable]), and requirement ids are never reused.
 - **Each version lists its changes here,** by section.
 
-## Unreleased
+## 0.3, 2026-11-09 (draft)
+
+Version 0.3 fixes what a third review of version 0.2 found, and removes material that belongs to platforms or to version 0.1.
 
 **Changed**
 - [publish.saved-run]: a dry run also compares what a saved workflow would write. Each step that writes must be given the same value as the write it replays for every fixed input, meaning one that doesn't come from a model's answer or another step that isn't deterministic. Before, the dry run replayed writes without looking at their inputs, so a saved workflow that would write something else still passed. A write of the original run that the saved workflow leaves out is now reported too. Run order, which decides which write each step replays, is now a term (section 2.3).
@@ -32,6 +34,11 @@
 - The runner no longer grants a program's installation folder by itself. For a program in a folder such as `~/bin`, that folder was the whole home folder.
 - `wfspec run --secret` starts the runner again without the secrets in its environment, which any program of the same person can read.
 - Secret values are hidden by walking the run record rather than by editing its text, which lost the record when a secret matched a number. Secrets of any length are hidden, and an output file that holds one fails its step.
+
+**Removed**
+- `experiments/`: a test of agents writing workflows in version 0.1, which no longer matches the format. Git history keeps it.
+- [drafts/mcp.md](drafts/mcp.md), section 2: the tools a platform's MCP server offers. That is a platform's choice, like its service API (proposals.md, P18). Section 1, a step as an MCP tool, stays.
+- `guides/use-from-an-mcp-client.md`, which described that server.
 
 ## 0.2, 2026-11-08 (draft)
 

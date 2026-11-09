@@ -13,7 +13,7 @@ Change any of these only with a new spec version and a written reason. Error cod
 ## What is yours to decide
 
 - **What SPEC.md leaves to platforms** (section 3): sign-in, storage, triggers and schedules, quotas, billing, sandboxing, the service API, the catalog's API, approvals and editors.
-- **The drafts:** `drafts/runtime.md` (how a runner starts a step) and `drafts/mcp.md` (steps as MCP tools, and the platform's MCP server). Neither is normative yet. Adopt them, change them, or replace them, and send back what works in practice.
+- **The drafts:** `drafts/runtime.md` (how a runner starts a step) and `drafts/mcp.md` (steps as MCP tools). Neither is normative yet. Adopt them, change them, or replace them, and send back what works in practice.
 - **The proposals:** `proposals.md` lists features left out on purpose, each with what would settle it. Evidence from your platform is what moves one into the spec.
 
 The reference checker and runner are in Python. You can call them as they are, port them, or rewrite them in your own stack. The test cases are the contract either way: `tests/check/` and `tests/manifests/` for checkers, `tests/run/` for runners.
@@ -33,7 +33,7 @@ A person decides each conflict. A change to the spec goes back into this package
 | Three real steps from real repositories | each manifest passes `wfspec check-step`, with `--catalog` naming the folders of any steps it calls or runs |
 | Checker | passes every case in `tests/check/` and `tests/manifests/` |
 | Runner for program and agent steps | passes every case in `tests/run/`. Their steps follow drafts/runtime.md and the tool names in drafts/mcp.md, so with a runtime of your own, port those steps first (SPEC.md, section 9.11) |
-| MCP server | offers the tools in drafts/mcp.md, section 2, and works from Copilot |
+| MCP server | your platform's own design: offers steps as MCP tools (drafts/mcp.md) and works from Copilot |
 
 The demo, in order:
 
@@ -56,4 +56,3 @@ The fourth row is what would set this format apart from similar tools. If it doe
 
 - Follow [CONTRIBUTING.md](CONTRIBUTING.md): how a change to the spec is made, the writing rules, and the tests, which must all pass after any change.
 - Don't add conditions, loops or expressions to the workflow format. Put logic in steps (SPEC.md, sections 1 and 7.4).
-- `experiments/agent-authoring/` holds a test of agents writing workflows in version 0.1 of the format, with its method and results. Repeat it with your own steps and models; its README says what it didn't test.
