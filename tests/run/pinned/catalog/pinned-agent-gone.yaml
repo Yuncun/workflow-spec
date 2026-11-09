@@ -1,0 +1,7 @@
+name: test/pinned-agent-gone
+version: 1.0.0
+description: An agent whose pinned instructions file is no longer there.
+inputSchema: { type: object, properties: {} }
+outputSchema: { type: object, properties: { text: { type: string } }, required: [text] }
+effects: reads
+runtime: { agent: { model: test-model, instructions: prompts/gone.md, instructionsDigest: "sha256:0000000000000000000000000000000000000000000000000000000000000000" } }

@@ -1,2 +1,2 @@
 status: succeeded
-outputs: { connected: false, written: false, read: false, read_ungranted: false }
+outputs: { connected: false, written: false, read: false }

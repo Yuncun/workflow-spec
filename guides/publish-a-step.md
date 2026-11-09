@@ -87,7 +87,7 @@ with open(os.environ["WF_OUTPUTS"], "w") as f:
 
 ```bash
 wfspec check-step step.yaml
-wfspec check-step step.yaml --catalog <catalog folder>   # for a step with calls: also checks the steps it calls
+wfspec check-step step.yaml --catalog <catalog folder>   # when the steps it calls or runs are in another folder
 ```
 
 ## 5. Publish

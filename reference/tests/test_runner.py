@@ -3,8 +3,9 @@
 tests/run/<case>/   workflow.yaml and expected.yaml, plus any of:
   inputs.yaml       the workflow's inputs
   secrets.yaml      the caller's secrets, by name
-  options.yaml      runs (a count, or one inputs object per run), retries, sandbox, macos_only,
-                    allow_read (folders programs may read), lock (a file, or "current"), replay
+  options.yaml      runs (a count, or one inputs object per run), retries, sandbox, lock (a file, or
+                    "current"), replay, and macos_only: the reference runner enforces effects only
+                    with the macOS sandbox, so it skips the case elsewhere
   model.yaml        scripted replies for agent steps, served as an OpenAI-compatible API
   catalog/          steps only this case uses; tests/run-catalog/ holds the shared ones
 
@@ -13,7 +14,8 @@ and for chosen steps the fields of their records, such as status, error code, ca
 reason or outputs. It can also give calls (step id to the records of the calls it made),
 model_saw_tools, dry_run_differences, and logs_hide (values nothing in the store may contain).
 Records match when every field the expectation gives matches; other fields are free. Placeholders
-in inputs and options: {tmp} (a scratch folder), {port} (a listening port), {case} (the case folder).
+in the workflow, inputs and options: {tmp} (a scratch folder, holding a file outside.txt that no step is given),
+{port} (a listening port), {case} (the case folder).
 Every run record must fit schemas/run.schema.json.
 """
 
@@ -124,6 +126,7 @@ def test_run_case(case: Path, tmp_path: Path):
     listener = socket.socket()
     listener.bind(("127.0.0.1", 0))
     listener.listen()
+    (tmp_path / "outside.txt").write_text("data no step is given")
     places = {"{tmp}": str(tmp_path), "{port}": listener.getsockname()[1], "{case}": str(case)}
     workflow = substitute(load_document(case / "workflow.yaml"), places)
     inputs = substitute(optional(case, "inputs.yaml", {}), places)
@@ -140,7 +143,7 @@ def test_run_case(case: Path, tmp_path: Path):
             model=Model(url=model.url),
             replay=replay,
             lock=(lock(workflow, catalog) if opts["lock"] == "current" else optional(case, opts["lock"], None)) if "lock" in opts else None,
-            readable=[Path(p) for p in substitute(opts.get("allow_read", []), places)] + PYTHON,
+            readable=PYTHON,
         )
         runs = opts.get("runs", 1)
         for run_inputs in (substitute(runs, places) if isinstance(runs, list) else [inputs] * runs):

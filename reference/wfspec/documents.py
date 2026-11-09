@@ -369,8 +369,6 @@ def load_catalog(dirs: list[Path]) -> Catalog:
     """Load every *.yaml, *.yml and *.json manifest in the given folders (not recursive).
 
     A manifest with problems is left out, so no workflow can use it."""
-    from .publish import self_reach_issues, workflow_step_issues  # publish imports check, which imports this module
-
     catalog = Catalog()
     seen: dict[str, str] = {}  # name@version -> the file that first had it, valid or not
     for folder in dirs:
@@ -403,13 +401,34 @@ def load_catalog(dirs: list[Path]) -> Catalog:
     while changed:
         changed = False
         for ref, manifest in list(catalog.steps.items()):
-            file = catalog.files[ref]
-            issues = (calls_issues(manifest, catalog, file) or self_reach_issues(ref, manifest, catalog, file)
-                      or workflow_step_issues(manifest, catalog, file))
+            issues = catalog_issues(ref, manifest, catalog, catalog.files[ref])
             if issues:
                 catalog.leave_out(ref, issues)
                 changed = True
     return catalog
+
+
+def catalog_issues(ref: str, manifest: dict, catalog: Catalog, file: str | None) -> list[Issue]:
+    """The rules for one manifest that need the rest of its catalog: what it calls, whether it can
+    run itself, and the workflow a workflow step runs (SPEC.md, [manifest.invalid])."""
+    from .publish import self_reach_issues, workflow_step_issues  # publish imports check, which imports this module
+
+    return (calls_issues(manifest, catalog, file) or self_reach_issues(ref, manifest, catalog, file)
+            or workflow_step_issues(manifest, catalog, file))
+
+
+def check_step(path: Path, dirs: list[Path]) -> list[Issue]:
+    """What loading the manifest in `path` into a catalog of the manifests in `dirs` would report
+    about it, the same rules in the same order as load_catalog."""
+    file = str(path)
+    doc = load_document(path)
+    found = manifest_issues(doc, file) or workflow_runtime_issues(doc, file)
+    if found:
+        return found
+    catalog = load_catalog(dirs)
+    ref = _ref_of(doc)
+    catalog.steps[ref], catalog.files[ref] = doc, file
+    return catalog_issues(ref, doc, catalog, file)
 
 
 def _ref_of(doc) -> str | None:

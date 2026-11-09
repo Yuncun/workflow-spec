@@ -16,11 +16,19 @@
 - `schemas/run.schema.json` now holds what section 9 already required: an error always has a code, from the lists in [run.error-codes] and section 9.1, and a call records its step digest, and its outputs when it succeeded ([run.calls-recorded]).
 - [manifest.workflow-derived] ignores the order of `required` lists at every depth, as it says; the reference checker sorted only the top level.
 - [check.invalid-value]: the reference checker now checks a workflow input default's media type too, as the rule says.
+- Section 9.11 says the runner test cases rely on the contracts in drafts/runtime.md and the tool names in drafts/mcp.md, so a runner with a runtime of its own ports their steps.
+- The `effects` case tests only what [run.effects] requires. The reference runner's own rule against reading the home folder, and `--allow-read`, are now tested in `reference/tests/test_isolation.py`.
+
+**Fixed**, in the reference tools
+- `wfspec check-step` applies every rule the catalog loader applies. It skipped [manifest.no-self], [manifest.workflow-derived] and the check of a workflow step's workflow, so a manifest could pass it and still be left out of every catalog. Without `--catalog`, it uses the manifest's own folder.
+- An agent step is told when a text file input was cut at 200,000 characters.
+- An agent step whose pinned instructions file is missing or outside its folder fails with `pinned_mismatch`, as a program's pinned file does ([run.pinned]).
 
 **Security**, in the reference runner
 - Output files are read without following symbolic links, through a handle to the work folder opened before the program starts. A process the program left running could otherwise swap in a link to a file the sandbox denied it.
 - A program runs in a process group of its own, which ends with it, on a timeout too.
 - Programs that don't write can't send signals outside their process group.
+- A `none` program can't read the shared temporary folders or other volumes either, so it reads no outside data wherever a repository sits.
 - The runner no longer grants a program's installation folder by itself. For a program in a folder such as `~/bin`, that folder was the whole home folder.
 - `wfspec run --secret` starts the runner again without the secrets in its environment, which any program of the same person can read.
 - Secret values are hidden by walking the run record rather than by editing its text, which lost the record when a secret matched a number. Secrets of any length are hidden, and an output file that holds one fails its step.

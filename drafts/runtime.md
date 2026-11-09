@@ -25,7 +25,7 @@ The contract:
   - Wherever `outputSchema` declares a file, the program writes `{"path": "...", "mediaType": "..."}`. It can leave out `mediaType` when the schema's `x-mediaType` names a single type.
   - A relative `path` is relative to the folder that holds the `WF_OUTPUTS` file, which is the program's work folder. It must lead to a regular file inside that folder without passing through a symbolic link; the runner refuses any other with `invalid_output`, because it reads the file outside any sandbox.
   - The runner stores each file, replaces it with a file value, and then checks the outputs ([run.output-check]). A file that holds the value of any of the run's secrets fails the step instead ([run.secrets-hidden]).
-- **Environment.** The program gets only these environment variables: `PATH`, `LANG`, `HOME` and `TMPDIR` (both set to its work folder), `WF_INPUTS`, `WF_OUTPUTS`, `WF_SKIP`, and its secrets.
+- **Environment.** The program gets only these environment variables: `PATH`, `LANG`, `HOME` and `TMPDIR` (both set to its work folder), `WF_INPUTS`, `WF_OUTPUTS`, `WF_SKIP`, and its secrets. On macOS the system adds `__CF_USER_TEXT_ENCODING` to every program.
 - **Skipping.** A step whose manifest has `maySkip` and that has nothing to do writes a reason to the file named by `WF_SKIP` instead of writing outputs ([run.skip]).
 - **Secrets.** Each secret named in `secrets` is set as an environment variable with the same name, and no other secret is set ([run.secrets-named]).
 - **Exit and logs.** Exit code 0 means success. Any other exit code fails the step with `failed`. Standard output and standard error are the step's logs.
@@ -38,8 +38,8 @@ The contract:
 
 A program can't call steps under this draft (proposals.md, P16).
 
-*Informative.* The reference runner (`reference/wfspec/run.py`) enforces `effects` for programs on macOS with the system sandbox (`sandbox-exec`):
-- A `none` step gets no network.
+*Informative.* The reference runner (`reference/wfspec/runtimes.py`) enforces `effects` for programs on macOS with the system sandbox (`sandbox-exec`):
+- A `none` step gets no network, and can't read the shared temporary folders (`/private/tmp` and `/private/var/folders`) or other volumes, apart from its work folder.
 - Neither a `none` nor a `reads` step may write outside its work folder.
 - Neither may read files under `/Users` or the home folder, except its manifest's folder, its work folder, and folders the caller grants with `wfspec run --allow-read FOLDER`. A program installed under a home folder, such as a Python from pyenv or uv, needs its installation granted the same way, and the runner's error names the folder.
 - Neither may send signals outside its own process group.
@@ -47,16 +47,16 @@ A program can't call steps under this draft (proposals.md, P16).
 
 The sandbox can't stop a program from reading the environment that another program of the same person started with. So `wfspec run` starts itself again without the secrets given with `--secret`, and receives their values over a pipe. A step can still read the environment of other programs that hold secrets, including a later step that names them, if it leaves a process running outside its process group, which the runner can't find to end. Steps from people you don't trust belong in containers or virtual machines.
 
-Where `sandbox-exec` isn't available, the runner refuses programs that don't write, unless the caller passes `--no-sandbox`. The test cases `tests/run/effects/` and `tests/run/allow-read/`, and `reference/tests/test_isolation.py`, check the sandbox.
+Where `sandbox-exec` isn't available, the runner refuses programs that don't write, unless the caller passes `--no-sandbox`. The test case `tests/run/effects/` and `reference/tests/test_isolation.py` check the sandbox.
 
 ## 2. Agents: `agent`
 
 - `model` names a model the runner can serve. How the runner maps names to models and providers is its choice.
-- `instructions` is the path of a text file inside the manifest's folder, relative to it. Before computing the step's digest, a publisher writes the SHA-256 of the file's bytes into the runtime object as `instructionsDigest` ([publish.resolve]), and a runner checks it before the step runs ([run.pinned]).
+- `instructions` is the path of a text file inside the manifest's folder, relative to it. Before computing the step's digest, a publisher writes the SHA-256 of the file's bytes into the runtime object as `instructionsDigest` ([publish.resolve]). A runner checks it before the step runs, and fails the step with `pinned_mismatch` when the file differs or isn't inside the manifest's folder ([run.pinned]).
 - `maxTurns` limits the number of model responses. When it's left out, the runner chooses the limit.
 
 The runner:
-1. **Starts the model.** The instructions become the system prompt, and the input values, as JSON, the first user message. Every file input must be readable by the agent. Whether the runner puts the text in the message, attaches it, or relies on a step in `calls` that reads files is its choice.
+1. **Starts the model.** The instructions become the system prompt, and the input values, as JSON, the first user message. Every file input must be readable by the agent. Whether the runner puts the text in the message, attaches it, or relies on a step in `calls` that reads files is its choice. *Informative:* the reference runner puts the text of `text/*` files in the message, up to 200,000 characters, with `textCut: true` when it cuts one short. It gives other files only as their digest, media type and size, so an agent step that needs one must call a step that reads it.
 2. **Offers tools:**
    - each step in `calls`, under its MCP tool name ([mcp.md](mcp.md), section 1), with its `inputSchema` as the parameters
    - `finish`, whose parameters are the step's `outputSchema`

@@ -1,5 +1,0 @@
-# A folder the caller grants can be read by a step that reads outside data.
-steps:
-  read: { uses: test/try-read-reads@1.0.0, with: { path: "{case}/expected.yaml" } }
-outputs:
-  read: { from: steps.read.outputs.read }

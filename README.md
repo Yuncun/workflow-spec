@@ -25,7 +25,7 @@ Read [SPEC.md](SPEC.md) first. If you're a team adopting the format, read [HANDO
 ```text
 schemas/                JSON Schemas: step, workflow, file value, lock file, run record
 examples/
-├─ steps/               seven step manifests: programs, an agent without calls, an agent with calls
+├─ steps/               seven step manifests: four containers, two agents without calls, an agent with calls
 ├─ workflows/           an agent-led workflow, the fixed workflow saved from its run, a PR summary
 ├─ runs/                run records for the first two
 ├─ ci-triage.lock.json  the lock file for the fixed workflow
@@ -62,10 +62,16 @@ uv venv .venv && uv pip install --python .venv/bin/python -e "reference[test]"
 ## Status
 
 - Version 0.2, a draft dated 2026-11-08.
-- The reference checker and the reference runner pass every test case.
+- The reference checker passes every test case, and so does the reference runner on macOS. Elsewhere the runner can't enforce effects for programs, so it skips the case that tests it.
 - 85 of SPEC.md's 89 requirements have tests. [tests/coverage.yaml](tests/coverage.yaml) says why the other four have none.
 - The runner runs on one machine. It runs `process` steps (programs), `agent` steps (any OpenAI-compatible model API, such as LM Studio's) and workflows used as steps.
-- On macOS it enforces `effects` for programs with the system sandbox. Programs that don't write can't read files under your home folder unless you grant a folder with `--allow-read`, and can't signal other processes. They can still read the environment your other programs started with, which the sandbox can't prevent. Steps that write run with your full access. So run only steps you trust.
+- On macOS it runs programs that don't write in the system sandbox:
+  - They can't write outside their work folder or signal other processes.
+  - They can't read under your home folder, except their own step's folder and folders you grant with `--allow-read`.
+  - A `none` program also gets no network, and can't read the shared temporary folders or other volumes.
+  - The sandbox can't stop a program from reading the environment your other programs started with.
+
+  Steps that write run with your full access, so run only steps you trust.
 
 ## License
 

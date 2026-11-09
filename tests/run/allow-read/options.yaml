@@ -1,2 +1,0 @@
-macos_only: true
-allow_read: ["{case}"]

@@ -6,7 +6,7 @@ For a platform team, and the agents working with it, adopting SPEC.md as the fou
 
 - **The file formats:** `schemas/`.
 - **The checking rules and error codes:** SPEC.md, section 8.
-- **The requirement ids and test cases:** every testable rule in SPEC.md has an id, and `tests/coverage.yaml` says which test cases cover it. A checker conforms when it passes all of them.
+- **The requirement ids and test cases:** every testable rule in SPEC.md has an id, and `tests/coverage.yaml` says which test cases cover it. A checker must pass all of them to conform, but that isn't enough: it must also follow every rule in sections 4 to 8 (SPEC.md, section 3).
 
 Change any of these only with a new spec version and a written reason. Error codes are what agents fix workflows by, so keep the meaning of each existing code, and add new codes rather than changing old ones.
 
@@ -30,9 +30,9 @@ A person decides each conflict. A change to the spec goes back into this package
 
 | Piece | Done when |
 |---|---|
-| Three real steps from real repositories | each manifest passes `wfspec check-step` (with `--catalog` for steps with `calls`) |
+| Three real steps from real repositories | each manifest passes `wfspec check-step`, with `--catalog` naming the folders of any steps it calls or runs |
 | Checker | passes every case in `tests/check/` and `tests/manifests/` |
-| Runner for program and agent steps | passes every case in `tests/run/`, following drafts/runtime.md or your own step runtime |
+| Runner for program and agent steps | passes every case in `tests/run/`. Their steps follow drafts/runtime.md and the tool names in drafts/mcp.md, so with a runtime of your own, port those steps first (SPEC.md, section 9.11) |
 | MCP server | offers the tools in drafts/mcp.md, section 2, and works from Copilot |
 
 The demo, in order:

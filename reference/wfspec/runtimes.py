@@ -69,14 +69,16 @@ def _quoted(path: Path) -> str:
 def sandbox_profile(effects: str, work: Path, readable: list[Path]) -> str:
     """A macOS sandbox profile for a program that doesn't write outside data:
     - no reading files under /Users or the home folder, except the folders in `readable`
+    - for `none`, no reading the shared temporary folders or other volumes either, and no network
     - no writing outside the work folder
     - no signals, except to itself, its children and its process group, which is the step's own
-    - for `none`, no network either
     The sandbox can't stop a program from reading the environment another program of the same
     user started with, so the runner keeps secrets out of its own (cli.py, _secrets)."""
-    homes = {Path("/Users"), Path.home().resolve()}
+    private = {Path("/Users"), Path.home().resolve()}
+    if effects == "none":  # it touches no outside data at all (SPEC.md, section 5.2)
+        private |= {Path("/private/tmp"), Path("/private/var/folders"), Path("/Volumes")}
     rules = ["(version 1)", "(allow default)"]
-    rules += [f"(deny file-read-data (subpath {_quoted(h)}))" for h in sorted(homes)]
+    rules += [f"(deny file-read-data (subpath {_quoted(h)}))" for h in sorted(private)]
     rules += [f"(allow file-read-data (subpath {_quoted(r)}))" for r in readable]
     rules += ["(deny file-write*)", f'(allow file-write* (subpath {_quoted(work)}) (subpath "/dev"))']
     rules += ["(deny signal)"] + [f"(allow signal (target {t}))" for t in ("self", "children", "pgrp")]
@@ -320,7 +322,7 @@ def readable(inputs: dict, schema: dict, store: Store) -> dict:
             content = store.path_of(value).read_text(errors="replace")
         except KeyError:
             return value
-        return {**value, "text": content[:TEXT_LIMIT]}
+        return {**value, "text": content[:TEXT_LIMIT], **({"textCut": True} if len(content) > TEXT_LIMIT else {})}
 
     return map_files(inputs, schema, text)
 
@@ -331,10 +333,11 @@ def run_agent(manifest: dict, folder: Path, inputs: dict, store: Store, model: M
     as a step and returns the tool result."""
     spec = manifest["runtime"]["agent"]
     path = folder / spec["instructions"]
+    code = "pinned_mismatch" if "instructionsDigest" in spec else "failed"  # pinned content: SPEC.md, [run.pinned]
     if not inside(path, folder):
-        raise StepFailed("failed", f"the instructions file {spec['instructions']} isn't in the step's folder")
+        raise StepFailed(code, f"the instructions file {spec['instructions']} isn't in the step's folder")
     if not path.is_file():
-        raise StepFailed("failed", f"the instructions file {spec['instructions']} doesn't exist")
+        raise StepFailed(code, f"the instructions file {spec['instructions']} doesn't exist")
     if "instructionsDigest" in spec:
         check_pinned(folder, {spec["instructions"]: spec["instructionsDigest"]})
     out_schema = manifest["outputSchema"]

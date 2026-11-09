@@ -4,8 +4,10 @@ environment. These need processes the test cases in tests/run can't describe."""
 
 import json
 import os
+import shutil
 import subprocess
 import sys
+import tempfile
 import time
 from pathlib import Path
 
@@ -21,8 +23,8 @@ CATALOG = ROOT / "tests" / "run-catalog"
 PYTHON = [p for p in [home_installation(["python3"], os.environ.get("PATH", ""))] if p]  # see test_runner.py
 
 
-def run(workflow: dict, tmp_path: Path) -> dict:
-    options = Options(store=Store(tmp_path / "store"), sandbox=SANDBOX is not None, readable=PYTHON)
+def run(workflow: dict, tmp_path: Path, readable: tuple[Path, ...] = ()) -> dict:
+    options = Options(store=Store(tmp_path / "store"), sandbox=SANDBOX is not None, readable=[*readable, *PYTHON])
     return Runner(load_catalog([CATALOG]), options).run(workflow, {})
 
 
@@ -91,3 +93,18 @@ def test_the_runner_keeps_secrets_out_of_its_environment(tmp_path):
     record = json.loads(done.stdout)
     assert record["outputs"] == {"seen": False}, done.stdout + done.stderr
     assert "alpha-secret-1" not in done.stdout + done.stderr
+
+
+@pytest.mark.skipif(SANDBOX is None, reason="needs the macOS sandbox")
+def test_programs_read_the_home_folder_only_where_granted(tmp_path):
+    """The reference runner's own policy, beyond SPEC.md: a program that doesn't write reads nothing
+    under the home folder but what the caller grants with --allow-read."""
+    home = Path(tempfile.mkdtemp(prefix=".wfspec-test-", dir=Path.home()))
+    try:
+        (home / "private.txt").write_text("private")
+        workflow = {"steps": {"read": {"uses": "test/try-read-reads@1.0.0", "with": {"path": str(home / "private.txt")}}},
+                    "outputs": {"read": {"from": "steps.read.outputs.read"}}}
+        assert run(workflow, tmp_path / "ungranted")["outputs"] == {"read": False}
+        assert run(workflow, tmp_path / "granted", readable=(home,))["outputs"] == {"read": True}
+    finally:
+        shutil.rmtree(home)
