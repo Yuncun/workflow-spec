@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import re
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -42,12 +43,27 @@ def wfspec(*args: str) -> dict:
         return {"ok": False, "errors": [{"code": "crash", "message": (result.stderr or result.stdout).strip()}]}
 
 
+def catalog_for(manifest: dict, scratch: Path) -> Path:
+    """The example catalog, less any manifest of the same name and version: an example of a step
+    that's in the catalog stands in for its file there, as a catalog holds one manifest per version."""
+    def same_step(folder, names):
+        if Path(folder) != CATALOG:
+            return []
+        return [n for n in names if n.endswith((".yaml", ".yml", ".json")) and (CATALOG / n).is_file()
+                and isinstance(step := yaml.load((CATALOG / n).read_text()), dict)
+                and (step.get("name"), step.get("version")) == (manifest.get("name"), manifest.get("version"))]
+
+    folder = Path(tempfile.mkdtemp(dir=scratch)) / "catalog"
+    shutil.copytree(CATALOG, folder, ignore=same_step)
+    return folder
+
+
 def problems_of(kind: str, data, body: str, scratch: Path) -> list[str]:
     if kind == "manifest":
         folder = Path(tempfile.mkdtemp(dir=scratch))
         path = folder / "step.yaml"
         path.write_text(body)
-        result = wfspec("check-step", str(path), "--catalog", str(CATALOG))
+        result = wfspec("check-step", str(path), "--catalog", str(catalog_for(data, scratch)))
     elif kind == "workflow":
         path = Path(tempfile.mkdtemp(dir=scratch)) / "workflow.yaml"
         path.write_text(body)
