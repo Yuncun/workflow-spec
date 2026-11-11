@@ -43,7 +43,7 @@ A proposal joins the specification only through a new version of SPEC.md, with r
 - **Status:** open. Version 0.1's workflow schema allowed a `description` on each step, without a mention in the text.
 - **Problem:** a step id such as `translate_ja` is the only label a step in a workflow has. When one step is used twice, both nodes in a drawing share the step's title.
 - **Idea:** an optional `title` or `description` on each step entry.
-- **Settled by:** people reading drawn workflows (`~/Claude/comfyui-for-work/wfspec-view`) and saying whether step ids are enough.
+- **Settled by:** people reading drawn workflows and saying whether step ids are enough.
 
 ## P6. Picking a field out of an output
 
