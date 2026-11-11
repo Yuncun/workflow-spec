@@ -3,3 +3,42 @@
 .vp-doc a[id] {
   scroll-margin-top: calc(var(--vp-nav-height) + 24px);
 }
+
+/* A requirement id is for looking a rule up, not for reading it. It stays a link, small and
+   grey beside the sentence it names, so the sentence is what a reader sees first. */
+.vp-doc a.rule,
+.vp-doc a.rule-ref {
+  color: var(--vp-c-text-2);
+  font-weight: 400;
+  text-decoration: none;
+}
+.vp-doc a.rule {
+  font-size: 0.8em;
+}
+.vp-doc a.rule:hover,
+.vp-doc a.rule-ref:hover {
+  color: var(--vp-c-brand-1);
+  text-decoration: underline;
+}
+
+/* A long line in a code block wraps, so nothing is cut off at the right edge. The part that
+   wraps is indented, so it can't be taken for a line of its own. */
+.vp-doc div[class*='language-'] pre,
+.vp-doc div[class*='language-'] code {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.vp-doc div[class*='language-'] code {
+  width: auto;
+}
+.vp-doc div[class*='language-'] code .line {
+  display: inline-block;
+  max-width: 100%;
+  padding-left: 4ch;
+  text-indent: -4ch;
+}
+
+/* "text" in the corner of a block that isn't in any language says nothing. */
+.vp-doc div.language-text > span.lang {
+  display: none;
+}

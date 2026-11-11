@@ -19,6 +19,14 @@ REF = os.environ.get("DOCS_SOURCE_REF", "main")
 
 HOME = ("README.md", "index.md")
 
+# The README section that lists the repository's documents and folders. The site's menu does
+# that job, so the home page leaves the section out.
+HOME_LEAVES_OUT = "In this repository"
+
+# A document shown as two pages: the part from this heading on gets a page of its own, placed
+# after the first in the sidebar. Its headings move up a level there, so the page has a title.
+SPLIT = {"SPEC.md": ("## Annex A.", "annex-a.md")}
+
 # Where each Markdown file of the repository appears on the site, in sidebar order.
 # A group nested in a section is a (label, [(source, page), ...]) pair. A (source, "#anchor")
 # pair links to a heading inside a page placed elsewhere, under that heading's own text.
@@ -51,6 +59,11 @@ CITATION = re.compile(rf"(?<![*\w\[])\[({REQUIREMENT_ID})\](?![(\]])")
 LINK = re.compile(r"(?<!!)\[((?:[^\[\]]|\[[^\[\]]*\])*)\]\(([^)\s]+)\)")
 KEY_WORD = re.compile(r"\b(MUST NOT|MUST|SHALL NOT|SHALL|SHOULD NOT|SHOULD|NOT RECOMMENDED|RECOMMENDED|REQUIRED|MAY|OPTIONAL)\b")
 FENCE = re.compile(r"^(```|~~~)[^\n]*\n.*?^\1[ \t]*$", re.S | re.M)
+NUMBER = r"\d+(?:\.\d+)*"
+ANNEX_REF = re.compile(r"\bAnnex ([A-Z](?:\.\d+)*)\b")
+SECTION_REF = re.compile(rf"\b([Ss]ection) ({NUMBER})\b")
+SECTIONS_REF = re.compile(rf"\b([Ss]ections) ({NUMBER}) (to|and) ({NUMBER})\b")
+SPEC_SECTION_REF = re.compile(rf"(SPEC\.md, )(section) ({NUMBER})\b")
 
 yaml = YAML(typ="safe")
 
@@ -90,6 +103,39 @@ def outside_code(text: str, change) -> str:
 def _outside_spans(text: str, change) -> str:
     parts = re.split(r"(`+[^`]*?`+)", text)
     return "".join(part if i % 2 else change(part) for i, part in enumerate(parts))
+
+
+def outside_links(text: str, change) -> str:
+    """Apply change() to the parts of Markdown text that aren't links."""
+    out, at = [], 0
+    for found in LINK.finditer(text):
+        out += [change(text[at:found.start()]), found.group(0)]
+        at = found.end()
+    out.append(change(text[at:]))
+    return "".join(out)
+
+
+def split_document(source: str, text: str) -> tuple[str, str]:
+    """A document in SPLIT as its two pages' texts."""
+    heading, _ = SPLIT[source]
+    at = next((m.start() for m in re.finditer(r"^#{1,6} .*$", FENCE.sub(lambda f: " " * len(f.group(0)), text), re.M)
+               if m.group(0).startswith(heading)), None)
+    if at is None:
+        raise BuildError(f"SPLIT in docs/scripts/build_pages.py names '{heading}', a heading {source} doesn't have")
+    rest = text[at:]
+    if DEFINITION.search(rest):
+        raise BuildError(f"{source} defines a requirement id after '{heading}'; ids are looked up on the first page")
+    pieces, last = [], 0
+    for fence in FENCE.finditer(rest):  # headings move up a level, outside code blocks
+        pieces += [re.sub(r"^#(#+ )", r"\1", rest[last:fence.start()], flags=re.M), fence.group(0)]
+        last = fence.end()
+    pieces.append(re.sub(r"^#(#+ )", r"\1", rest[last:], flags=re.M))
+    return text[:at], "".join(pieces)
+
+
+def generated_from(sources: str) -> list[str]:
+    """The last lines of a generated page: what it was made from."""
+    return ["---", "", f"*Generated from {sources}.*", ""]
 
 
 def headings_and_ids(text: str) -> set[str]:
@@ -170,10 +216,17 @@ def check_every_document_placed(pages: list[tuple[str, str]]) -> None:
             f"docs/scripts/build_pages.py: {', '.join(missing)}")
 
 
-def copy_page(source: str, page: str, page_of: dict[str, str], anchors: dict[str, set[str]],
-              defined: set[str], titles: dict[str, str] | None) -> str:
-    text = (ROOT / source).read_text()
+def copy_page(source: str, page: str, text: str, page_of: dict[str, str], anchors: dict[str, set[str]],
+              defined: set[str], numbered: dict[str, tuple[str, str]], titles: dict[str, str] | None) -> str:
     spec_page = page_of["SPEC.md"]
+
+    def page_with(repo_path: str, anchor: str) -> str:
+        """The page of a document that has this anchor; a document in SPLIT has two pages."""
+        first = page_of[repo_path]
+        second = SPLIT[repo_path][1] if repo_path in SPLIT else None
+        if anchor and second and anchor not in anchors[first] and anchor in anchors[second]:
+            return second
+        return first
 
     def link(match: re.Match) -> str:
         label, target = match.group(1), match.group(2)
@@ -182,11 +235,14 @@ def copy_page(source: str, page: str, page_of: dict[str, str], anchors: dict[str
         path, _, anchor = target.partition("#")
         if not path:
             if anchor and anchor not in anchors[page]:
-                raise BuildError(f"{source}: link to #{anchor}, which this page doesn't have")
+                other = page_with(source, anchor)
+                if anchor not in anchors[other]:
+                    raise BuildError(f"{source}: link to #{anchor}, which this page doesn't have")
+                return f"[{label}]({relative(page, other)}#{anchor})"
             return match.group(0)
         repo_path = os.path.normpath(os.path.join(os.path.dirname(source), path))
         if repo_path in page_of:
-            target_page = page_of[repo_path]
+            target_page = page_with(repo_path, anchor)
             if anchor and anchor not in anchors[target_page]:
                 raise BuildError(f"{source}: link to {target}, but {repo_path} has no heading or id '{anchor}'")
             if titles and not anchor and is_file_name(label, path, repo_path):
@@ -201,11 +257,33 @@ def copy_page(source: str, page: str, page_of: dict[str, str], anchors: dict[str
         if rid not in defined:
             raise BuildError(f"{source}: cites [{rid}], which SPEC.md doesn't define")
         here = "" if page == spec_page else relative(page, spec_page)
-        return f"[[{rid}]]({here}#{rid})"
+        return f"[[{rid}]]({here}#{rid}){{.rule-ref}}"
 
     def definition(match: re.Match) -> str:
         rid = match.group(1)
-        return f'<a id="{rid}"></a>[**[{rid}]**](#{rid})'
+        return f'<a id="{rid}"></a>[[{rid}]](#{rid}){{.rule}}'
+
+    def to(label: str) -> str:
+        """Where a numbered part of SPEC.md is, such as section "9.6" or annex "A.3"."""
+        if label not in numbered:
+            raise BuildError(f"{source}: mentions section {label} of SPEC.md, which SPEC.md doesn't have")
+        target_page, anchor = numbered[label]
+        return f"{'' if target_page == page else relative(page, target_page)}#{anchor}"
+
+    # A mention of a numbered part of SPEC.md becomes a link to it. In SPEC.md itself that is any
+    # "section 9.6"; in another document, which has sections of its own, only "SPEC.md, section 9.6".
+    mentions = [(ANNEX_REF, lambda m: f"[{m.group(0)}]({to(m.group(1))})")]
+    if source == "SPEC.md":
+        mentions += [(SECTIONS_REF, lambda m: f"{m.group(1)} [{m.group(2)}]({to(m.group(2))}) {m.group(3)} "
+                                              f"[{m.group(4)}]({to(m.group(4))})"),
+                     (SECTION_REF, lambda m: f"[{m.group(0)}]({to(m.group(2))})")]
+    else:
+        mentions += [(SPEC_SECTION_REF, lambda m: f"{m.group(1)}[{m.group(2)} {m.group(3)}]({to(m.group(3))})")]
+
+    def link_mentions(line: str) -> str:
+        for pattern, make in mentions:
+            line = outside_links(line, lambda piece: pattern.sub(make, piece))
+        return line
 
     def change(part: str) -> str:
         part = LINK.sub(link, part)
@@ -213,8 +291,9 @@ def copy_page(source: str, page: str, page_of: dict[str, str], anchors: dict[str
         part = part if not titles else re.sub(r"(\[([^\]]+)\]\([^)\s]+\)): ([^|\n]+?)(?=\s*(\||$))",
                       lambda m: m.group(1) if m.group(3).strip().lower() == m.group(2).lower() else m.group(0),
                       part, flags=re.M)
+        part = re.sub(r"^(?!#).*$", lambda m: link_mentions(m.group(0)), part, flags=re.M)  # not in headings
         part = CITATION.sub(requirement, part)  # a definition, **[id]**, isn't a citation
-        if page == spec_page:
+        if source == "SPEC.md":
             part = DEFINITION.sub(definition, part)
         return part
 
@@ -278,8 +357,6 @@ def requirements_page(requirements: list[dict], spec_page: str) -> str:
     untested = [r for r in requirements if isinstance(coverage.get(r["id"]), dict)]
     out = [front_matter(editLink=False),
            "# Requirements and tests", "",
-           f"Generated from the requirement ids in [SPEC.md]({relative(page, spec_page)}) and "
-           f"[tests/coverage.yaml]({github_url('tests/coverage.yaml')}).", "",
            "| Requirements | With tests | Without tests |", "|---|---|---|",
            f"| {len(requirements)} | {len(requirements) - len(untested)} | {len(untested)} |", ""]
     chapter = section = None
@@ -300,7 +377,9 @@ def requirements_page(requirements: list[dict], spec_page: str) -> str:
         tests = (f"untested: {table_cell(str(entry['untested']))}" if isinstance(entry, dict)
                  else "<br>".join(test_link(t) for t in entry))
         out.append(f"| [`{r['id']}`]({relative(page, spec_page)}#{r['id']}) | {r['word'] or '—'} | {tests} |")
-    return "\n".join(out) + "\n"
+    out += ["", *generated_from(f"the requirement ids in [SPEC.md]({relative(page, spec_page)}) and "
+                                f"[tests/coverage.yaml]({github_url('tests/coverage.yaml')})")]
+    return "\n".join(out)
 
 
 # ---------------------------------------------------------------- codes
@@ -337,41 +416,58 @@ def enum_of(schema: dict, what: str) -> list[str]:
     return codes
 
 
-def codes_page(spec: str, requirements: list[dict], spec_page: str) -> str:
+def checking_codes() -> dict[str, str]:
+    """Each code the checker's test cases expect, with its level: error or warning."""
+    levels: dict[str, str] = {}
+
+    def walk(value, level, case):
+        if isinstance(value, dict):
+            for key, item in value.items():
+                if key == "code" and isinstance(item, str) and level:
+                    if levels.setdefault(item, level) != level:
+                        raise BuildError(f"tests/{case} expects {item} as {level}, another case as {levels[item]}")
+                walk(item, {"errors": "error", "warnings": "warning"}.get(key, level), case)
+        elif isinstance(value, list):
+            for item in value:
+                walk(item, level, case)
+
+    for folder in ("check", "manifests"):
+        for expected in sorted((ROOT / "tests" / folder).glob("*/expected.yaml")):
+            walk(yaml.load(expected.read_text()), None, f"{folder}/{expected.parent.name}")
+    return levels
+
+
+def codes_page(requirements: list[dict], spec_page: str) -> str:
     page = "reference/codes.md"
-    lines = FENCE.sub("", spec).splitlines()
-    start = next((i for i, line in enumerate(lines) if re.match(r"^\|\s*Code\s*\|\s*Level\s*\|", line)), None)
-    if start is None:
-        raise BuildError("SPEC.md has no table of codes headed | Code | Level |")
-    rows = []
-    for line in lines[start + 2:]:
-        if not line.startswith("|"):
-            break
-        rows.append([c.strip() for c in line.strip().strip("|").split("|")])
     run_schema = json.loads((ROOT / "schemas" / "run.schema.json").read_text())
     run_codes = enum_of(run_schema["properties"]["error"]["properties"]["code"], "a run's error code")
     step_codes = enum_of(run_schema["$defs"]["stepRun"]["properties"]["error"]["properties"]["code"],
                          "a step's error code")
     cases = expected_codes()
 
+    def named_by(code: str) -> list[str]:
+        return [r["id"] for r in requirements if f"`{code}`" in r["text"]]
+
     def naming(code: str) -> str:
-        ids = [r["id"] for r in requirements if f"`{code}`" in r["text"]]
-        return ", ".join(f"[`{rid}`]({relative(page, spec_page)}#{rid})" for rid in ids) or "—"
+        return ", ".join(f"[`{rid}`]({relative(page, spec_page)}#{rid})" for rid in named_by(code)) or "—"
 
     def case_links(code: str) -> str:
         return ", ".join(f"[`{c}`]({github_url('tests/' + c)})" for c in cases.get(code, [])) or "None."
 
+    # The checker's codes, in the order SPEC.md first names them, errors before warnings.
+    levels = checking_codes()
+    order = [r["id"] for r in requirements]
+    unnamed = sorted(code for code in levels if not named_by(code))
+    if unnamed:
+        raise BuildError(f"the test cases expect codes no requirement in SPEC.md names: {', '.join(unnamed)}")
+    check_codes = sorted(levels, key=lambda code: (levels[code] != "error", order.index(named_by(code)[0])))
+
     out = [front_matter(editLink=False),
            "# Error and warning codes", "",
-           f"Generated from [SPEC.md]({relative(page, spec_page)}), section 8.2, "
-           f"[schemas/run.schema.json]({github_url('schemas/run.schema.json')}) and the test cases' "
-           f"expected results in [tests/]({github_url('tests')}).", "",
            "## Checking", "",
            "| Code | Level | Requirements that name it |", "|---|---|---|"]
-    check_codes = [row[0].strip("`") for row in rows]
-    for code, level, _ in rows:
-        bare = code.strip("`")
-        out.append(f"| [{code}](#{slugify(bare)}) | {level} | {naming(bare)} |")
+    for code in check_codes:
+        out.append(f"| [`{code}`](#{slugify(code)}) | {levels[code]} | {naming(code)} |")
     out += ["", "## Running", "",
             "| Code | In a run's error | In a step's error | Requirements that name it |", "|---|---|---|---|"]
     run_all = list(dict.fromkeys(run_codes + step_codes))
@@ -381,7 +477,10 @@ def codes_page(spec: str, requirements: list[dict], spec_page: str) -> str:
     out += ["", "## Test cases for each code", ""]
     for code in check_codes + run_all:
         out += [f"### `{code}`", "", case_links(code), ""]
-    return "\n".join(out) + "\n"
+    out += generated_from(f"the requirements in [SPEC.md]({relative(page, spec_page)}), "
+                          f"[schemas/run.schema.json]({github_url('schemas/run.schema.json')}) and the test cases' "
+                          f"expected results in [tests/]({github_url('tests')})")
+    return "\n".join(out)
 
 
 # ---------------------------------------------------------------- schemas
@@ -587,8 +686,7 @@ def schema_page(file: str, page: str, spec: str) -> str:
     if meanings_source:
         sources += f", with the descriptions of its fields from {meanings_source}"
     out = [front_matter(editLink=False),
-           f"# {schema.get('title', file)}", "",
-           f"Generated from {sources}.", ""]
+           f"# {schema.get('title', file)}", ""]
     if schema.get("description"):
         out += [plain(schema["description"]), ""]
     out += [f"`$id`: {code(schema.get('$id', ''))}", ""]
@@ -607,6 +705,7 @@ def schema_page(file: str, page: str, spec: str) -> str:
             if rows:
                 out += field_table(rows)
     out += ["## Schema", "", "```json", (ROOT / "schemas" / file).read_text().rstrip(), "```", ""]
+    out += generated_from(sources)
     return "\n".join(out)
 
 
@@ -625,11 +724,10 @@ def cli_page() -> str:
 
     top = help_of()
     commands = re.search(r"\{([a-z,-]+)\}", top).group(1).split(",")
-    out = [front_matter(editLink=False), "# wfspec", "",
-           f"Generated from the help of the `wfspec` command in [reference/]({github_url('reference')}).", "",
-           "```text", top, "```", ""]
+    out = [front_matter(editLink=False), "# Command line (wfspec)", "", "```text", top, "```", ""]
     for command in commands:
         out += [f"## wfspec {command}", "", "```text", help_of(command), "```", ""]
+    out += generated_from(f"the help of the `wfspec` command in [reference/]({github_url('reference')})")
     return "\n".join(out)
 
 
@@ -639,8 +737,7 @@ def cli_page() -> str:
 def examples_page() -> str:
     groups = [("Steps", "examples/steps/*.yaml"), ("Workflows", "examples/workflows/*.yaml"),
               ("Run records", "examples/runs/*.json"), ("Lock files", "examples/*.lock.json")]
-    out = [front_matter(editLink=False), "# Examples", "",
-           f"Generated from [examples/]({github_url('examples')}).", ""]
+    out = [front_matter(editLink=False), "# Examples", ""]
     for title, pattern in groups:
         out += [f"## {title}", ""]
         for path in sorted(ROOT.glob(pattern)):
@@ -648,10 +745,22 @@ def examples_page() -> str:
             language = "json" if path.suffix == ".json" else "yaml"
             out += [f"### {path.name}", "", f"[{rel}]({github_url(rel)})", "",
                     f"```{language}", path.read_text().rstrip(), "```", ""]
+    out += generated_from(f"[examples/]({github_url('examples')})")
     return "\n".join(out)
 
 
 # ---------------------------------------------------------------- site
+
+
+def numbered_parts(spec: str, anchors: dict[str, set[str]], pages: list[str]) -> dict[str, tuple[str, str]]:
+    """Each numbered part of SPEC.md, such as section "9.6" or annex "A.3", with the page and anchor of its heading."""
+    found = {}
+    for line in FENCE.sub("", spec).splitlines():
+        match = re.match(r"^#{2,3}\s+(?:(\d+(?:\.\d+)*)\.?|Annex ([A-Z])\.|([A-Z]\.\d+))\s", line)
+        if match:
+            anchor = slugify(heading_text(line))
+            found[next(g for g in match.groups() if g)] = (next(p for p in pages if anchor in anchors[p]), anchor)
+    return found
 
 
 def build() -> None:
@@ -660,22 +769,30 @@ def build() -> None:
     check_every_document_placed(pages)
     page_of = dict(pages)
     texts = {source: (ROOT / source).read_text() for source, _ in pages}
-    anchors = {page: headings_and_ids(texts[source]) for source, page in pages}
     spec = texts["SPEC.md"]
+    spec_page = page_of["SPEC.md"]
+
+    # What each page shows: a document, or one of the two parts of a document in SPLIT.
+    shown: dict[str, tuple[str, str]] = {page: (source, texts[source]) for source, page in pages}
+    for source, (_, second) in SPLIT.items():
+        first_text, second_text = split_document(source, texts[source])
+        shown[page_of[source]] = (source, first_text)
+        shown[second] = (source, second_text)
+    anchors = {page: headings_and_ids(text) for page, (_, text) in shown.items()}
     defined = set(DEFINITION.findall(spec))
     requirements = requirement_index(spec)
-    spec_page = page_of["SPEC.md"]
+    numbered = numbered_parts(spec, anchors, [spec_page, SPLIT["SPEC.md"][1]])
 
     written: dict[str, str] = {}
     written["reference/requirements.md"] = requirements_page(requirements, spec_page)
-    written["reference/codes.md"] = codes_page(spec, requirements, spec_page)
+    written["reference/codes.md"] = codes_page(requirements, spec_page)
     for file, page in SCHEMA_PAGES:
         written[page] = schema_page(file, page, spec)
     written["reference/cli.md"] = cli_page()
     written["reference/examples.md"] = examples_page()
 
     # Each page's title on the site: its first heading, and for SPEC.md its version.
-    label_of = {page: first_heading(texts[source]) for source, page in pages}
+    label_of = {page: first_heading(text) for page, (_, text) in shown.items()}
     version = re.search(r"^Version ([0-9.]+)", spec, re.M)
     label_of[spec_page] = f"Specification {version.group(1)}" if version else "Specification"
     label_of.update({page: first_heading(text) for page, text in written.items()})
@@ -696,10 +813,12 @@ def build() -> None:
     sidebar, nav = [], []
     for title, items in SECTIONS:
         if items == "generated":
-            entries = [item("", "reference/requirements.md"), item("", "reference/codes.md"),
+            # In the order a reader needs them: what the documents look like, then what goes wrong,
+            # then the exact shapes, the tool, and last the table that ties requirements to tests.
+            entries = [item("", "reference/examples.md"), item("", "reference/codes.md"),
                        {"text": "Schemas", "collapsed": False,
                         "items": [item("", page) for _, page in SCHEMA_PAGES]},
-                       item("", "reference/cli.md"), item("", "reference/examples.md")]
+                       item("", "reference/cli.md"), item("", "reference/requirements.md")]
         else:
             entries = []
             for entry in items:
@@ -708,22 +827,29 @@ def build() -> None:
                                     "items": [item(s, p) for s, p in entry[1]]})
                 else:
                     entries.append(item(*entry))
+                    if entry[0] in SPLIT and not entry[1].startswith("#"):
+                        entries.append(item(entry[0], SPLIT[entry[0]][1]))
         sidebar.append({"text": title, "items": entries})
         first_page = next(e for e in entries if "link" in e and "#" not in e["link"])
         nav.append({"text": title, "link": first_page["link"]})
 
     # Only the home page shows page titles in place of file names: it lists the documents, while
     # the documents themselves name each other by file name in their running text.
-    for source, page in pages:
+    for page, (source, text) in shown.items():
         titles = label_of if source == "README.md" else None
-        written[page] = copy_page(source, page, page_of, anchors, defined, titles)
+        written[page] = copy_page(source, page, text, page_of, anchors, defined, numbered, titles)
 
     # The home page is the README in VitePress's home layout: its title becomes the large
-    # heading, with a button for each section that starts somewhere to read.
+    # heading, with a button for each section that starts somewhere to read. It leaves out the
+    # README's list of documents and folders, which the menu replaces.
     readme = texts["README.md"]
     home_page = page_of["README.md"]
     body = written[home_page].split("---\n", 2)[2]
     body = re.sub(r"\A\s*# .*\n", "", body)
+    left_out = re.search(rf"^## {re.escape(HOME_LEAVES_OUT)}\n.*?(?=^## |\Z)", body, re.S | re.M)
+    if left_out is None:
+        raise BuildError(f"README.md has no section headed '## {HOME_LEAVES_OUT}' for the home page to leave out")
+    body = body[:left_out.start()] + body[left_out.end():]
     actions = [{"theme": "brand" if i == 0 else "alt", "text": n["text"], "link": n["link"]}
                for i, n in enumerate(nav[:3])]
     written[home_page] = front_matter(layout="home", hero={"name": first_heading(readme), "actions": actions}) + body
