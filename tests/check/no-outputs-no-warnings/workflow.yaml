@@ -1,0 +1,8 @@
+# Nothing a run would do, so the only problem is no_outputs. The wire into `whole` would get a
+# type_unchecked warning in a workflow with outputs; after no_outputs a checker reports no warnings
+# (SPEC.md, Annex A.4).
+steps:
+  emit: { uses: test/emit-values@1.0.0 }
+  take:
+    uses: test/take-values@1.0.0
+    with: { text: fixed, whole: { from: steps.emit.outputs.count }, mode: { from: steps.emit.outputs.label } }

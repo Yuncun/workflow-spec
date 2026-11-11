@@ -1,0 +1,1 @@
+A folder whose name ends in .yaml isn't a manifest, and neither is anything in it.

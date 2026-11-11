@@ -1,0 +1,3 @@
+errors:
+  - { code: invalid_manifest, path: "/inputSchema/properties/doc/default" }
+  - { code: invalid_manifest, path: "/examples/0/inputs" }

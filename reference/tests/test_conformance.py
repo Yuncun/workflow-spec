@@ -53,14 +53,9 @@ def test_manifest_case(case: Path):
 
 @pytest.mark.parametrize("case", MANIFEST_CASES, ids=lambda p: p.name)
 def test_check_step_agrees_with_the_catalog(case: Path):
-    """`wfspec check-step` reports, for each manifest, what loading it into a catalog reports, apart
-    from duplicates, which only a whole catalog has."""
+    """`wfspec check-step` reports, for each manifest, what loading it into a catalog reports."""
     dirs = [ROOT / "examples" / "steps", case / "steps"]
     catalog = load_catalog(dirs)
-    for path in sorted(p for p in (case / "steps").iterdir() if p.suffix in (".yaml", ".yml", ".json")):
-        expected = [i for i in catalog.problems if i.file == str(path) and i.code != "duplicate_step"]
-        try:
-            found = check_step(path, dirs)
-        except ParseError as exc:
-            found = [Issue("parse_error", "", str(exc))]
-        assert pairs(found) == pairs(expected), f"{path.name}: {[i.message for i in found]}"
+    for path in sorted(p for p in (case / "steps").iterdir() if p.suffix in (".yaml", ".yml", ".json") and p.is_file()):
+        expected = [i for i in catalog.problems if i.file == str(path)]
+        assert pairs(check_step(path, dirs)) == pairs(expected), path.name

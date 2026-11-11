@@ -1,0 +1,6 @@
+ok: false
+errors:
+  - { code: invalid_workflow, path: "/inputSchema/properties/b/$ref" }
+  - { code: invalid_workflow, path: "/inputSchema/required" }
+warnings:
+  - { code: unused_input, path: "/inputSchema/properties/b" }

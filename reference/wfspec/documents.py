@@ -5,6 +5,7 @@ from __future__ import annotations
 import hashlib
 import json
 import math
+import re
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
 
@@ -59,8 +60,32 @@ class _Constructor(SafeConstructor):
                 raise ParseError(f"line {key_node.start_mark.line + 1}: merge keys (<<) aren't allowed; write the values out")
         return super().flatten_mapping(node)
 
+    def core_int(self, node):
+        """A whole number as the YAML 1.2 core schema writes one. ruamel.yaml also takes 1_000 and
+        0b101 for numbers, which the core schema reads as text (SPEC.md, [doc.yaml-1.2])."""
+        text = self.construct_scalar(node)
+        if re.fullmatch(r"[-+]?[0-9]+", text):
+            return int(text)
+        if re.fullmatch(r"0o[0-7]+", text):
+            return int(text[2:], 8)
+        if re.fullmatch(r"0x[0-9a-fA-F]+", text):
+            return int(text[2:], 16)
+        return text
+
+    def core_float(self, node):
+        text = self.construct_scalar(node)
+        if re.fullmatch(r"[-+]?(\.[0-9]+|[0-9]+(\.[0-9]*)?)([eE][-+]?[0-9]+)?", text):
+            return float(text)
+        if re.fullmatch(r"[-+]?\.(inf|Inf|INF)", text):
+            return -math.inf if text.startswith("-") else math.inf
+        if re.fullmatch(r"\.(nan|NaN|NAN)", text):
+            return math.nan
+        return text
+
 
 _Constructor.add_constructor("tag:yaml.org,2002:timestamp", SafeConstructor.construct_yaml_str)
+_Constructor.add_constructor("tag:yaml.org,2002:int", _Constructor.core_int)
+_Constructor.add_constructor("tag:yaml.org,2002:float", _Constructor.core_float)
 
 
 def _yaml() -> YAML:
@@ -107,7 +132,10 @@ def _json_only(node, path: tuple = ()) -> None:
 
 def load_document(path: Path):
     """Parse a .json file as JSON and anything else as YAML 1.2."""
-    text = Path(path).read_text(encoding="utf-8")
+    try:
+        text = Path(path).read_text(encoding="utf-8")
+    except UnicodeDecodeError as exc:  # [doc.parse-error]: a document that can't be read
+        raise ParseError(f"the file isn't UTF-8 text: {exc.reason} at byte {exc.start}") from exc
     try:
         if Path(path).suffix == ".json":
             doc = json.loads(text, object_pairs_hook=_unique_pairs)
@@ -216,6 +244,8 @@ def digest(doc) -> str:
 
 def media_type_fits(actual: str, declared: str) -> bool:
     """Whether a file of type `actual` fits an input that declares `declared`, which may end in /*."""
+    if not isinstance(actual, str) or not isinstance(declared, str):
+        return True  # nothing to compare; a file value's own mediaType is checked against its schema elsewhere
     actual, declared = actual.lower(), declared.lower()
     if declared in ("*/*", actual):
         return True
@@ -296,14 +326,14 @@ def manifest_issues(doc, file: str | None = None) -> list[Issue]:
     if "inputSchema" in usable:
         for name, schema in doc["inputSchema"]["properties"].items():
             if isinstance(schema, dict) and "default" in schema:
-                why = value_problem(schema, schema["default"])
-                if why:
+                why = value_problem(schema, schema["default"]) or next(iter(media_type_problems(schema["default"], schema)), None)
+                if why:  # [manifest.default-fits], [types.media-type]
                     problem(pointer("inputSchema", "properties", name, "default"), f"the default doesn't fit the input: {why}")
     for n, example in enumerate(doc.get("examples", [])):
         for part, key in (("inputs", "inputSchema"), ("outputs", "outputSchema")):
             if part in example and key in usable:
-                why = value_problem(doc[key], example[part])
-                if why:
+                why = value_problem(doc[key], example[part]) or next(iter(media_type_problems(example[part], doc[key])), None)
+                if why:  # [manifest.examples-fit], [types.media-type]
                     problem(pointer("examples", n, part), f"the example's {part} don't fit {key}: {why}")
     seen: dict[str, str] = {}
     for i, callee in enumerate(doc.get("calls", [])):
@@ -366,36 +396,39 @@ def calls_issues(manifest: dict, catalog: Catalog, file: str | None = None) -> l
     return issues
 
 
-def load_catalog(dirs: list[Path]) -> Catalog:
-    """Load every *.yaml, *.yml and *.json manifest in the given folders (not recursive).
+def load_catalog(dirs: list[Path], also: Path | None = None) -> Catalog:
+    """Load every *.yaml, *.yml and *.json manifest in the given folders (not recursive), and after
+    them the manifest in `also`, unless it is one of those already.
 
     A manifest with problems is left out, so no workflow can use it."""
     catalog = Catalog()
     seen: dict[str, str] = {}  # name@version -> the file that first had it, valid or not
-    for folder in dirs:
-        paths = sorted(p for p in Path(folder).iterdir() if p.suffix in (".yaml", ".yml", ".json"))
-        for path in paths:
-            file = str(path)
-            try:
-                doc = load_document(path)
-            except ParseError as exc:
-                catalog.problems.append(Issue("parse_error", "", str(exc), file=file))
-                continue
-            ref = _ref_of(doc)
-            if ref in seen:  # [manifest.duplicate]: the first one read is kept, valid or not
-                catalog.problems.append(Issue("duplicate_step", "", f"{ref} is also defined in {seen[ref]}", file=file))
-                continue
+    paths = [p for folder in dirs
+             for p in sorted(q for q in Path(folder).iterdir() if q.suffix in (".yaml", ".yml", ".json") and q.is_file())]
+    if also is not None and not any(p.resolve() == Path(also).resolve() for p in paths):
+        paths.append(Path(also))
+    for path in paths:
+        file = str(path)
+        try:
+            doc = load_document(path)
+        except ParseError as exc:
+            catalog.problems.append(Issue("parse_error", "", str(exc), file=file))
+            continue
+        ref = _ref_of(doc)
+        if ref in seen:  # [manifest.duplicate]: the first one read is kept, valid or not
+            catalog.problems.append(Issue("duplicate_step", "", f"{ref} is also defined in {seen[ref]}", file=file))
+            continue
+        if ref:
+            seen[ref] = file
+        issues = manifest_issues(doc, file) or workflow_runtime_issues(doc, file)
+        if issues:
             if ref:
-                seen[ref] = file
-            issues = manifest_issues(doc, file) or workflow_runtime_issues(doc, file)
-            if issues:
-                if ref:
-                    catalog.leave_out(ref, issues)
-                else:
-                    catalog.problems.extend(issues)
-                continue
-            catalog.steps[ref] = doc
-            catalog.files[ref] = file
+                catalog.leave_out(ref, issues)
+            else:
+                catalog.problems.extend(issues)
+            continue
+        catalog.steps[ref] = doc
+        catalog.files[ref] = file
     # Rules that need the catalog: calls, and the workflows inside workflow steps. Leaving one step
     # out can break another, so repeat until nothing changes ([manifest.left-out]).
     changed = True
@@ -419,17 +452,10 @@ def catalog_issues(ref: str, manifest: dict, catalog: Catalog, file: str | None)
 
 
 def check_step(path: Path, dirs: list[Path]) -> list[Issue]:
-    """What loading the manifest in `path` into a catalog of the manifests in `dirs` would report
-    about it, the same rules in the same order as load_catalog."""
-    file = str(path)
-    doc = load_document(path)
-    found = manifest_issues(doc, file) or workflow_runtime_issues(doc, file)
-    if found:
-        return found
-    catalog = load_catalog(dirs)
-    ref = _ref_of(doc)
-    catalog.steps[ref], catalog.files[ref] = doc, file
-    return catalog_issues(ref, doc, catalog, file)
+    """What loading the manifest in `path` into a catalog of the manifests in `dirs` reports about
+    it. The manifest is read in its own place when it is in one of `dirs`, and last when it isn't."""
+    target = Path(path).resolve()
+    return [i for i in load_catalog(dirs, also=path).problems if i.file and Path(i.file).resolve() == target]
 
 
 def _ref_of(doc) -> str | None:

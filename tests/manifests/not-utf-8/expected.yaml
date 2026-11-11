@@ -1,0 +1,3 @@
+# steps/step.yaml is saved as UTF-16, which a checker can't read (SPEC.md, [doc.formats], [doc.parse-error]).
+errors:
+  - { code: parse_error, path: "" }

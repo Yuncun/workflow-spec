@@ -1,0 +1,18 @@
+# A default and an example must fit the input's media type too (SPEC.md, [manifest.default-fits],
+# [manifest.examples-fit], [types.media-type]).
+name: test/m-doc
+version: 1.0.0
+description: Takes a text file, with a default and an example that are images.
+inputSchema:
+  type: object
+  properties:
+    doc:
+      $ref: urn:wfspec:file
+      x-mediaType: text/plain
+      default: { digest: "sha256:0000000000000000000000000000000000000000000000000000000000000000", mediaType: image/png, size: 1 }
+outputSchema: { type: object, properties: { lines: { type: integer } }, required: [lines] }
+effects: none
+runtime: { container: { image: example.test/m-doc:1.0.0 } }
+examples:
+  - inputs:
+      doc: { digest: "sha256:1111111111111111111111111111111111111111111111111111111111111111", mediaType: image/png, size: 1 }

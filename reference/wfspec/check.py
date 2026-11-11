@@ -119,13 +119,13 @@ class _Checker:
         references = reference_issues(self.inputs, ("inputSchema",))
         for path, message in references:
             self.error("invalid_workflow", path, message)
-        if references:
-            return
-        self.inputs_usable = True
+        self.inputs_usable = not references
         props = self.inputs["properties"]
-        for name in self.inputs.get("required", []):
+        for name in self.inputs.get("required", []):  # reported whether or not there are references too ([check.all-at-once])
             if name not in props:
                 self.error("invalid_workflow", pointer("inputSchema", "required"), f"{name!r} is required but not declared in properties")
+        if not self.inputs_usable:
+            return  # defaults aren't checked against a schema with a reference it may not use (Annex A.4)
         for name, schema in props.items():
             if _has_default(schema):
                 problem = value_problem(schema, schema["default"]) or next(iter(media_type_problems(schema["default"], schema)), None)
@@ -265,6 +265,7 @@ class _Checker:
         unknown = {sid for sid, m in self.manifests.items() if m is None}
         if not self.wf.get("outputs") and not writes and not unknown:
             self.error("no_outputs", "", "the workflow has no outputs and no step that writes, so a run would do nothing")
+            self.result.warnings.clear()  # no warnings after no_outputs (SPEC.md, Annex A.4)
             return
         roots = {s.step for s in self.result.outputs.values() if s.step} | writes | unknown
         needed = _closure(roots, self.deps)

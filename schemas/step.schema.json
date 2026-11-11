@@ -85,6 +85,7 @@
             "type": "object"
           }
         },
+        "patternProperties": { "^x-": {} },
         "additionalProperties": false
       }
     }
@@ -156,6 +157,7 @@
               "$ref": "urn:wfspec:schema:lock#/$defs/digest"
             }
           },
+          "patternProperties": { "^x-": {} },
           "additionalProperties": false
         }
       },

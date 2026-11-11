@@ -8,3 +8,5 @@ effects: none
 x-team: platform
 x-cost: { per-run: 0.01 }
 runtime: { x-builtin: { name: noop } }
+examples:
+  - { inputs: {}, x-note: a platform's note on this example }

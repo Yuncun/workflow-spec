@@ -1,0 +1,8 @@
+# The YAML 1.2 core schema reads 1_000 and 0b101 as text, not as the numbers 1000 and 5, so both fit
+# a text input (SPEC.md, [doc.yaml-1.2]). Many YAML parsers read them as numbers.
+steps:
+  a: { uses: test/echo@1.0.0, with: { text: 1_000 } }
+  b: { uses: test/echo@1.0.0, with: { text: 0b101 } }
+outputs:
+  a: { from: steps.a.outputs.text }
+  b: { from: steps.b.outputs.text }

@@ -1,0 +1,12 @@
+# An inputSchema with two problems: a reference it may not use, and a required name it doesn't
+# declare. A checker reports both (SPEC.md, [check.all-at-once], [workflow.input-schema]).
+inputSchema:
+  type: object
+  properties:
+    a: { type: string }
+    b: { $ref: "#/somewhere" }
+  required: [a, missing]
+steps:
+  e: { uses: test/echo@1.0.0, with: { text: { from: inputs.a } } }
+outputs:
+  out: { from: steps.e.outputs.text }

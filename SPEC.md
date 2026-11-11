@@ -117,7 +117,7 @@ This specification leaves these to platforms:
 
 Manifests, workflows, lock files and run records are JSON documents. Manifests and workflows may also be written in YAML.
 
-- **[doc.formats]** A manifest or workflow MUST be YAML 1.2 or JSON [[RFC8259](https://www.rfc-editor.org/rfc/rfc8259)], and every value in it MUST be one that JSON can hold. A value YAML can express but JSON can't, such as `!!binary`, `!!set` or a value with a local tag like `!Ref`, is an error.
+- **[doc.formats]** A manifest or workflow MUST be YAML 1.2 or JSON [[RFC8259](https://www.rfc-editor.org/rfc/rfc8259)], saved as UTF-8, and every value in it MUST be one that JSON can hold. A value YAML can express but JSON can't, such as `!!binary`, `!!set` or a value with a local tag like `!Ref`, is an error.
 - **[doc.yaml-1.2]** A reader MUST read YAML with the YAML 1.2 core schema, so that `yes`, `no`, `on` and `off` are text, not booleans.
 - **[doc.duplicate-keys]** A key that appears twice in one mapping MUST be an error, in YAML and in JSON.
 - **[doc.text-keys]** Every key MUST be text. A date MUST stay the text that was written.
