@@ -143,12 +143,12 @@ A proposal joins the specification only through a new version of SPEC.md, with r
 - **Idea:** GA4GH's Tool Registry Service, which WorkflowHub implements, is the model to read first.
 - **Settled by:** steps shared between platforms.
 
-## P20. A person's input during a run
+## P20. A shared step kind for asking a person
 
 - **Status:** open.
-- **Problem:** a run can't stop to ask a person something, such as approving a draft before it's posted.
-- **Idea:** a step kind that waits for a person's answer, with a typed output. A platform can already ask for approval before a step that writes (SPEC.md, [run.effects]).
-- **Settled by:** a workflow where the platform's approval before a step that writes isn't enough.
+- **Problem:** a step can already wait for a person's answer, as a program, a remote tool or a platform's own runtime kind. But each platform names its own kind, so a step that asks a person on one platform doesn't run on another.
+- **Idea:** a runtime kind in [drafts/runtime.md](drafts/runtime.md) that shows a person the step's inputs and takes their answer as its outputs. Approval before a step that writes is separate, and a runner can already ask for it (SPEC.md, [run.effects]).
+- **Settled by:** two platforms that want to share steps that ask a person.
 
 ## P21. The dialect of regular expressions
 
