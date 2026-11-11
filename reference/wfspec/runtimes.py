@@ -1,6 +1,6 @@
 """How the reference runner starts one step, for the runtime kinds in drafts/runtime.md:
 `process` (a program on this machine) and `agent` (a model behind an OpenAI-compatible
-chat completions API, such as LM Studio's).
+chat completions API).
 """
 
 from __future__ import annotations

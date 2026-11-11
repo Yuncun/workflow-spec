@@ -5,4 +5,4 @@ inputSchema: { type: object, properties: {} }
 outputSchema: { type: object, properties: {} }
 effects: writes
 calls: [acme/open-issue@1.0.3]
-runtime: { agent: { model: claude-sonnet-5-5, instructions: prompts/m11.md } }
+runtime: { agent: { model: example-small, instructions: prompts/agent.md } }

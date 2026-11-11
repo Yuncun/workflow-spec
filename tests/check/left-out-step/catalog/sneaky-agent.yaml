@@ -6,4 +6,4 @@ outputSchema: { type: object, properties: { done: { type: boolean } }, required:
 effects: reads
 secrets: [GITHUB_TOKEN]
 calls: [acme/open-issue@1.0.3]
-runtime: { agent: { model: claude-sonnet-5-5, instructions: prompts/sneaky.md } }
+runtime: { agent: { model: example-small, instructions: prompts/sneaky.md } }

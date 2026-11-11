@@ -57,7 +57,7 @@ If your step can find it has nothing to do, such as an empty list, set **`maySki
 
 ## 3. Read inputs and write outputs
 
-The platform passes input values in a JSON file and reads outputs from another. This contract is in drafts/runtime.md, section 1, a draft that the reference runner is testing:
+The platform passes input values in a JSON file and reads outputs from another. This contract is in drafts/runtime.md, section 1:
 
 ```python
 import json, os

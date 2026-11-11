@@ -11,7 +11,7 @@ The package also gives the rules for:
 - what running it must produce, the same for everyone
 - saving an agent's run as a job anyone can rerun
 
-Read [SPEC.md](SPEC.md) first. If you're a team adopting the format, read [HANDOFF.md](HANDOFF.md) next.
+Read [SPEC.md](SPEC.md) first.
 
 | Document | Status |
 |---|---|
@@ -23,16 +23,11 @@ Read [SPEC.md](SPEC.md) first. If you're a team adopting the format, read [HANDO
 | [CONTRIBUTING.md](CONTRIBUTING.md): how to change the spec | |
 
 ```text
-schemas/                JSON Schemas: step, workflow, file value, lock file, run record
-examples/
-├─ steps/               seven step manifests: four containers, two agents without calls, an agent with calls
-├─ workflows/           an agent-led workflow, the fixed workflow saved from its run, a PR summary
-├─ runs/                run records for the first two
-├─ ci-triage.lock.json  the lock file for the fixed workflow
-└─ regenerate.py        recomputes the digests above after an example changes
-guides/                 drafts for step authors and workflow authors
-tests/                  test cases for checkers and runners, and coverage.yaml
-reference/              a small Python checker and runner that pass them
+schemas/     JSON Schemas for each kind of document
+examples/    step manifests, workflows, run records and a lock file
+guides/      for step authors and workflow authors
+tests/       test cases for checkers and runners
+reference/   a small Python checker and runner that pass them
 ```
 
 ## License

@@ -32,6 +32,6 @@ effects: reads
 deterministic: false
 runtime:
   agent:
-    model: claude-sonnet-5-5
+    model: example-small
     instructions: prompts/triage.md
     maxTurns: 20

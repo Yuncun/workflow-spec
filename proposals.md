@@ -1,6 +1,6 @@
 # Proposals
 
-Features left out of [SPEC.md](SPEC.md) version 0.3, and open questions. **Nothing here is normative.**
+Features left out of [SPEC.md](SPEC.md), and open questions. **Nothing here is normative.**
 
 Every entry has the same parts:
 - **Status:** `open` (undecided), `deferred` (decided to wait), or `rejected`
@@ -8,39 +8,39 @@ Every entry has the same parts:
 - **Idea:** the best idea so far, if there is one
 - **Settled by:** the evidence or test that would decide it
 
-A proposal joins the specification only through a new version of SPEC.md, with requirement ids and tests. Entries that came from version 0.1 say so.
+A proposal joins the specification only through a new version of SPEC.md, with requirement ids and tests.
 
 ## P1. Plans
 
-- **Status:** deferred. Version 0.1 had it as `mayPlan` on agent steps.
+- **Status:** deferred.
 - **Problem:** a step that works out a sequence of steps at run time can run them only as calls, one by one, so the sequence is visible only once the run ends.
 - **Idea:** the step returns a workflow, its plan. The runner checks the plan under the same policy, runs it, and records it. ComfyUI has a precedent: a node can return new nodes to run (`expand`).
-- **Settled by:** a real task that calls can't express, or a demo where seeing the plan before it runs matters.
+- **Settled by:** a real task that calls can't express, or a case where seeing the plan before it runs matters.
 
 ## P2. Retrying steps that write
 
-- **Status:** deferred. Version 0.1 had `idempotent`.
+- **Status:** deferred.
 - **Problem:** steps that write are never retried automatically, even when repeating one is harmless, such as setting a label.
 - **Idea:** an `idempotent` flag, which only steps that write may set, allowing automatic retries.
 - **Settled by:** failure rates from a runner showing that retries matter for steps that write.
 
 ## P3. Marking destructive steps
 
-- **Status:** deferred. Version 0.1 had `destructive`.
+- **Status:** deferred.
 - **Problem:** a step that deletes can't be told apart from one that only adds, so approval rules and MCP's `destructiveHint` treat both as destructive.
 - **Idea:** a `destructive` flag, defaulting to true, which only steps that write may set.
 - **Settled by:** a platform whose approval rules need the difference.
 
 ## P4. Resource limits
 
-- **Status:** open. Version 0.1 had `resources` (`timeout`, `cpu`, `memory`).
+- **Status:** open.
 - **Problem:** a step can't say it needs a long time or a lot of memory, so a runner applies one default to every step.
-- **Idea:** declare limits in the manifest, with the runner free to lower them.
+- **Idea:** declare limits such as a timeout, CPU and memory in the manifest, with the runner free to lower them.
 - **Settled by:** a runner that schedules steps on machines of different sizes.
 
 ## P5. Labels on workflow steps
 
-- **Status:** open. Version 0.1's workflow schema allowed a `description` on each step, without a mention in the text.
+- **Status:** open.
 - **Problem:** a step id such as `translate_ja` is the only label a step in a workflow has. When one step is used twice, both nodes in a drawing share the step's title.
 - **Idea:** an optional `title` or `description` on each step entry.
 - **Settled by:** people reading drawn workflows and saying whether step ids are enough.
@@ -61,7 +61,7 @@ A proposal joins the specification only through a new version of SPEC.md, with r
 
 ## P8. Generic steps
 
-- **Status:** open, and the gap that agents writing workflows hit most in a test on version 0.1.
+- **Status:** open.
 - **Problem:** steps such as "pick the first item" or "map a value" can only declare loose types, so the checker can't follow types through them and warns with `type_unchecked`.
 - **Idea:** type variables in a manifest, so that an output's schema follows an input's.
 - **Settled by:** whether the warnings hide real mistakes in a larger catalog.
@@ -92,7 +92,7 @@ A proposal joins the specification only through a new version of SPEC.md, with r
 - **Status:** open.
 - **Problem:** saving a run as a workflow (SPEC.md, section 10.6) is done by hand.
 - **Idea:** a tool that drafts the workflow from the run record, turning values that came from earlier calls into references.
-- **Settled by:** the reference runner's demo of saving a run.
+- **Settled by:** saving several real runs by hand, to see which parts a tool can draft.
 
 ## P13. Checking version rules
 
@@ -103,7 +103,7 @@ A proposal joins the specification only through a new version of SPEC.md, with r
 
 ## P14. Running examples at publish
 
-- **Status:** deferred. Version 0.1, section 8.6.
+- **Status:** deferred.
 - **Problem:** a manifest's `examples` are only checked against its schemas, so a step whose code no longer fits its own examples can still be published.
 - **Idea:** a publisher runs the examples and checks the outputs. It doesn't run the examples of a step that writes, since that would change real data.
 - **Settled by:** a publisher with a place to run steps safely.

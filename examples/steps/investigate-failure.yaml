@@ -31,6 +31,6 @@ secrets: [GITHUB_TOKEN]
 calls: [acme/fetch-ci-logs@2.1.0, acme/open-issue@1.0.3]
 runtime:
   agent:
-    model: claude-opus-5-5
+    model: example-large
     instructions: prompts/investigate.md
     maxTurns: 40

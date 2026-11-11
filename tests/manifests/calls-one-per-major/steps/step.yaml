@@ -5,4 +5,4 @@ inputSchema: { type: object, properties: {} }
 outputSchema: { type: object, properties: {} }
 effects: reads
 calls: [acme/fetch-ci-logs@2.1.0, acme/fetch-ci-logs@2.0.0]
-runtime: { agent: { model: claude-sonnet-5-5, instructions: prompts/m15.md } }
+runtime: { agent: { model: example-small, instructions: prompts/agent.md } }

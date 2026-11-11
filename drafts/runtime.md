@@ -71,12 +71,7 @@ The runner:
    - With `maySkip`, the answer may instead be `{"skip": "<reason>"}`.
    - Wrapping the outputs keeps an output named `skip` unambiguous.
 
-*Informative.* On 2026-11-08, Qwen 3.8 27B, served locally by LM Studio, ran an agent step with two steps in `calls`:
-- It finished in 4 turns and 9.3 seconds.
-- It read two files in a single response.
-- Its first `finish` broke a `maxLength`, and it fixed the answer when the problem came back.
-
-LM Studio doesn't hold tool-call arguments to their schema, which is why step 4 checks them.
+*Informative.* Some model servers don't hold tool-call arguments to their schema, which is why step 4 checks them.
 
 ## 3. Remote tools: `mcp`
 

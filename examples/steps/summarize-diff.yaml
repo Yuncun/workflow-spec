@@ -19,4 +19,4 @@ outputSchema:
 effects: reads
 deterministic: false
 runtime:
-  agent: { model: claude-sonnet-5-5, instructions: prompts/summarize-diff.md, maxTurns: 10 }
+  agent: { model: example-small, instructions: prompts/summarize-diff.md, maxTurns: 10 }

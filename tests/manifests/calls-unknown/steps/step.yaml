@@ -5,4 +5,4 @@ inputSchema: { type: object, properties: {} }
 outputSchema: { type: object, properties: {} }
 effects: writes
 calls: [acme/does-not-exist@1.0.0]
-runtime: { agent: { model: claude-sonnet-5-5, instructions: prompts/m10.md } }
+runtime: { agent: { model: example-small, instructions: prompts/agent.md } }

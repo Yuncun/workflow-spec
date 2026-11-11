@@ -19,9 +19,9 @@ A step manifest is an MCP tool definition plus a few fields (SPEC.md, section 5.
 | `reads` | true | true |
 | `writes` | false | true |
 
-For `writes`, `destructiveHint` and `idempotentHint` are left out, so MCP's defaults apply: destructive and not idempotent. Version 0.1 set them from `destructive` and `idempotent`, which version 0.2 doesn't have (proposals.md, P2 and P3).
+For `writes`, `destructiveHint` and `idempotentHint` are left out, so MCP's defaults apply: destructive and not idempotent (proposals.md, P2 and P3).
 
-- **Why that name form.** It uses only letters, digits, `_` and `-`. Both MCP and model tool APIs accept those characters; MCP also allows `.`, but model APIs don't. Step names can't contain `_`, so the separators are unambiguous. On 2026-11-08, LM Studio's tool-call API accepted `acme_list-files_v1`.
+- **Why that name form.** It uses only letters, digits, `_` and `-`. Both MCP and model tool APIs accept those characters; MCP also allows `.`, but model APIs don't. Step names can't contain `_`, so the separators are unambiguous.
 - **Versions.** A server offers the latest version within each major version, so minor updates reach callers and breaking ones don't. That's why a step may list only one version per major version in `calls` (SPEC.md, [manifest.calls-one-per-major]).
 - **Long names.** A name over 64 characters is cut, and 8 hex characters of the full name's SHA-256 are appended, so it stays unique.
 - **Trust.** MCP treats annotations as untrusted unless the server is trusted. A platform's own server is trusted, and it enforces `effects` itself (SPEC.md, [run.effects]).
