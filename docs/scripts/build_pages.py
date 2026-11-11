@@ -38,7 +38,6 @@ SECTIONS = [
     ]),
     ("Reference", "generated"),
     ("Project", [
-        ("HANDOFF.md", "adopting.md"),
         ("CONTRIBUTING.md", "contributing.md"),
     ]),
 ]
@@ -159,6 +158,10 @@ def is_file_name(label: str, written: str, repo_path: str) -> bool:
 
 def check_every_document_placed(pages: list[tuple[str, str]]) -> None:
     placed = {source for source, _ in pages}
+    gone = sorted(source for source in placed if not (ROOT / source).is_file())
+    if gone:
+        raise BuildError(f"SECTIONS in docs/scripts/build_pages.py names documents the repository doesn't have: "
+                         f"{', '.join(gone)}")
     found = {str(p.relative_to(ROOT)) for pattern in DOCUMENT_GLOBS for p in ROOT.glob(pattern)}
     missing = sorted(found - placed)
     if missing:
@@ -325,6 +328,15 @@ def expected_codes() -> dict[str, list[str]]:
     return found
 
 
+def enum_of(schema: dict, what: str) -> list[str]:
+    """The codes a schema lists, whether in its own enum or in a branch of its anyOf, as when a
+    platform's own codes are allowed beside them."""
+    codes = schema.get("enum") or [c for branch in schema.get("anyOf", []) for c in branch.get("enum", [])]
+    if not codes:
+        raise BuildError(f"schemas/run.schema.json lists no codes for {what}")
+    return codes
+
+
 def codes_page(spec: str, requirements: list[dict], spec_page: str) -> str:
     page = "reference/codes.md"
     lines = FENCE.sub("", spec).splitlines()
@@ -337,8 +349,9 @@ def codes_page(spec: str, requirements: list[dict], spec_page: str) -> str:
             break
         rows.append([c.strip() for c in line.strip().strip("|").split("|")])
     run_schema = json.loads((ROOT / "schemas" / "run.schema.json").read_text())
-    run_codes = run_schema["properties"]["error"]["properties"]["code"]["enum"]
-    step_codes = run_schema["$defs"]["stepRun"]["properties"]["error"]["properties"]["code"]["enum"]
+    run_codes = enum_of(run_schema["properties"]["error"]["properties"]["code"], "a run's error code")
+    step_codes = enum_of(run_schema["$defs"]["stepRun"]["properties"]["error"]["properties"]["code"],
+                         "a step's error code")
     cases = expected_codes()
 
     def naming(code: str) -> str:
@@ -526,7 +539,8 @@ def field_rows(schema: dict, page: str, meanings: dict[str, str] | None = None, 
             if sub.get("type") == "array" and isinstance(items, dict) and items.get("properties"):
                 rows += field_rows(items, page, None, path + "[].", depth + 1)
     for pattern in schema.get("patternProperties") or {}:
-        rows.append((f"fields matching {code(pattern)}",
+        owner = f"of {code(prefix.removesuffix('.'))} " if prefix else ""
+        rows.append((f"fields {owner}matching {code(pattern)}",
                      table_cell(type_of(schema["patternProperties"][pattern], page)), "no", ""))
     return rows
 
