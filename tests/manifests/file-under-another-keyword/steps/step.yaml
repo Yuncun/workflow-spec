@@ -1,0 +1,19 @@
+# A file is declared as the schema of a property or of `items`, at any depth, and nowhere else
+# (SPEC.md, [manifest.refs]). `pages` is fine; the other two inputs aren't.
+name: test/m-files
+version: 1.0.0
+description: Declares files in two places a file can't be declared.
+inputSchema:
+  type: object
+  properties:
+    pages:
+      type: array
+      items: { type: object, properties: { scan: { $ref: urn:wfspec:file } } }
+    by_name:
+      type: object
+      additionalProperties: { $ref: urn:wfspec:file }
+    either:
+      anyOf: [{ $ref: urn:wfspec:file }, { type: string }]
+outputSchema: { type: object, properties: { done: { type: boolean } }, required: [done] }
+effects: none
+runtime: { container: { image: example.test/m-files:1.0.0 } }

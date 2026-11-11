@@ -18,7 +18,7 @@ from pathlib import Path
 from typing import Callable
 
 from .check import INPUT_REF, OUTPUT_REF, check, split_value
-from .documents import Catalog, load_document, media_type_problems, value_problem
+from .documents import Catalog, json_problem, load_document, media_type_problems, value_problem
 from .publish import cache_key, digest, lock, pinned_workflow
 from .runtimes import Model, Outcome, StepFailed, inside, readable, run_agent, run_process
 from .store import Store
@@ -71,7 +71,7 @@ class Runner:
         """Run a workflow and return its run record, which is also saved in the store."""
         record = {
             "id": "run_" + uuid.uuid4().hex[:12],
-            "workflow": {k: workflow[k] for k in ("name", "version") if k in workflow} | {"digest": digest(workflow)},
+            "workflow": {k: workflow[k] for k in ("name", "version") if isinstance(workflow, dict) and k in workflow} | {"digest": digest(workflow)},
             "lock": {"lockVersion": 1, "steps": {}},
             "inputs": inputs,
             "status": "running",
@@ -89,8 +89,8 @@ class Runner:
             return self._refuse(record, "lock_mismatch", "a step version no longer matches the workflow's lock file")
         schema = workflow.get("inputSchema", {"type": "object", "properties": {}})
         values = with_defaults(schema, inputs)
-        problem = value_problem(schema, values) or next(iter(media_type_problems(values, schema)), None)
-        if problem:
+        problem = json_problem(values) or value_problem(schema, values) or next(iter(media_type_problems(values, schema)), None)
+        if problem:  # a run record is a JSON document, so NaN or a number beyond 2**53 can't go in ([doc.numbers])
             return self._refuse(record, "invalid_input", f"the inputs don't fit the workflow's inputSchema: {problem}")
         record["inputs"] = values
         record["started"] = now()
@@ -184,8 +184,9 @@ class Runner:
                 raise StepFailed("failed", f"steps nest more than {MAX_DEPTH} levels deep")
             inputs = with_defaults(manifest["inputSchema"], given)
             entry["inputs"] = inputs
-            problem = value_problem(manifest["inputSchema"], inputs) or next(iter(media_type_problems(inputs, manifest["inputSchema"])), None)
-            if problem:  # [run.input-check], [types.media-type]
+            problem = (json_problem(inputs) or value_problem(manifest["inputSchema"], inputs)
+                       or next(iter(media_type_problems(inputs, manifest["inputSchema"])), None))
+            if problem:  # [run.input-check], [types.media-type], [doc.numbers]
                 raise StepFailed("invalid_input", problem)
             key = None
             if cacheable:  # [run.cache-key], [run.cache-only-cacheable]
@@ -235,7 +236,7 @@ class Runner:
                 if outcome.logs:
                     entry["logs"] = self.store.put_bytes(self._redact(outcome.logs), "text/plain", f"{ref.split('/')[1]}.log")
                 if outcome.skipped is None:
-                    problem = value_problem(manifest["outputSchema"], outcome.outputs) or next(
+                    problem = json_problem(outcome.outputs) or value_problem(manifest["outputSchema"], outcome.outputs) or next(
                         iter(media_type_problems(outcome.outputs, manifest["outputSchema"])), None)
                     if problem:  # [run.output-check], [types.media-type]
                         raise StepFailed("invalid_output", problem, outcome.logs)

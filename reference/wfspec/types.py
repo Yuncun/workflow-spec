@@ -198,7 +198,8 @@ def _accepts(want: set[str], t: str) -> bool:
 
 
 def _may_be(schema: dict, t: str) -> bool:
-    types = _types(schema)
+    """Whether a value of type `t` can fit: by `type`, or without one by the types of its enum or const values."""
+    types = _types(schema) or _types_of_values(schema)
     return types is None or t in types or (t == "number" and "integer" in types)
 
 

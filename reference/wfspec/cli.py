@@ -76,7 +76,7 @@ def main(argv: list[str] | None = None) -> int:
     args.restart_argv = sys.argv[1:] if argv is None else None  # only a program started from the command line restarts
     try:
         return _COMMANDS[args.command](args)
-    except (ParseError, ValueError) as exc:
+    except (ParseError, ValueError, OSError) as exc:  # OSError: a file or folder that isn't there
         print(f"wfspec: {exc}", file=sys.stderr)
         return 1
 
@@ -126,7 +126,10 @@ def _run(args) -> int:
         _print_run(record, store)
         return 1
     declared = (workflow.get("inputSchema") or {}).get("properties", {}) if isinstance(workflow, dict) else {}
-    inputs = dict(load_document(args.inputs)) if args.inputs else {}
+    inputs = load_document(args.inputs) if args.inputs else {}
+    if not isinstance(inputs, dict):
+        raise ValueError(f"{args.inputs} must hold the workflow's inputs as names and values")
+    inputs = dict(inputs)
     for item in args.input:
         name, _, raw = item.partition("=")
         inputs[name] = _input_value(raw, declared.get(name))
@@ -195,18 +198,31 @@ def _print_run(record: dict, store: Store) -> None:
     if record.get("outputs"):
         print("outputs:")
         for name, value in record["outputs"].items():
-            shown = f"file {value.get('name', '')} {value['digest'][:19]}" if isinstance(value, dict) and "digest" in value else json.dumps(value, ensure_ascii=False)
+            shown = f"file {value.get('name', '')} {value['digest'][:19]}" if isinstance(value, dict) and isinstance(value.get("digest"), str) else json.dumps(value, ensure_ascii=False)
             print(f"  {name}: {shown}")
     print(f"{record['status']}; run record: {store.root / 'runs' / (record['id'] + '.json')}")
 
 
 def _lock(args) -> int:
-    print(json.dumps(lock(load_document(args.workflow), load_catalog(args.catalog)), indent=2))
+    workflow, catalog = load_document(args.workflow), load_catalog(args.catalog)
+    if _fails_checking(workflow, catalog):
+        return 1
+    print(json.dumps(lock(workflow, catalog), indent=2))
     return 0
 
 
+def _fails_checking(workflow, catalog) -> bool:
+    """Report the errors of a workflow that a command can't work on. True when there are any."""
+    errors = [e.to_dict() for e in check(workflow, catalog).errors]
+    _report(errors, "error")
+    return bool(errors)
+
+
 def _as_step(args) -> int:
-    manifest = as_step(load_document(args.workflow), load_catalog(args.catalog), str(args.workflow))
+    workflow, catalog = load_document(args.workflow), load_catalog(args.catalog)
+    if _fails_checking(workflow, catalog):
+        return 1
+    manifest = as_step(workflow, catalog, str(args.workflow))
     print(json.dumps(manifest, indent=2, ensure_ascii=False))
     return 0
 

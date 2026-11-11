@@ -117,7 +117,7 @@ This specification leaves these to platforms:
 
 Manifests, workflows, lock files and run records are JSON documents. Manifests and workflows may also be written in YAML.
 
-- **[doc.formats]** A manifest or workflow MUST be YAML 1.2 or JSON [[RFC8259](https://www.rfc-editor.org/rfc/rfc8259)], saved as UTF-8, and every value in it MUST be one that JSON can hold. A value YAML can express but JSON can't, such as `!!binary`, `!!set` or a value with a local tag like `!Ref`, is an error.
+- **[doc.formats]** A manifest or workflow MUST be YAML 1.2 or JSON [[RFC8259](https://www.rfc-editor.org/rfc/rfc8259)], saved as UTF-8, and every value in it MUST be one that JSON can hold. A value YAML can express but JSON can't, such as `!!binary`, `!!set` or a value with a local tag like `!Ref`, is an error. So is text that isn't valid Unicode, such as half of a surrogate pair.
 - **[doc.yaml-1.2]** A reader MUST read YAML with the YAML 1.2 core schema, so that `yes`, `no`, `on` and `off` are text, not booleans.
 - **[doc.duplicate-keys]** A key that appears twice in one mapping MUST be an error, in YAML and in JSON.
 - **[doc.text-keys]** Every key MUST be text. A date MUST stay the text that was written.
@@ -208,7 +208,7 @@ A step can call other steps while it runs. An agent step that uses steps as tool
 - **[manifest.required-declared]** Every name listed in a schema's top-level `required` MUST be declared in its `properties`.
 - **[manifest.default-fits]** An input's `default` MUST fit that input's schema.
 - **[manifest.examples-fit]** An example's `inputs` and `outputs` MUST fit the manifest's schemas.
-- **[manifest.refs]** A schema MUST NOT use `$ref` for anything but `urn:wfspec:file`, and MUST NOT use `$defs`, `definitions`, `$id`, `$anchor`, `$dynamicRef` or `$dynamicAnchor` (section 6.1).
+- **[manifest.refs]** A schema MUST NOT use `$ref` for anything but `urn:wfspec:file`, and MUST NOT use `$defs`, `definitions`, `$id`, `$anchor`, `$dynamicRef` or `$dynamicAnchor` (section 6.1). A file MUST be declared as the schema of a property or of `items`, at any depth, and not under another keyword such as `additionalProperties` or `anyOf`.
 - **[manifest.invalid]** A checker MUST report a manifest that breaks a rule in section 5 as `invalid_manifest`, except that an unknown entry in `calls` is reported as `unknown_step` at that entry. It MUST leave the manifest out of the catalog. Annex A.3 gives the order in which it applies the rules.
 - **[manifest.left-out]** A workflow that names a manifest left out of the catalog MUST get `unknown_step`, and the message SHOULD say why the manifest was left out. A manifest that calls a left-out manifest, or whose workflow uses one, is left out too (Annex A.3).
 - **[manifest.duplicate]** When two manifests in one catalog have the same name and version, a checker MUST report `duplicate_step` for the later one and check it no further. It keeps the first one it read, whether that one is valid or not. Annex A.3 gives the order in which a checker reads a catalog.
@@ -698,6 +698,8 @@ files(src, dst):
          have fits want ([types.media-type])         -> ok
          otherwise                                   -> error
 
+"may be an object": its type allows an object; or it has no type, and either no enum or const, or an object among
+          their values. The same for arrays. An empty `properties` or `required` counts as having none.
 COMBINE = anyOf, oneOf, allOf, not, if, then, else, dependentSchemas, dependentRequired, prefixItems,
           contains, patternProperties, propertyNames, unevaluatedProperties, unevaluatedItems
 HANDLED = type, properties, required, additionalProperties, items, $ref, x-mediaType, enum, const, and LIMITS

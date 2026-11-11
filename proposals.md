@@ -153,7 +153,7 @@ A proposal joins the specification only through a new version of SPEC.md, with r
 ## P21. The dialect of regular expressions
 
 - **Status:** open.
-- **Problem:** JSON Schema recommends ECMA-262 regular expressions, but validators use their own language's engine. Python's `re`, which the reference checker uses, rejects `\p{L}` and accepts `(?P<name>…)`, while ECMA-262 does the opposite. Two checkers can then disagree on whether a pattern is valid, and on which values fit it.
+- **Problem:** JSON Schema recommends ECMA-262 regular expressions, but validators use their own language's engine. Python's `re`, which the reference checker uses, rejects `\p{L}` and accepts `(?P<name>…)`, while ECMA-262 does the opposite. Two checkers can then disagree on whether a pattern is valid, and on which values fit it. A pattern that never finishes on some input, such as `^(a+)+$`, also stalls one engine and not another. The reference checker reads `$` as the end of the text, as ECMA-262 does, where Python's own `$` also matches before a final newline.
 - **Idea:** require ECMA-262 with the `u` flag, and give the reference an ECMA-262 engine such as `regress`. Or allow only a subset that every engine reads the same way, such as I-Regexp [[RFC 9485](https://www.rfc-editor.org/rfc/rfc9485)].
 - **Settled by:** a manifest that needs a pattern the two engines read differently.
 

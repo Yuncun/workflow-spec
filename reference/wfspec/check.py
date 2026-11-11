@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import difflib
 import re
+import sys
 from dataclasses import dataclass, field
 
 from jsonschema import Draft202012Validator
@@ -12,8 +13,8 @@ from jsonschema.exceptions import SchemaError
 from .documents import EFFECT_ORDER, Catalog, Issue, media_type_problems, pointer, reference_issues, schema_issues, value_problem
 from .types import Finding, assignable
 
-INPUT_REF = re.compile(r"^inputs\.([A-Za-z_][A-Za-z0-9_-]*)$")
-OUTPUT_REF = re.compile(r"^steps\.([a-z][a-z0-9_-]*)\.outputs\.([A-Za-z_][A-Za-z0-9_-]*)$")
+INPUT_REF = re.compile(r"^inputs\.([A-Za-z_][A-Za-z0-9_-]*)\Z")  # \Z: Python's $ would allow a final newline
+OUTPUT_REF = re.compile(r"^steps\.([a-z][a-z0-9_-]*)\.outputs\.([A-Za-z_][A-Za-z0-9_-]*)\Z")
 NO_INPUTS = {"type": "object", "properties": {}}
 _EFFECT_WORDS = {
     "none": "touches nothing outside its inputs",
@@ -116,6 +117,9 @@ class _Checker:
             where = pointer("inputSchema", *exc.path)
             self.error("invalid_workflow", pointer("inputSchema"), f"not a valid JSON Schema, at {where}: {exc.message}")
             return
+        except RecursionError:
+            self.error("invalid_workflow", pointer("inputSchema"), "nested more deeply than this checker handles")
+            return
         references = reference_issues(self.inputs, ("inputSchema",))
         for path, message in references:
             self.error("invalid_workflow", path, message)
@@ -186,7 +190,7 @@ class _Checker:
             if input_name not in props:
                 self.error("unknown_reference", where, f"the workflow has no input {input_name!r}" + _suggest(input_name, props), sid, name)
                 return None
-            schema = props[input_name] if isinstance(props[input_name], dict) or props[input_name] is False else {}
+            schema = props[input_name]  # a schema, or true or false
             optional = schema is False or (input_name not in self.inputs.get("required", []) and not _has_default(schema))
             return Source(None, input_name, schema if self.inputs_usable else None, optional)
         match = OUTPUT_REF.match(ref)
@@ -330,6 +334,7 @@ def _cycles(deps: dict[str, set[str]], order: list[str]) -> list[list[str]]:
     """Groups of steps that depend on each other (Tarjan's algorithm), each in file order."""
     index: dict[str, int] = {}
     low: dict[str, int] = {}
+    sys.setrecursionlimit(max(sys.getrecursionlimit(), 3 * len(order) + 1000))  # visit() goes one level deeper per step in a chain
     stack: list[str] = []
     on_stack: set[str] = set()
     found: list[list[str]] = []

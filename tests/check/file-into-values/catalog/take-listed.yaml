@@ -1,0 +1,7 @@
+name: test/take-listed
+version: 1.0.0
+description: Takes one of two listed numbers, written without a type.
+inputSchema: { type: object, properties: { level: { enum: [1, 2] } }, required: [level] }
+outputSchema: { type: object, properties: { done: { type: boolean } }, required: [done] }
+effects: none
+runtime: { container: { image: example.test/take-listed:1.0.0 } }

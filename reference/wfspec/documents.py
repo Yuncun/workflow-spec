@@ -9,7 +9,7 @@ import re
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
 
-from jsonschema import Draft202012Validator
+from jsonschema import Draft202012Validator, ValidationError, validators
 from jsonschema.exceptions import SchemaError, best_match
 from referencing import Registry, Resource
 from referencing.exceptions import Unresolvable
@@ -116,12 +116,18 @@ def _json_only(node, path: tuple = ()) -> None:
         for key, value in node.items():
             if not isinstance(key, str):
                 raise ParseError(f"at {where}: the key {key!r} must be text; put it in quotes")
+            _json_only(key, path)
             if key == "<<":
                 raise ParseError(f"at {where}: the key '<<' isn't allowed; YAML 1.1 parsers read it as a merge")
             _json_only(value, (*path, key))
     elif isinstance(node, list):
         for i, value in enumerate(node):
             _json_only(value, (*path, i))
+    elif isinstance(node, str):
+        try:
+            node.encode("utf-8")
+        except UnicodeEncodeError:  # in YAML, "\\ud83d\\ude00" is two half characters, not one emoji as in JSON
+            raise ParseError(f"at {where}: text that isn't valid Unicode (half of a surrogate pair); write the character itself") from None
     elif isinstance(node, float) and not math.isfinite(node):
         raise ParseError(f"at {where}: {node} isn't a JSON number")
     elif isinstance(node, int) and not isinstance(node, bool) and abs(node) > SAFE_INTEGER:
@@ -136,6 +142,11 @@ def load_document(path: Path):
         text = Path(path).read_text(encoding="utf-8")
     except UnicodeDecodeError as exc:  # [doc.parse-error]: a document that can't be read
         raise ParseError(f"the file isn't UTF-8 text: {exc.reason} at byte {exc.start}") from exc
+    for line in text.splitlines():  # the directives before the document: YAML 1.1 would make yes and no booleans
+        if not line.startswith(("%", "#")) and line.strip():
+            break
+        if line.startswith("%YAML") and line.split()[1:2] != ["1.2"]:
+            raise ParseError(f"{line.strip()}: a manifest or workflow is YAML 1.2")
     try:
         if Path(path).suffix == ".json":
             doc = json.loads(text, object_pairs_hook=_unique_pairs)
@@ -148,8 +159,26 @@ def load_document(path: Path):
         raise ParseError(where + (exc.problem or str(exc))) from exc
     except YAMLError as exc:
         raise ParseError(str(exc)) from exc
-    _json_only(doc)
+    except AssertionError as exc:  # ruamel.yaml on a %YAML directive it doesn't know
+        raise ParseError(str(exc)) from exc
+    except RecursionError:
+        raise ParseError("the document is nested more deeply than this reader handles") from None
+    try:
+        _json_only(doc)
+    except RecursionError:  # a YAML alias inside its own anchor, or nesting beyond what this reader handles
+        raise ParseError("a value contains itself, or is nested more deeply than this reader handles") from None
     return doc
+
+
+def json_problem(value) -> str | None:
+    """Why `value` can't go in a JSON document of this format (SPEC.md, section 4), or None if it can."""
+    try:
+        _json_only(value)
+    except ParseError as exc:
+        return str(exc)
+    except RecursionError:
+        return "a value is nested more deeply than this reader handles"
+    return None
 
 
 def _registry() -> Registry:
@@ -163,13 +192,37 @@ def _registry() -> Registry:
 REGISTRY = _registry()
 
 
+def end_of_text(pattern: str) -> str:
+    """The pattern with each `$` meaning the end of the text, as in the regular expressions JSON
+    Schema names (ECMA-262). Python's `$` also matches just before a final newline, which would let
+    "name\\n" through a pattern such as ^[a-z]+$."""
+    out, i, in_class = [], 0, False
+    while i < len(pattern):
+        if pattern[i] == "\\":
+            out.append(pattern[i:i + 2])
+            i += 2
+            continue
+        in_class = (in_class or pattern[i] == "[") and pattern[i] != "]"
+        out.append("\\Z" if pattern[i] == "$" and not in_class else pattern[i])
+        i += 1
+    return "".join(out)
+
+
+def _pattern(_validator, pattern, instance, _schema):
+    if isinstance(instance, str) and not re.search(end_of_text(pattern), instance):
+        yield ValidationError(f"{instance!r} does not match {pattern!r}")
+
+
+_Validator = validators.extend(Draft202012Validator, {"pattern": _pattern})
+
+
 def validator(schema: dict | str) -> Draft202012Validator:
     """A validator for an inline schema, or for one of the spec's schemas given by its $id.
 
     `format` stays an annotation, as in JSON Schema 2020-12 by default (SPEC.md, [types.format])."""
     if isinstance(schema, str):
         schema = REGISTRY.contents(schema)
-    return Draft202012Validator(schema, registry=REGISTRY)
+    return _Validator(schema, registry=REGISTRY)
 
 
 def schema_issues(doc, schema_id: str, code: str, file: str | None = None) -> list[Issue]:
@@ -211,24 +264,29 @@ _DATA_KEYWORDS = ("default", "const", "enum", "examples")  # their values are da
 _NAMED_SCHEMAS = ("properties", "patternProperties", "dependentSchemas")  # names map to schemas
 
 
-def reference_issues(schema, path: tuple) -> list[tuple[str, str]]:
-    """(pointer, message) for each reference keyword other than {"$ref": "urn:wfspec:file"}
-    (SPEC.md, [manifest.refs]). Data such as a default, and property names, are not looked at."""
+def reference_issues(schema, path: tuple, plain: bool = True) -> list[tuple[str, str]]:
+    """(pointer, message) for each reference keyword that isn't allowed (SPEC.md, [manifest.refs]): any
+    but {"$ref": "urn:wfspec:file"}, and that one anywhere but in the schema of a property or of
+    `items`. `plain` says the schema was reached through `properties` and `items` only. Data such as a
+    default, and property names, are not looked at."""
     found = []
     if isinstance(schema, dict):
         for key, value in schema.items():
-            if key in _REFERENCE_KEYWORDS and not (key == "$ref" and value == FILE_REF):
+            if key == "$ref" and value == FILE_REF:
+                if not plain:
+                    found.append((pointer(*path, key), "a file can only be the schema of a property or of items"))
+            elif key in _REFERENCE_KEYWORDS:
                 found.append((pointer(*path, key), f"{key} isn't allowed; the only reference allowed is {{\"$ref\": \"{FILE_REF}\"}}"))
             elif key in _DATA_KEYWORDS or key.startswith("x-"):
                 continue
             elif key in _NAMED_SCHEMAS and isinstance(value, dict):
                 for name, sub in value.items():
-                    found += reference_issues(sub, (*path, key, name))
+                    found += reference_issues(sub, (*path, key, name), plain and key == "properties")
             else:
-                found += reference_issues(value, (*path, key))
+                found += reference_issues(value, (*path, key), plain and key == "items" and isinstance(value, dict))
     elif isinstance(schema, list):
         for i, value in enumerate(schema):
-            found += reference_issues(value, (*path, i))
+            found += reference_issues(value, (*path, i), False)
     return found
 
 
@@ -314,6 +372,9 @@ def manifest_issues(doc, file: str | None = None) -> list[Issue]:
         except SchemaError as exc:  # once, at the schema (SPEC.md, [check.paths])
             problem(pointer(key), f"not a valid JSON Schema, at {pointer(key, *exc.path)}: {exc.message}")
             continue
+        except RecursionError:
+            problem(pointer(key), "nested more deeply than this checker handles")
+            continue
         references = reference_issues(doc[key], (key,))
         for path, message in references:
             problem(path, message)
@@ -353,9 +414,13 @@ def workflow_runtime_issues(manifest: dict, file: str | None) -> list[Issue]:
         return []
     where = pointer("runtime", "workflow", "path")
     target = Path(file).parent / runtime["path"]
-    if not target.resolve().is_relative_to(Path(file).parent.resolve()):
+    try:
+        inside_folder, exists = target.resolve().is_relative_to(Path(file).parent.resolve()), target.is_file()
+    except (OSError, ValueError) as exc:  # a name too long for the file system, or one it can't hold
+        return [Issue("invalid_manifest", where, f"{runtime['path'][:80]!r} can't be opened: {exc}", file=file)]
+    if not inside_folder:
         return [Issue("invalid_manifest", where, f"{runtime['path']} isn't inside the manifest's folder", file=file)]
-    if not target.is_file():
+    if not exists:
         return [Issue("invalid_manifest", where, f"there is no workflow file at {target}", file=file)]
     try:
         doc = load_document(target)

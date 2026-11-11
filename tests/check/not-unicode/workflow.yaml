@@ -1,0 +1,6 @@
+# In YAML, "\ud83d\ude00" is two halves of a surrogate pair, not the one character it is in JSON.
+# Text that isn't valid Unicode can't be read (SPEC.md, [doc.formats], [doc.parse-error]).
+steps:
+  e: { uses: test/echo@1.0.0, with: { text: "\ud83d\ude00" } }
+outputs:
+  out: { from: steps.e.outputs.text }

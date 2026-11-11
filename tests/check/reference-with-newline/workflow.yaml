@@ -1,0 +1,6 @@
+# A reference ends where its form ends: one with a final newline isn't a reference
+# (SPEC.md, [check.bad-reference]).
+steps:
+  e: { uses: test/echo@1.0.0, with: { text: hi } }
+outputs:
+  out: { from: "steps.e.outputs.text\n" }

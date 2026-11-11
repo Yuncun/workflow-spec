@@ -15,6 +15,9 @@
 - An output or workflow input whose schema is `false` never has a value, so it counts as missing ([types.maybe-missing]). The reference checker crashed on one, or let it through.
 - A manifest or workflow is saved as UTF-8 ([doc.formats]). A file in another encoding is a `parse_error`.
 - `x-` fields are also allowed inside an example and inside the `workflow` runtime of a manifest, as [manifest.extensions] already said.
+- A file is declared as the schema of a property or of `items`, at any depth, and not under another keyword such as `additionalProperties` or `anyOf` ([manifest.refs]). Media types, cache keys and the files handed to a step were already found only that way.
+- Text that isn't valid Unicode, such as half of a surrogate pair, is a `parse_error` ([doc.formats]).
+- Annex A.1 says when a schema "may be an object", and that an empty `properties` or `required` counts as none. A file wired into an input that only takes listed numbers is now a `type_mismatch`.
 - Fixed in the reference checker, where the text was already clear:
   - no warnings after `no_outputs`
   - both problems of a workflow's `inputSchema` when it has a reference it may not use and a required name it doesn't declare
@@ -22,6 +25,13 @@
   - `1_000` and `0b101` in YAML are text, as the YAML 1.2 core schema says
   - a folder whose name ends in `.yaml` isn't a manifest
   - `wfspec check-step` now reports exactly what loading the whole catalog reports for that manifest
+  - a name or reference that ends in a newline no longer passes a pattern that ends in `$`
+  - a workflow input whose schema is `true` stays `true` in the manifest a workflow gets
+- Fixed in the reference tools, on inputs that made them crash:
+  - a schema nested very deeply, a chain of more than a thousand steps, a YAML alias inside its own anchor, a `%YAML` directive other than 1.2
+  - a run of something that isn't a workflow now gets a record with `check_failed`
+  - a run refuses NaN, infinity and whole numbers beyond 2^53 − 1, in its inputs and in a step's outputs
+  - `wfspec lock` and `wfspec as-step` check the workflow first
 - A schema that isn't valid JSON Schema is reported once, at the schema itself, such as `/inputSchema` ([check.paths]). A regular expression that doesn't compile makes its schema invalid ([manifest.json-schema]).
 - Several rules that only the test cases showed before are now written down. They are in [doc.formats], [manifest.invalid], [manifest.left-out], [manifest.duplicate], [manifest.required-declared], [workflow.input-schema], [workflow.reference-form], [check.all-at-once], [check.bad-reference], [check.step-never-runs], [check.policy], [check.paths], [publish.as-step] and section 6.3.
 - The details that only someone who writes a checker needs moved to Annex A of SPEC.md, word for word. They are the schema comparison, the order of the manifest rules, and where each problem is reported.

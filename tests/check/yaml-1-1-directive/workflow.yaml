@@ -1,0 +1,7 @@
+%YAML 1.1
+---
+# A file that says it is YAML 1.1 isn't YAML 1.2, in which `yes` is text (SPEC.md, [doc.formats]).
+steps:
+  e: { uses: test/echo@1.0.0, with: { text: yes } }
+outputs:
+  out: { from: steps.e.outputs.text }

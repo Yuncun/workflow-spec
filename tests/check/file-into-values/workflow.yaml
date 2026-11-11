@@ -1,0 +1,9 @@
+# A file can't feed an input that only takes listed values, none of them an object
+# (SPEC.md, [types.fits], Annex A.1).
+steps:
+  logs: { uses: acme/fetch-ci-logs@2.1.0, with: { repo: acme/app, run_id: 7 } }
+  take:
+    uses: test/take-listed@1.0.0
+    with: { level: { from: steps.logs.outputs.logs } }
+outputs:
+  done: { from: steps.take.outputs.done }

@@ -1,0 +1,9 @@
+# A name ends where its pattern ends. Some regular expression engines let a final newline through
+# a pattern that ends in $ (SPEC.md, [manifest.schema]).
+name: "test/m-newline\n"
+version: 1.0.0
+description: A step whose name ends in a newline.
+inputSchema: { type: object, properties: {} }
+outputSchema: { type: object, properties: { done: { type: boolean } }, required: [done] }
+effects: none
+runtime: { container: { image: example.test/m-newline:1.0.0 } }
