@@ -146,7 +146,7 @@ def validator(schema: dict | str) -> Draft202012Validator:
 
 def schema_issues(doc, schema_id: str, code: str, file: str | None = None) -> list[Issue]:
     """One issue per location in `doc` where validation against the spec schema `schema_id` fails
-    (SPEC.md, section 8.2), so the count doesn't depend on how many keywords a validator reports."""
+    (SPEC.md, Annex A.5), so the count doesn't depend on how many keywords a validator reports."""
     errors = sorted(validator(schema_id).iter_errors(doc), key=lambda e: ([str(p) for p in e.absolute_path], e.message))
     first: dict[str, str] = {}
     for e in errors:

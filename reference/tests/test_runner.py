@@ -1,22 +1,7 @@
 """Runs the test cases in ../../tests/run with the reference runner.
 
-tests/run/<case>/   workflow.yaml and expected.yaml, plus any of:
-  inputs.yaml       the workflow's inputs
-  secrets.yaml      the caller's secrets, by name
-  options.yaml      runs (a count, or one inputs object per run), retries, sandbox, lock (a file, or
-                    "current"), replay, and macos_only: the reference runner enforces effects only
-                    with the macOS sandbox, so it skips the case elsewhere
-  model.yaml        scripted replies for agent steps, served as an OpenAI-compatible API
-  catalog/          steps only this case uses; tests/run-catalog/ holds the shared ones
-
-expected.yaml says what the last run must give: status, error (the run's error code), outputs,
-and for chosen steps the fields of their records, such as status, error code, cacheHit, attempts,
-reason or outputs. It can also give calls (step id to the records of the calls it made),
-model_saw_tools, dry_run_differences, and logs_hide (values nothing in the store may contain).
-Records match when every field the expectation gives matches; other fields are free. Placeholders
-in the workflow, inputs and options: {tmp} (a scratch folder, holding a file outside.txt that no step is given),
-{port} (a listening port), {case} (the case folder).
-Every run record must fit schemas/run.schema.json.
+tests/README.md says what a case holds. The reference runner enforces effects only with the macOS
+sandbox, so it skips a case marked macos_only elsewhere.
 """
 
 import json

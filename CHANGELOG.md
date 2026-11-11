@@ -11,6 +11,9 @@
 
 - A schema that isn't valid JSON Schema is reported once, at the schema itself, such as `/inputSchema` ([check.paths]). A regular expression that doesn't compile makes its schema invalid ([manifest.json-schema]).
 - Several rules that only the test cases showed before are now written down. They are in [doc.formats], [manifest.invalid], [manifest.left-out], [manifest.duplicate], [manifest.required-declared], [workflow.input-schema], [workflow.reference-form], [check.all-at-once], [check.bad-reference], [check.step-never-runs], [check.policy], [check.paths], [publish.as-step] and section 6.3.
+- The details that only someone who writes a checker needs moved to Annex A of SPEC.md, word for word. They are the schema comparison, the order of the manifest rules, and where each problem is reported.
+- What a test case holds is described in tests/README.md, not in sections 8.5 and 9.11.
+- Section 12, a list of the entries in proposals.md, is removed. "Where the ideas come from" is now section 12, "Prior art".
 - HANDOFF.md is removed.
 
 ## 0.3, 2026-11-09 (draft)

@@ -8,7 +8,7 @@ A substantive change, one that changes what conforms, goes through a lightweight
 
 1. **Propose** it in [proposals.md](proposals.md): the problem, the idea, and what would settle it.
 2. **Settle** it with evidence, such as a real workflow, a test, or a second implementation.
-3. **Write the rule** in SPEC.md under a new requirement id, with an error code if checking reports it (section 8.2). Add test cases, and map the id to them in [tests/coverage.yaml](tests/coverage.yaml).
+3. **Write the rule** in SPEC.md under a new requirement id, with an error code if checking reports it (section 8.2) and the path it's reported at (Annex A.5). Add test cases, and map the id to them in [tests/coverage.yaml](tests/coverage.yaml).
 4. **Update the reference** checker or runner in [reference/](reference) until every test passes.
 5. **Record it** in [CHANGELOG.md](CHANGELOG.md) under the next version, and take its entry out of proposals.md.
 

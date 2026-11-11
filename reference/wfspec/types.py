@@ -1,6 +1,6 @@
 """Whether a value described by one JSON Schema can be passed where another is expected.
 
-SPEC.md, section 6.3. The checker proves shapes and leaves limits it can't prove to run time:
+SPEC.md, section 6.3 and Annex A.1. The checker proves shapes and leaves limits it can't prove to run time:
 - an error means the source can produce a value of the wrong shape for the target;
 - a warning means the shapes fit, but a limit on the target (a range, a pattern, a list of
   allowed values...) can't be proven from the source's schema, so the value is checked when

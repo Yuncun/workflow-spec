@@ -86,12 +86,14 @@ There are three conformance classes. One program can belong to several.
 
 | Class | Does | Requirements |
 |---|---|---|
-| checker | reads documents and checks workflows | sections 4 to 8 |
+| checker | reads documents and checks workflows | sections 4 to 8, and Annex A |
 | runner | runs workflows | section 9, the checker's requirements, [types.format], [types.media-type], [types.file-store], [publish.digest] and [publish.lock] |
 | publisher | publishes steps and workflows | section 10, and the checker's requirements |
 
-- **[conform.checker-tests]** A checker MUST pass every test case in `tests/check/` and `tests/manifests/` (section 8.5). Passing them also requires the paths and counts in section 8.2.
-- **[conform.runner-tests]** A runner MUST pass every test case in `tests/run/` (section 9.11).
+- **[conform.checker-tests]** A checker MUST pass every test case in `tests/check/` and `tests/manifests/`. It passes a case when it reports exactly the expected errors and warnings: the same `(code, path)` pairs, each the same number of times. Annex A gives the paths and counts.
+- **[conform.runner-tests]** A runner MUST pass every test case in `tests/run/`.
+
+[tests/README.md](tests/README.md) says what a test case holds.
 
 *Informative.* This specification says what a run must produce, not how a runner works. A runner can be a hosted service, a command-line tool, or an adapter onto another workflow engine. In practice, a runner has to be able to:
 - run a step with JSON values in and JSON values out ([drafts/runtime.md](drafts/runtime.md) describes how, for each runtime kind)
@@ -123,7 +125,7 @@ Manifests, workflows, lock files and run records are JSON documents. Manifests a
 - **[doc.numbers]** Numbers MUST follow I-JSON [[RFC7493](https://www.rfc-editor.org/rfc/rfc7493)]: they are finite, and a number written as a whole number, without a fraction or an exponent, is within ±(2^53 − 1). Then every JSON parser reads them exactly, and digests agree (section 10.1).
 - **[doc.parse-error]** A checker MUST report a document that can't be read, or that breaks any rule in this section, as `parse_error`, and check nothing else in it.
 
-*Informative.* Many YAML parsers default to YAML 1.1. Many also keep the last of two equal keys without a warning, and accept `<<` and huge numbers. A checker has to test for these itself. GitHub Actions files rely on `on` being text.
+*Informative.* Many YAML parsers default to YAML 1.1. Many also keep the last of two equal keys without a warning, and accept `<<` and huge numbers. A checker has to test for these itself.
 
 ## 5. Step manifest
 
@@ -202,19 +204,14 @@ A step can call other steps while it runs. An agent step that uses steps as tool
 
 ### 5.5 When a manifest is invalid
 
-- **[manifest.json-schema]** `inputSchema` and `outputSchema` MUST be valid JSON Schemas (2020-12). A regular expression in them that doesn't compile makes them invalid. Which dialect of regular expressions a checker uses is its own choice ([proposals.md](proposals.md), P21).
+- **[manifest.json-schema]** `inputSchema` and `outputSchema` MUST be valid JSON Schemas (2020-12).
 - **[manifest.required-declared]** Every name listed in a schema's top-level `required` MUST be declared in its `properties`.
 - **[manifest.default-fits]** An input's `default` MUST fit that input's schema.
 - **[manifest.examples-fit]** An example's `inputs` and `outputs` MUST fit the manifest's schemas.
-- **[manifest.refs]** A schema MUST NOT use `$ref` for anything but `urn:wfspec:file`, and MUST NOT use `$defs`, `definitions`, `$id`, `$anchor`, `$dynamicRef` or `$dynamicAnchor` (section 6.1). The values of `default`, `const`, `enum`, `examples` and `x-` keywords are data, and the keys of `properties`, `patternProperties` and `dependentSchemas` are names. Neither is checked for references.
-- **[manifest.invalid]** A checker MUST report a manifest that breaks a rule in section 5 as `invalid_manifest`, except that an unknown entry in `calls` is reported as `unknown_step` at that entry. It MUST leave the manifest out of the catalog. It applies the rules in this order, and stops at the first stage that has problems:
-  1. reading the document (section 4), where every problem is a `parse_error`
-  2. [manifest.schema]
-  3. [manifest.json-schema], [manifest.refs], [manifest.required-declared], [manifest.default-fits], [manifest.examples-fit] and [manifest.calls-one-per-major], which need only the manifest. Defaults and examples are checked only against a schema with no problems under the first three of these rules.
-  4. [manifest.workflow-file], except whether the workflow passes checking
-  5. the rules that need the catalog: [manifest.calls-known], [manifest.calls-effects], [manifest.calls-secrets], [manifest.no-self], whether the workflow of a `workflow` step passes checking, and [manifest.workflow-derived]
-- **[manifest.left-out]** A workflow that names a manifest left out of the catalog MUST get `unknown_step`, and the message SHOULD say why the manifest was left out. Leaving a manifest out can break another manifest that calls it or whose workflow uses it. A checker MUST then apply stage 5 again to the remaining manifests, one at a time in reading order, and leave out each one that fails. It repeats this until no more manifests are left out.
-- **[manifest.duplicate]** When two manifests in one catalog have the same name and version, a checker MUST report `duplicate_step` for the later one and check it no further. It keeps the first one it read, whether that one is valid or not. A catalog's manifests are the files in its folders whose names end in `.yaml`, `.yml` or `.json`. A checker reads a catalog's folders in the order given, and each folder's files in the order of their names, compared by Unicode code point.
+- **[manifest.refs]** A schema MUST NOT use `$ref` for anything but `urn:wfspec:file`, and MUST NOT use `$defs`, `definitions`, `$id`, `$anchor`, `$dynamicRef` or `$dynamicAnchor` (section 6.1).
+- **[manifest.invalid]** A checker MUST report a manifest that breaks a rule in section 5 as `invalid_manifest`, except that an unknown entry in `calls` is reported as `unknown_step` at that entry. It MUST leave the manifest out of the catalog. Annex A.3 gives the order in which it applies the rules.
+- **[manifest.left-out]** A workflow that names a manifest left out of the catalog MUST get `unknown_step`, and the message SHOULD say why the manifest was left out. A manifest that calls a left-out manifest, or whose workflow uses one, is left out too (Annex A.3).
+- **[manifest.duplicate]** When two manifests in one catalog have the same name and version, a checker MUST report `duplicate_step` for the later one and check it no further. It keeps the first one it read, whether that one is valid or not. Annex A.3 gives the order in which a checker reads a catalog.
 
 ### 5.6 Example
 
@@ -276,65 +273,10 @@ Files never travel inline. A file value is:
 ### 6.3 When a value fits an input
 
 When a reference connects an output, or a workflow input, to a step's input, the checker compares the two schemas:
-- **[types.fits]** A checker MUST compare the source's schema with the input's schema as the pseudocode below says.
+- **[types.fits]** A checker MUST compare the source's schema with the input's schema as Annex A.1 says.
 - **[types.fits-error]** A checker MUST report `type_mismatch` where [types.fits] gives an error: the source can produce a value of the wrong shape, or values the input provably doesn't allow.
 - **[types.fits-warning]** A checker MUST report `type_unchecked`, a warning, where [types.fits] gives only warnings: the shapes fit, but the source's schema can't prove that its values meet the input's limits, such as a range, a pattern or a list of allowed values. The value is then checked when the step runs ([run.input-check]).
 - **[types.maybe-missing]** A value that may be missing MUST NOT feed a required input that has no default; a checker reports `type_mismatch`. A value may be missing when it is an output its step doesn't list as required, or an optional workflow input without a default.
-
-The comparison ([types.fits]). It runs on both schemas with these keywords removed at every level: `title`, `description`, `examples`, `default`, `deprecated`, `readOnly`, `writeOnly`, `$comment`, `$schema`, `$id`, `$anchor`, `format`, and every `x-` keyword except `x-mediaType`. A property that has one of these names, such as an input called `title`, stays.
-
-```text
-fits(src, dst):
-  dst is true or {}                                  -> ok, and stop
-  src equals dst as JSON                             -> ok, and stop        # true isn't 1; 1 is 1.0
-  dst is false                                       -> error, and stop
-  src is true or {}                                  -> warning, and stop
-  src or dst is a file                               -> files(src, dst), and stop
-  src or dst has another $ref                        -> warning, and stop
-  dst has a keyword in COMBINE                       -> warning, and stop
-  types: want := dst.type; have := src.type, or the types of src's enum or const values
-         want is set and have isn't                  -> warning
-         a type in have isn't in want                -> error, and stop    # "number" accepts "integer"
-  values: dst has enum or const
-         src's enum or const has a value dst doesn't allow (JSON equality) -> error
-         src has neither                             -> warning
-  limits: for each keyword of LIMITS in dst, unless src has a keyword the table says proves it -> warning
-          for each other keyword in dst, outside HANDLED and COMBINE, unless src has it with the same value -> warning
-  objects, when both may be objects:
-         each name in dst.required: in src.required  -> ok
-                                    src declares properties or required -> error
-                                    otherwise        -> warning
-         each name in both properties                -> fits(src.properties[name], dst.properties[name])
-         dst.additionalProperties is false:
-                                    src declares a property dst doesn't -> error
-                                    else src.additionalProperties isn't false -> warning
-  arrays, when both may be arrays and dst has items:
-         src has items                               -> fits(src.items, dst.items)
-         otherwise                                   -> warning
-
-files(src, dst):
-  src isn't a file                                   -> error
-  dst isn't a file: dst may be an object, has no properties or required, and its
-                    additionalProperties is missing, true or {} -> ok; otherwise -> error
-  want := dst.x-mediaType; have := src.x-mediaType
-         want is missing, or have equals want        -> ok
-         have is missing                             -> warning
-         have fits want ([types.media-type])         -> ok
-         otherwise                                   -> error
-
-COMBINE = anyOf, oneOf, allOf, not, if, then, else, dependentSchemas, dependentRequired, prefixItems,
-          contains, patternProperties, propertyNames, unevaluatedProperties, unevaluatedItems
-HANDLED = type, properties, required, additionalProperties, items, $ref, x-mediaType, enum, const, and LIMITS
-LIMITS, each with the source keywords that prove it:
-  minimum           minimum >= it, or exclusiveMinimum >= it
-  exclusiveMinimum  exclusiveMinimum >= it, or minimum > it
-  maximum           maximum <= it, or exclusiveMaximum <= it
-  exclusiveMaximum  exclusiveMaximum <= it, or maximum < it
-  minLength, minItems, minProperties    the same keyword >= it
-  maxLength, maxItems, maxProperties    the same keyword <= it
-```
-
-An input gets one problem for all its findings, together with [types.maybe-missing]: `type_mismatch` if any of them is an error, otherwise `type_unchecked`.
 
 ## 7. Workflow file
 
@@ -365,7 +307,7 @@ Each input in `with` takes one of three forms:
 | reference | `logs: { from: steps.logs.outputs.logs }` | another step's output, or a workflow input |
 | wrapped literal | `extra: { literal: { from: x } }` | this value, for the rare literal shaped like a reference |
 
-- **[workflow.reference-form]** An object whose only key is `from` MUST be read as a reference, whatever its value, in `with` and in `outputs`. This holds even for a step that isn't in the catalog, and for an input the step doesn't have. A reference is `inputs.<name>` or `steps.<id>.outputs.<name>`, and it passes the whole value.
+- **[workflow.reference-form]** An object whose only key is `from` MUST be read as a reference, whatever its value, in `with` and in `outputs`. A reference is `inputs.<name>` or `steps.<id>.outputs.<name>`, and it passes the whole value.
 - **[workflow.literal-form]** An object whose only key is `literal` MUST be read as a wrapped literal, and its value used as it is.
 
 Picking a field out of an output isn't in this version ([proposals.md](proposals.md)).
@@ -422,10 +364,7 @@ A workflow has no conditions, loops or expressions. Where one is needed:
 
 `check(workflow, catalog, policy?)` returns every error and warning at once. A run never starts while there are errors ([run.check-first]).
 
-- **[check.all-at-once]** A checker MUST report every problem in a workflow, with three exceptions:
-  - After an `invalid_workflow` that comes from the workflow schema, it MUST report nothing else.
-  - When the `inputSchema` isn't valid JSON Schema or uses a reference other than to files, it MUST NOT check defaults against it. It also MUST NOT compare its inputs with the inputs they feed (section 6.3).
-  - After `no_outputs`, it MUST NOT report warnings.
+- **[check.all-at-once]** A checker MUST report every problem in a workflow, with the three exceptions in Annex A.4.
 
 | Requirement | A checker MUST report | When |
 |---|---|---|
@@ -434,7 +373,7 @@ A workflow has no conditions, loops or expressions. Where one is needed:
 | **[check.unknown-step]** | `unknown_step` | `uses` isn't in the catalog; the message SHOULD list the versions it has, or why the manifest was left out |
 | **[check.unknown-input]** | `unknown_input` | `with` names an input the step doesn't have; the message SHOULD suggest a close name |
 | **[check.missing-input]** | `missing_input` | a required input has no value and no default |
-| **[check.bad-reference]** | `bad_reference` | a reference isn't `inputs.<name>` or `steps.<id>.outputs.<name>` with a valid id and name ([workflow.schema], [types.json-schema]), or its `from` isn't text |
+| **[check.bad-reference]** | `bad_reference` | a reference isn't `inputs.<name>` or `steps.<id>.outputs.<name>` |
 | **[check.unknown-reference]** | `unknown_reference` | a reference names a missing input, step or output |
 | **[check.type-mismatch]** | `type_mismatch` | [types.fits-error] or [types.maybe-missing] |
 | **[check.type-unchecked]** | `type_unchecked`, a warning | [types.fits-warning] |
@@ -443,37 +382,8 @@ A workflow has no conditions, loops or expressions. Where one is needed:
 | **[check.no-outputs]** | `no_outputs` | the workflow has no outputs and no step that writes, and every step is known |
 | **[check.effects-not-allowed]** | `effects_not_allowed` | a step's effects are above the policy's `maxEffects` |
 | **[check.secret-not-granted]** | `secret_not_granted` | a step needs a secret the policy doesn't grant |
-| **[check.step-never-runs]** | `step_never_runs`, a warning | a step isn't needed (section 9.2); a step whose `uses` isn't in the catalog counts as a root |
+| **[check.step-never-runs]** | `step_never_runs`, a warning | a step isn't needed (section 9.2) |
 | **[check.unused-input]** | `unused_input`, a warning | nothing uses a workflow input |
-
-*Informative.* An order a checker can follow:
-
-```text
-check(W, catalog, policy):
-  W breaks workflow.schema.json                       -> invalid_workflow (stop here)
-  W.inputSchema invalid, uses a reference other than a file,
-    or lists required names it doesn't declare       -> invalid_workflow
-  a workflow input's default doesn't fit              -> invalid_value
-  for each step s:
-    s.uses not in the catalog                         -> unknown_step
-    for each name, value in s.with:
-      name not an input of s.uses                     -> unknown_input
-      value is a reference:
-        not inputs.<n> or steps.<id>.outputs.<n>      -> bad_reference
-        names a missing input, step or output         -> unknown_reference
-        source may be missing, input is required      -> type_mismatch
-        fits(source schema, input schema) has errors  -> type_mismatch
-                                       only warnings  -> warning type_unchecked
-      value is a literal and doesn't fit the input    -> invalid_value
-    a required input without a value or a default     -> missing_input
-    policy.maxEffects below s's effects               -> effects_not_allowed
-    s needs a secret not in policy.secrets            -> secret_not_granted
-  each workflow output resolves like a reference      -> bad_reference, unknown_reference
-  references form a loop                              -> cycle
-  no outputs, no step that writes, all steps known    -> no_outputs (stop here)
-  a step that isn't needed (section 9.2)              -> warning step_never_runs
-  a workflow input nothing uses                       -> warning unused_input
-```
 
 ### 8.2 Codes
 
@@ -500,31 +410,7 @@ check(W, catalog, policy):
 
 - **[check.codes-stable]** A code MUST keep its meaning in every later version of this specification, and new checks MUST get new codes. Messages are for people and MAY change.
 
-- **[check.paths]** A checker MUST report each problem at the path below, as a JSON Pointer into the checked document, and as many times as the list says:
-  - `parse_error`: at `""`, the whole document, once.
-  - `invalid_workflow` or `invalid_manifest` from a schema in `schemas/`: once per location in the document where validation fails, at that location, however many keywords fail there. A key that is missing, not allowed or misnamed fails at the object that holds it.
-  - `invalid_workflow` for a workflow's `inputSchema`, and `invalid_manifest` for a manifest's `inputSchema` or `outputSchema`:
-    - [manifest.json-schema] once, at the schema itself, such as `/inputSchema`
-    - [manifest.refs] at each reference keyword, without looking inside it
-    - [manifest.required-declared] at `/inputSchema/required` or `/outputSchema/required`, once per name
-  - `invalid_value`: at `/steps/<id>/with/<input>`, or at `/inputSchema/properties/<name>/default` for a workflow input's default.
-  - `unknown_step`: at `/steps/<id>/uses`, or at `/calls/<index>` for an entry in a manifest's `calls`.
-  - `unknown_input`, `bad_reference`, `unknown_reference`, `type_mismatch` and `type_unchecked`: at `/steps/<id>/with/<input>`, or at `/outputs/<name>` for a workflow output.
-  - `missing_input`: at `/steps/<id>/with`, once per missing input, whether or not the step has a `with`.
-  - `effects_not_allowed`: at `/steps/<id>/uses`, once per step. `secret_not_granted`: at `/steps/<id>/uses`, once per secret.
-  - `cycle`: once per group of steps that depend on each other in a loop, at `/steps/<id>` of the group's first step in file order. A step that references itself is a group of one.
-  - `no_outputs`: at `""`.
-  - `step_never_runs`: at `/steps/<id>`. `unused_input`: at `/inputSchema/properties/<name>`.
-  - `duplicate_step`: at `""` of the later manifest.
-  - `invalid_manifest` from the other rules of section 5:
-    - [manifest.default-fits] at `/inputSchema/properties/<name>/default`
-    - [manifest.examples-fit] at `/examples/<n>/inputs` or `/examples/<n>/outputs`
-    - [manifest.calls-one-per-major] at the later entry, `/calls/<index>`
-    - [manifest.calls-effects] at `/effects`, once per step it calls whose effects are higher
-    - [manifest.calls-secrets] at `/secrets`, once per step it calls whose secrets are missing, even when the manifest has no `secrets`
-    - [manifest.workflow-file] at `/runtime/workflow/path`, or at `/runtime/workflow/digest` when only the digest differs
-    - [manifest.no-self] at `/calls/<index>` for each entry that can lead back to the step, and at `/runtime/workflow/path`
-    - [manifest.workflow-derived] at `/inputSchema`, `/outputSchema`, `/effects`, `/deterministic` or `/secrets`, once each
+- **[check.paths]** A checker MUST report each problem at the path Annex A.5 gives, as a JSON Pointer into the checked document, and as many times as it says.
 
 ### 8.3 Output
 
@@ -554,15 +440,9 @@ secrets: []         # the secrets this caller may use; leave the key out to skip
 
 The platform decides each caller's policy.
 
-### 8.5 Test cases
-
-- `tests/check/<case>/` holds a `workflow.yaml` or `workflow.json`, an `expected.yaml` and, optionally, a `policy.yaml`. The catalog for these cases is `examples/steps/` plus `tests/catalog/`, plus the case's own `catalog/` folder when it has one. A case's own catalog may hold manifests that are meant to be left out.
-- `tests/manifests/<case>/` holds manifests in `steps/` and an `expected.yaml`. The catalog for these cases is `examples/steps/` plus the case's `steps/` folder. Files in subfolders of `steps/`, such as a workflow that a manifest names, aren't manifests.
-- An implementation passes a case when its errors and warnings have exactly the expected `(code, path)` pairs, as multisets.
-
 ## 9. Running
 
-*This section is normative for runners. The reference runner, `reference/wfspec/run.py`, passes the test cases in `tests/run/` (section 9.11).*
+*This section is normative for runners.*
 
 ### 9.1 Before a run
 
@@ -599,7 +479,7 @@ key(s)       := digest({ "step": digest of s's manifest,
 
 *Informative.*
 - A file counts by its content and type, not its name, and a large file costs nothing extra to hash.
-- ComfyUI keys each node on the keys of the nodes upstream. Keying on values instead means a step upstream that isn't deterministic, such as an agent, can't cause a stale cache hit downstream.
+- The key is built from the values a step receives, not from the keys of the steps before it. So a step upstream that isn't deterministic, such as an agent, can't cause a stale cache hit downstream.
 
 ### 9.5 Retries
 
@@ -643,13 +523,6 @@ A run record holds:
 
 Examples are in `examples/runs/`.
 
-### 9.11 Test cases
-
-- `tests/run/<case>/` holds a `workflow.yaml` and an `expected.yaml`, and may hold the run's `inputs.yaml`, the caller's `secrets.yaml`, `options.yaml`, scripted model replies in `model.yaml`, and a `catalog/` folder. The shared steps are in `tests/run-catalog/`.
-- The shared steps are programs (`process` steps, [drafts/runtime.md](drafts/runtime.md)). Agent cases give their model replies as a script, served as an OpenAI-compatible API, so they need no model.
-- The cases rely on the `process` and `agent` contracts in drafts/runtime.md, and on the tool names in [drafts/mcp.md](drafts/mcp.md). A runner that starts steps another way passes them by giving these steps the same behaviour in its own runtime.
-- `expected.yaml` says what the last run must give: the run's status and error code, its outputs, and, for chosen steps, their status, error code, `cacheHit`, `attempts` and `reason`. `reference/tests/test_runner.py` documents the remaining keys, and checks every run record against `schemas/run.schema.json`.
-
 ## 10. Publishing and versions
 
 *This section is normative for publishers.*
@@ -659,7 +532,7 @@ Examples are in `examples/runs/`.
 - **[publish.digest]** A digest MUST be `sha256:` followed by the SHA-256 of the document's canonical JSON as defined by RFC 8785, the JSON Canonicalization Scheme [[RFC8785](https://www.rfc-editor.org/rfc/rfc8785)].
 - **[publish.resolve]** Before computing a step's digest, a publisher MUST write into the manifest a content digest for everything the manifest names that could change later. The step's digest then covers that content too. For the `workflow` kind that is `digest`, the workflow file's digest ([manifest.workflow-file]). [drafts/runtime.md](drafts/runtime.md) says what the other kinds name; for a container image, for example, it is the image's digest.
 
-*Informative.* With RFC 8785, every language computes the same digest; for example, `1.0` and `1` are written the same way. The reference implementation hashes manifests as written, because it doesn't build images.
+*Informative.* With RFC 8785, every language computes the same digest; for example, `1.0` and `1` are written the same way.
 
 ### 10.2 Versions never change
 
@@ -734,7 +607,7 @@ From a run record, a person or an agent writes a workflow:
 
 *This section is informative.*
 
-- **Steps are other people's code.** `effects`, `secrets` and `calls` are claims made by a manifest's author. A platform enforces them ([run.effects], [run.secrets-named], [run.calls-listed]), typically by running each step in its own container or virtual machine. A runner on a person's own computer can't isolate as well: a program runs as that person. The reference runner keeps programs that don't write out of the person's home folder, except their own step's folder and folders the caller grants. A step that writes runs with the person's full access. Any program can also read the environment that the person's other programs started with, where secrets often are. Run only steps you trust on your own computer.
+- **Steps are other people's code.** `effects`, `secrets` and `calls` are claims made by a manifest's author. A platform enforces them ([run.effects], [run.secrets-named], [run.calls-listed]), typically by running each step in its own container or virtual machine. A runner on a person's own computer can't isolate as well, because a program runs as that person. Run only steps you trust on your own computer.
 - **Steps that call steps can be steered by what they read.** An agent step that reads untrusted text, such as an issue or a log, can be led to call its steps in ways its author didn't intend. Its `calls`, its effects and the caller's policy bound what it can do, and every call is recorded. Give such a step only the calls it needs, and prefer calls that only read.
 - **Secrets** reach only the steps that name them, and never records, logs or caches ([run.secrets-named], [run.secrets-hidden]). A runner can hide only the values it recognizes: a step given a secret can still pass it on in another form, such as encoded, so give secrets only to steps you trust. A step's secrets include those of its calls ([manifest.calls-secrets]), and a workflow step's include those of its workflow ([manifest.workflow-derived]), so the manifest shows every secret the step can reach.
 - **Caches can cross callers.** A cached output computed for one caller can be served to another with the same inputs. A platform should decide how far a cache is shared, because outputs can contain private data.
@@ -742,40 +615,20 @@ From a run record, a person or an agent writes a workflow:
 - **Pinning protects shared workflows.** Lock files ([publish.lock]) and versions that never change ([publish.immutable]) stop a shared workflow from silently running different code.
 - **MCP annotations are hints.** [drafts/mcp.md](drafts/mcp.md) says how a platform's own server is trusted.
 
-## 12. Not in this version
-
-*This section is informative.*
-
-[proposals.md](proposals.md) lists features left out of this version, each with the problem it would solve and what would settle it:
-- plans
-- retrying steps that write
-- per-step resource limits
-- labels on workflow steps
-- picking a field out of an output
-- running a step once per item
-- generic steps
-- references inside schemas
-- the dialect of regular expressions
-- lazy inputs
-- automatic upgrades
-- running examples at publish
-- layout for visual editors
-- triggers, the service API and the registry API
-
-## 13. Where the ideas come from
+## 12. Prior art
 
 *This section is informative.*
 
 | Idea | From |
 |---|---|
-| step descriptions served as data; literals and links; check before running; run only what outputs need; cache by inputs; graphs used as steps | ComfyUI v0.44.2 (`execution.py`, `comfy_execution/`) |
+| step descriptions served as data; literals and links; check before running; run only what outputs need; cache by inputs; graphs used as steps | ComfyUI |
 | `uses: owner/name@version` and `with` | GitHub Actions |
-| tool interface and effect hints | MCP, revision 2026-07-28 |
-| versioned, typed components; a determinism flag for reuse | Azure ML pipelines (`is_deterministic`) |
+| tool interface and effect hints | MCP |
+| versioned, typed components; a determinism flag for reuse | Azure ML pipelines |
 | files addressed by content hash; releases that never change | Comfy API v2 |
 | one specification per layer | GA4GH (CWL and WDL, WES, TES, TRS) |
 
-## 14. References
+## 13. References
 
 *This section is informative; the normative references are those cited in normative sections.*
 
@@ -794,3 +647,152 @@ Informative:
 - GitHub Actions workflow syntax. https://docs.github.com/actions/reference/workflow-syntax-for-github-actions
 - GA4GH Workflow Execution Service. https://github.com/ga4gh/workflow-execution-service-schemas
 - OpenTelemetry. https://opentelemetry.io/docs/specs/otel/
+
+## Annex A. Exact checking
+
+*This annex is normative. It holds the details that make two checkers report the same problems at the same paths. Only someone who writes a checker needs it. Each part names the requirement it belongs to.*
+
+### A.1 Comparing two schemas
+
+The comparison of [types.fits] runs on both schemas with these keywords removed at every level: `title`, `description`, `examples`, `default`, `deprecated`, `readOnly`, `writeOnly`, `$comment`, `$schema`, `$id`, `$anchor`, `format`, and every `x-` keyword except `x-mediaType`. A property that has one of these names, such as an input called `title`, stays.
+
+```text
+fits(src, dst):
+  dst is true or {}                                  -> ok, and stop
+  src equals dst as JSON                             -> ok, and stop        # true isn't 1; 1 is 1.0
+  dst is false                                       -> error, and stop
+  src is true or {}                                  -> warning, and stop
+  src or dst is a file                               -> files(src, dst), and stop
+  src or dst has another $ref                        -> warning, and stop
+  dst has a keyword in COMBINE                       -> warning, and stop
+  types: want := dst.type; have := src.type, or the types of src's enum or const values
+         want is set and have isn't                  -> warning
+         a type in have isn't in want                -> error, and stop    # "number" accepts "integer"
+  values: dst has enum or const
+         src's enum or const has a value dst doesn't allow (JSON equality) -> error
+         src has neither                             -> warning
+  limits: for each keyword of LIMITS in dst, unless src has a keyword the table says proves it -> warning
+          for each other keyword in dst, outside HANDLED and COMBINE, unless src has it with the same value -> warning
+  objects, when both may be objects:
+         each name in dst.required: in src.required  -> ok
+                                    src declares properties or required -> error
+                                    otherwise        -> warning
+         each name in both properties                -> fits(src.properties[name], dst.properties[name])
+         dst.additionalProperties is false:
+                                    src declares a property dst doesn't -> error
+                                    else src.additionalProperties isn't false -> warning
+  arrays, when both may be arrays and dst has items:
+         src has items                               -> fits(src.items, dst.items)
+         otherwise                                   -> warning
+
+files(src, dst):
+  src isn't a file                                   -> error
+  dst isn't a file: dst may be an object, has no properties or required, and its
+                    additionalProperties is missing, true or {} -> ok; otherwise -> error
+  want := dst.x-mediaType; have := src.x-mediaType
+         want is missing, or have equals want        -> ok
+         have is missing                             -> warning
+         have fits want ([types.media-type])         -> ok
+         otherwise                                   -> error
+
+COMBINE = anyOf, oneOf, allOf, not, if, then, else, dependentSchemas, dependentRequired, prefixItems,
+          contains, patternProperties, propertyNames, unevaluatedProperties, unevaluatedItems
+HANDLED = type, properties, required, additionalProperties, items, $ref, x-mediaType, enum, const, and LIMITS
+LIMITS, each with the source keywords that prove it:
+  minimum           minimum >= it, or exclusiveMinimum >= it
+  exclusiveMinimum  exclusiveMinimum >= it, or minimum > it
+  maximum           maximum <= it, or exclusiveMaximum <= it
+  exclusiveMaximum  exclusiveMaximum <= it, or maximum < it
+  minLength, minItems, minProperties    the same keyword >= it
+  maxLength, maxItems, maxProperties    the same keyword <= it
+```
+
+An input gets one problem for all its findings, together with [types.maybe-missing]: `type_mismatch` if any of them is an error, otherwise `type_unchecked`.
+
+### A.2 Schemas
+
+These apply to a manifest's schemas and to a workflow's `inputSchema`:
+- **Regular expressions** ([manifest.json-schema]). A schema is invalid when a regular expression in it doesn't compile. Which dialect of regular expressions a checker uses is its own choice ([proposals.md](proposals.md), P21).
+- **References** ([manifest.refs]). The values of `default`, `const`, `enum`, `examples` and `x-` keywords are data, and the keys of `properties`, `patternProperties` and `dependentSchemas` are names. Neither is checked for references.
+
+### A.3 Manifests
+
+**Reading a catalog** ([manifest.duplicate]). A catalog's manifests are the files in its folders whose names end in `.yaml`, `.yml` or `.json`. A checker reads a catalog's folders in the order given, and each folder's files in the order of their names, compared by Unicode code point.
+
+**The order of the rules** ([manifest.invalid]). A checker applies the rules of section 5 in this order, and stops at the first stage that has problems:
+1. reading the document (section 4), where every problem is a `parse_error`
+2. [manifest.schema]
+3. [manifest.json-schema], [manifest.refs], [manifest.required-declared], [manifest.default-fits], [manifest.examples-fit] and [manifest.calls-one-per-major], which need only the manifest. Defaults and examples are checked only against a schema with no problems under the first three of these rules.
+4. [manifest.workflow-file], except whether the workflow passes checking
+5. the rules that need the catalog: [manifest.calls-known], [manifest.calls-effects], [manifest.calls-secrets], [manifest.no-self], whether the workflow of a `workflow` step passes checking, and [manifest.workflow-derived]
+
+**After a manifest is left out** ([manifest.left-out]). Leaving a manifest out can break another manifest that calls it or whose workflow uses it. A checker MUST then apply stage 5 again to the remaining manifests, one at a time in reading order, and leave out each one that fails. It repeats this until no more manifests are left out.
+
+### A.4 Workflows
+
+**The exceptions to reporting every problem** ([check.all-at-once]):
+- After an `invalid_workflow` that comes from the workflow schema, a checker MUST report nothing else.
+- When the `inputSchema` isn't valid JSON Schema or uses a reference other than to files, a checker MUST NOT check defaults against it. It also MUST NOT compare its inputs with the inputs they feed (section 6.3).
+- After `no_outputs`, a checker MUST NOT report warnings.
+
+**References:**
+- An object whose only key is `from` is a reference even under a step that isn't in the catalog, and for an input the step doesn't have ([workflow.reference-form]).
+- A reference is a `bad_reference` when its `from` isn't text, or when a step id or a name in it doesn't match its pattern ([check.bad-reference], [workflow.schema], [types.json-schema]).
+- A step whose `uses` isn't in the catalog counts as a root (section 9.2) when a checker decides which steps never run ([check.step-never-runs]).
+
+*Informative.* An order a checker can follow:
+
+```text
+check(W, catalog, policy):
+  W breaks workflow.schema.json                       -> invalid_workflow (stop here)
+  W.inputSchema invalid, uses a reference other than a file,
+    or lists required names it doesn't declare       -> invalid_workflow
+  a workflow input's default doesn't fit              -> invalid_value
+  for each step s:
+    s.uses not in the catalog                         -> unknown_step
+    for each name, value in s.with:
+      name not an input of s.uses                     -> unknown_input
+      value is a reference:
+        not inputs.<n> or steps.<id>.outputs.<n>      -> bad_reference
+        names a missing input, step or output         -> unknown_reference
+        source may be missing, input is required      -> type_mismatch
+        fits(source schema, input schema) has errors  -> type_mismatch
+                                       only warnings  -> warning type_unchecked
+      value is a literal and doesn't fit the input    -> invalid_value
+    a required input without a value or a default     -> missing_input
+    policy.maxEffects below s's effects               -> effects_not_allowed
+    s needs a secret not in policy.secrets            -> secret_not_granted
+  each workflow output resolves like a reference      -> bad_reference, unknown_reference
+  references form a loop                              -> cycle
+  no outputs, no step that writes, all steps known    -> no_outputs (stop here)
+  a step that isn't needed (section 9.2)              -> warning step_never_runs
+  a workflow input nothing uses                       -> warning unused_input
+```
+
+### A.5 Where each problem is reported
+
+For [check.paths], each code is reported at this path, and this many times:
+- `parse_error`: at `""`, the whole document, once.
+- `invalid_workflow` or `invalid_manifest` from a schema in `schemas/`: once per location in the document where validation fails, at that location, however many keywords fail there. A key that is missing, not allowed or misnamed fails at the object that holds it.
+- `invalid_workflow` for a workflow's `inputSchema`, and `invalid_manifest` for a manifest's `inputSchema` or `outputSchema`:
+  - [manifest.json-schema] once, at the schema itself, such as `/inputSchema`
+  - [manifest.refs] at each reference keyword, without looking inside it
+  - [manifest.required-declared] at `/inputSchema/required` or `/outputSchema/required`, once per name
+- `invalid_value`: at `/steps/<id>/with/<input>`, or at `/inputSchema/properties/<name>/default` for a workflow input's default.
+- `unknown_step`: at `/steps/<id>/uses`, or at `/calls/<index>` for an entry in a manifest's `calls`.
+- `unknown_input`, `bad_reference`, `unknown_reference`, `type_mismatch` and `type_unchecked`: at `/steps/<id>/with/<input>`, or at `/outputs/<name>` for a workflow output.
+- `missing_input`: at `/steps/<id>/with`, once per missing input, whether or not the step has a `with`.
+- `effects_not_allowed`: at `/steps/<id>/uses`, once per step. `secret_not_granted`: at `/steps/<id>/uses`, once per secret.
+- `cycle`: once per group of steps that depend on each other in a loop, at `/steps/<id>` of the group's first step in file order. A step that references itself is a group of one.
+- `no_outputs`: at `""`.
+- `step_never_runs`: at `/steps/<id>`. `unused_input`: at `/inputSchema/properties/<name>`.
+- `duplicate_step`: at `""` of the later manifest.
+- `invalid_manifest` from the other rules of section 5:
+  - [manifest.default-fits] at `/inputSchema/properties/<name>/default`
+  - [manifest.examples-fit] at `/examples/<n>/inputs` or `/examples/<n>/outputs`
+  - [manifest.calls-one-per-major] at the later entry, `/calls/<index>`
+  - [manifest.calls-effects] at `/effects`, once per step it calls whose effects are higher
+  - [manifest.calls-secrets] at `/secrets`, once per step it calls whose secrets are missing, even when the manifest has no `secrets`
+  - [manifest.workflow-file] at `/runtime/workflow/path`, or at `/runtime/workflow/digest` when only the digest differs
+  - [manifest.no-self] at `/calls/<index>` for each entry that can lead back to the step, and at `/runtime/workflow/path`
+  - [manifest.workflow-derived] at `/inputSchema`, `/outputSchema`, `/effects`, `/deterministic` or `/secrets`, once each
