@@ -1,0 +1,5 @@
+ok: false
+errors:
+  - { code: type_mismatch, path: "/steps/required-any/with/value" }
+  - { code: type_mismatch, path: "/steps/required-text/with/text" }
+warnings: []

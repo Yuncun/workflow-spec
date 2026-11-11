@@ -90,7 +90,7 @@ There are three conformance classes. One program can belong to several.
 | runner | runs workflows | section 9, the checker's requirements, [types.format], [types.media-type], [types.file-store], [publish.digest] and [publish.lock] |
 | publisher | publishes steps and workflows | section 10, and the checker's requirements |
 
-- **[conform.checker-tests]** A checker MUST pass every test case in `tests/check/` and `tests/manifests/`. It passes a case when it reports exactly the expected errors and warnings: the same `(code, path)` pairs, each the same number of times. Annex A gives the paths and counts.
+- **[conform.checker-tests]** A checker MUST pass every test case in `tests/check/` and `tests/manifests/`. It passes a case when it reports exactly the expected errors and warnings: the same `(code, path)` pairs, each the same number of times. Annex A gives the paths and counts. Problems with a platform's own code ([check.platform-codes]) aren't counted.
 - **[conform.runner-tests]** A runner MUST pass every test case in `tests/run/`.
 
 [tests/README.md](tests/README.md) says what a test case holds.
@@ -135,7 +135,7 @@ Manifests, workflows, lock files and run records are JSON documents. Manifests a
 
 | Field | Required | Meaning |
 |---|---|---|
-| `name` | yes | `owner/name`, lowercase |
+| `name` | yes | `owner/name`, lowercase; only the owner may contain `_` |
 | `version` | yes | a semantic version, such as `2.1.0` |
 | `title` | no | a short display name |
 | `description` | yes | what the step does; agents choose steps by it |
@@ -276,7 +276,7 @@ When a reference connects an output, or a workflow input, to a step's input, the
 - **[types.fits]** A checker MUST compare the source's schema with the input's schema as Annex A.1 says.
 - **[types.fits-error]** A checker MUST report `type_mismatch` where [types.fits] gives an error: the source can produce a value of the wrong shape, or values the input provably doesn't allow.
 - **[types.fits-warning]** A checker MUST report `type_unchecked`, a warning, where [types.fits] gives only warnings: the shapes fit, but the source's schema can't prove that its values meet the input's limits, such as a range, a pattern or a list of allowed values. The value is then checked when the step runs ([run.input-check]).
-- **[types.maybe-missing]** A value that may be missing MUST NOT feed a required input that has no default; a checker reports `type_mismatch`. A value may be missing when it is an output its step doesn't list as required, or an optional workflow input without a default.
+- **[types.maybe-missing]** A value that may be missing MUST NOT feed a required input that has no default; a checker reports `type_mismatch`. A value may be missing when it is an output its step doesn't list as required, or an optional workflow input without a default. An output or workflow input whose schema is `false` never has a value, so it counts as missing too.
 
 ## 7. Workflow file
 
@@ -409,6 +409,7 @@ A workflow has no conditions, loops or expressions. Where one is needed:
 | `unused_input` | warning | [check.unused-input] |
 
 - **[check.codes-stable]** A code MUST keep its meaning in every later version of this specification, and new checks MUST get new codes. Messages are for people and MAY change.
+- **[check.platform-codes]** A checker MAY report problems this specification doesn't define, such as a platform's own rules. Each MUST have a code that starts with `x-`. No code of this specification starts that way, so the two can't collide.
 
 - **[check.paths]** A checker MUST report each problem at the path Annex A.5 gives, as a JSON Pointer into the checked document, and as many times as it says.
 
@@ -438,7 +439,7 @@ secrets: []         # the secrets this caller may use; leave the key out to skip
 
 - **[check.policy]** A policy MUST fit `schemas/policy.schema.json`. A missing `maxEffects` means no limit, and missing `secrets` means secrets aren't checked. Given a policy, a checker MUST apply it to every step, needed or not ([check.effects-not-allowed], [check.secret-not-granted]). An agent then finds out before a run that it can't use a step.
 
-The platform decides each caller's policy.
+The platform decides each caller's policy. It MAY add fields of its own to a policy, with names that start with `x-`.
 
 ## 9. Running
 
@@ -489,7 +490,7 @@ key(s)       := digest({ "step": digest of s's manifest,
 
 - **[run.failure]** When a step fails, every step that depends on it MUST be marked `skipped`. Steps that don't depend on it still finish. The run's status is `failed`, its error has the code of the first step that failed, in run order, and finished outputs stay in the record.
 - **[run.skip]** A step whose manifest has `maySkip` MAY finish with a reason instead of outputs, when it has nothing to do. The step and every step that depends on it are then marked `skipped`, with the reason. The run still succeeds, and workflow outputs that depend on a skipped step are left out of the run's outputs.
-- **[run.error-codes]** A runner MUST record why a step failed with one of these codes: `invalid_input` and `invalid_output` (section 9.3), `pinned_mismatch` ([run.pinned]), `timeout`, or `failed` when the step itself reported failure.
+- **[run.error-codes]** A runner MUST record why a step failed with one of these codes: `invalid_input` and `invalid_output` (section 9.3), `pinned_mismatch` ([run.pinned]), `timeout`, or `failed` when the step itself reported failure. When a step fails, or a run doesn't start, for a reason this specification doesn't define, such as a quota, the runner MUST use a code of its own that starts with `x-`.
 
 How a step says it skips or fails depends on its runtime kind ([drafts/runtime.md](drafts/runtime.md)). Skipping is how a workflow says "only if there is something to do" without conditions.
 
@@ -511,6 +512,7 @@ How a step says it skips or fails depends on its runtime kind ([drafts/runtime.m
 ### 9.10 Run record
 
 - **[run.record]** A runner MUST write a run record that fits `schemas/run.schema.json`.
+- **[run.extensions]** Fields whose names start with `x-` are reserved for platforms, in the run record and in the record of each step and call. A program that reads run records MUST ignore the ones it doesn't know.
 
 A run record holds:
 - the workflow's digest and its lock file
@@ -545,7 +547,7 @@ Examples are in `examples/runs/`.
   - every step in their `calls`
   - the steps inside workflows used as steps, and so on down
 
-`examples/ci-triage.lock.json` is an example. A runner refuses a workflow whose lock no longer matches ([run.lock]).
+`examples/ci-triage.lock.json` is an example. A runner refuses a workflow whose lock no longer matches ([run.lock]). A platform MAY add fields of its own to a lock file, with names that start with `x-`.
 
 ### 10.4 A workflow is a step
 
@@ -658,6 +660,7 @@ The comparison of [types.fits] runs on both schemas with these keywords removed 
 
 ```text
 fits(src, dst):
+  src is false                                       -> ok, and stop        # it never has a value; see [types.maybe-missing]
   dst is true or {}                                  -> ok, and stop
   src equals dst as JSON                             -> ok, and stop        # true isn't 1; 1 is 1.0
   dst is false                                       -> error, and stop
@@ -719,12 +722,12 @@ These apply to a manifest's schemas and to a workflow's `inputSchema`:
 
 **Reading a catalog** ([manifest.duplicate]). A catalog's manifests are the files in its folders whose names end in `.yaml`, `.yml` or `.json`. A checker reads a catalog's folders in the order given, and each folder's files in the order of their names, compared by Unicode code point.
 
-**The order of the rules** ([manifest.invalid]). A checker applies the rules of section 5 in this order, and stops at the first stage that has problems:
+**The order of the rules** ([manifest.invalid]). A checker applies the rules of section 5 in this order, and stops at the first stage that has problems. Within a stage, it reports every problem of every rule in it:
 1. reading the document (section 4), where every problem is a `parse_error`
 2. [manifest.schema]
 3. [manifest.json-schema], [manifest.refs], [manifest.required-declared], [manifest.default-fits], [manifest.examples-fit] and [manifest.calls-one-per-major], which need only the manifest. Defaults and examples are checked only against a schema with no problems under the first three of these rules.
 4. [manifest.workflow-file], except whether the workflow passes checking
-5. the rules that need the catalog: [manifest.calls-known], [manifest.calls-effects], [manifest.calls-secrets], [manifest.no-self], whether the workflow of a `workflow` step passes checking, and [manifest.workflow-derived]
+5. the rules that need the catalog: [manifest.calls-known], [manifest.calls-effects], [manifest.calls-secrets], [manifest.no-self], whether the workflow of a `workflow` step passes checking, and [manifest.workflow-derived], which applies only when that workflow passes
 
 **After a manifest is left out** ([manifest.left-out]). Leaving a manifest out can break another manifest that calls it or whose workflow uses it. A checker MUST then apply stage 5 again to the remaining manifests, one at a time in reading order, and leave out each one that fails. It repeats this until no more manifests are left out.
 

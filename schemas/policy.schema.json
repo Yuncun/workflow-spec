@@ -23,5 +23,6 @@
       "description": "The secrets this caller may use. When it's missing, secrets aren't checked."
     }
   },
+  "patternProperties": { "^x-": {} },
   "additionalProperties": false
 }

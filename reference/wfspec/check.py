@@ -186,8 +186,8 @@ class _Checker:
             if input_name not in props:
                 self.error("unknown_reference", where, f"the workflow has no input {input_name!r}" + _suggest(input_name, props), sid, name)
                 return None
-            schema = props[input_name] if isinstance(props[input_name], dict) else {}
-            optional = input_name not in self.inputs.get("required", []) and not _has_default(schema)
+            schema = props[input_name] if isinstance(props[input_name], dict) or props[input_name] is False else {}
+            optional = schema is False or (input_name not in self.inputs.get("required", []) and not _has_default(schema))
             return Source(None, input_name, schema if self.inputs_usable else None, optional)
         match = OUTPUT_REF.match(ref)
         if match:
@@ -210,13 +210,15 @@ class _Checker:
                     name,
                 )
                 return None
-            return Source(upstream, output, outputs["properties"][output], output not in outputs.get("required", []))
+            schema = outputs["properties"][output]  # a schema of false never has a value ([types.maybe-missing])
+            return Source(upstream, output, schema, schema is False or output not in outputs.get("required", []))
         self.error("bad_reference", where, f"{ref!r} isn't a reference; write inputs.<name> or steps.<id>.outputs.<name>", sid, name)
         return None
 
     def _check_types(self, source: Source, target: dict, required: bool, where: str, sid: str, name: str):
         if source.optional and required and not _has_default(target):
-            self.error("type_mismatch", where, f"{source.describe()} may be missing, but input {name!r} is required", sid, name)
+            how = "never has a value, because its schema is false" if source.schema is False else "may be missing"
+            self.error("type_mismatch", where, f"{source.describe()} {how}, but input {name!r} is required", sid, name)
             return
         findings = assignable(source.schema, target)
         errors = [f for f in findings if f.error]

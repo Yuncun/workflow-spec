@@ -106,6 +106,25 @@ def test_mcp_names_stay_short_and_distinct():
     long_b = {"name": "acme/" + "a" * 69 + "b", "version": "2.0.0"}
     assert len(mcp_name(long_a)) == 64
     assert mcp_name(long_a) != mcp_name(long_b)
+    # Only an owner can contain _, so the name reads back from the right: version, step, owner (drafts/mcp.md).
+    assert mcp_name({"name": "mona-cat_octo/open-issue", "version": "1.2.0"}) == "mona-cat_octo_open-issue_v1"
+
+
+def test_a_platform_can_add_its_own_fields_and_error_codes():
+    """Run records, lock files and policies take fields that start with x-, and an error takes a code
+    that starts with x- (SPEC.md, [run.extensions], [run.error-codes], [publish.lock], [check.policy])."""
+    record = json.loads((EXAMPLES / "runs" / "investigate.run.json").read_text())
+    step = next(s for s in record["steps"].values() if s.get("calls"))
+    record["x-queue"], step["x-machine"], step["calls"][0]["x-cost"], record["lock"]["x-registry"] = "fast", "m1", 0.01, "example.test"
+    assert schema_issues(record, "urn:wfspec:schema:run", "invalid") == []
+    record.update(status="failed", error={"code": "x-quota", "message": "the caller is over its quota"})
+    step.update(status="failed", error={"code": "x-quota", "message": "the caller is over its quota"})
+    assert schema_issues(record, "urn:wfspec:schema:run", "invalid") == []
+    record["error"]["code"] = "quota"  # not one of the specification's codes, and not marked as a platform's own
+    assert schema_issues(record, "urn:wfspec:schema:run", "invalid") != []
+    record["error"]["code"], record["queue"] = "x-quota", "fast"  # a field of the platform's own without the prefix
+    assert schema_issues(record, "urn:wfspec:schema:run", "invalid") != []
+    assert schema_issues({"maxEffects": "reads", "x-approval": "writes"}, "urn:wfspec:schema:policy", "invalid") == []
 
 
 def test_outputs_after_a_step_that_may_skip_are_optional(catalog, tmp_path):

@@ -1,0 +1,8 @@
+# An owner may contain _, as some account names do (SPEC.md, [manifest.schema]).
+name: mona-cat_octo/open-issue
+version: 1.0.0
+description: A step whose owner has an underscore in its name.
+inputSchema: { type: object, properties: {} }
+outputSchema: { type: object, properties: { done: { type: boolean } }, required: [done] }
+effects: none
+runtime: { container: { image: example.test/open-issue:1.0.0 } }

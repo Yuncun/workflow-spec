@@ -1,0 +1,13 @@
+# An output whose schema is false never has a value, though the step lists it as required
+# (SPEC.md, [types.maybe-missing]).
+name: test/never
+version: 1.0.0
+description: Declares an output that never has a value.
+inputSchema: { type: object, properties: {} }
+outputSchema:
+  type: object
+  properties:
+    nothing: false
+  required: [nothing]
+effects: none
+runtime: { container: { image: example.test/never:1.0.0 } }

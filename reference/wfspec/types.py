@@ -92,6 +92,8 @@ def canonical(schema):
 def assignable(src, dst, where: str = "") -> list[Finding]:
     """Findings for passing a value described by `src` to an input described by `dst`."""
     src, dst = canonical(src), canonical(dst)
+    if src is False:  # no value ever comes from it, so there is nothing to compare ([types.maybe-missing] reports it)
+        return []
     if dst is True or dst == {}:
         return []
     if same(src, dst):

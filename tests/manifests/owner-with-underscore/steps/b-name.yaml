@@ -1,0 +1,8 @@
+# The part after the slash may not, so that a tool name built from the two reads back one way (drafts/mcp.md).
+name: mona-cat/open_issue
+version: 1.0.0
+description: A step whose own name has an underscore.
+inputSchema: { type: object, properties: {} }
+outputSchema: { type: object, properties: { done: { type: boolean } }, required: [done] }
+effects: none
+runtime: { container: { image: example.test/open-issue:1.0.0 } }

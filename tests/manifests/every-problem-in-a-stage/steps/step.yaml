@@ -1,0 +1,10 @@
+# Two problems that need the catalog: a call to a step that isn't there, and a call to itself.
+# A checker reports both, not only the first (SPEC.md, Annex A.3).
+name: test/m-round
+version: 1.0.0
+description: Calls a step that doesn't exist, and itself.
+inputSchema: { type: object, properties: {} }
+outputSchema: { type: object, properties: {} }
+effects: none
+calls: [test/m-nowhere@1.0.0, test/m-round@1.0.0]
+runtime: { agent: { model: example-small, instructions: prompts/round.md } }

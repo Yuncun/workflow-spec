@@ -66,7 +66,8 @@
           "type": "string"
         },
         "code": {
-          "enum": [
+          "anyOf": [
+            { "enum": [
             "check_failed",
             "invalid_input",
             "lock_mismatch",
@@ -74,6 +75,8 @@
             "pinned_mismatch",
             "timeout",
             "failed"
+          ] },
+            { "type": "string", "pattern": "^x-", "description": "A platform's own code." }
           ]
         }
       },
@@ -105,6 +108,7 @@
       }
     }
   },
+  "patternProperties": { "^x-": {} },
   "additionalProperties": false,
   "$defs": {
     "stepRun": {
@@ -172,12 +176,15 @@
               "type": "string"
             },
             "code": {
-              "enum": [
+              "anyOf": [
+                { "enum": [
                 "invalid_input",
                 "invalid_output",
                 "pinned_mismatch",
                 "timeout",
                 "failed"
+              ] },
+                { "type": "string", "pattern": "^x-", "description": "A platform's own code." }
               ]
             }
           },
@@ -198,6 +205,7 @@
           }
         }
       },
+      "patternProperties": { "^x-": {} },
       "additionalProperties": false
     },
     "call": {
@@ -283,6 +291,7 @@
           }
         }
       },
+      "patternProperties": { "^x-": {} },
       "additionalProperties": false,
       "description": "A step another step called while it ran. It ran as a step, so it records the same facts."
     }

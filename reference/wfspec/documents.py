@@ -169,7 +169,8 @@ MCP_NAME_LIMIT = 64
 def mcp_name(name: str, version: str) -> str:
     """owner_name_v<major>: letters, digits, _ and -, which MCP and model tool APIs all accept.
 
-    Step names can't contain _, so the separators are unambiguous. Names over 64 characters
+    Only an owner can contain _, so the parts read back from the right: the version, then the
+    step's name, and what is left is the owner. Names over 64 characters
     are cut and given 8 hex characters of the full name's SHA-256, so they stay unique."""
     owner, short = name.split("/")
     full = f"{owner}_{short}_v{version.split('.')[0]}"
@@ -413,8 +414,8 @@ def catalog_issues(ref: str, manifest: dict, catalog: Catalog, file: str | None)
     run itself, and the workflow a workflow step runs (SPEC.md, [manifest.invalid])."""
     from .publish import self_reach_issues, workflow_step_issues  # publish imports check, which imports this module
 
-    return (calls_issues(manifest, catalog, file) or self_reach_issues(ref, manifest, catalog, file)
-            or workflow_step_issues(manifest, catalog, file))
+    return (calls_issues(manifest, catalog, file) + self_reach_issues(ref, manifest, catalog, file)
+            + workflow_step_issues(manifest, catalog, file))  # every problem of the stage (SPEC.md, Annex A.3)
 
 
 def check_step(path: Path, dirs: list[Path]) -> list[Issue]:

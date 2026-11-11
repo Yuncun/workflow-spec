@@ -9,6 +9,10 @@
 
 ## Unreleased
 
+- A platform can add its own error codes and fields, with names that start with `x-`: a checker's own problems ([check.platform-codes]), a runner's own reasons for a failure ([run.error-codes]), and fields in run records ([run.extensions]), lock files and policies. Before, only manifests and workflows had this.
+- A step's owner may contain `_`, as some account names do. The part of a name after the slash still may not, so a tool name reads back one way (drafts/mcp.md).
+- Within a stage of manifest checking, a checker reports every problem of every rule in that stage (Annex A.3). The reference checker stopped at the first group of problems in the last stage.
+- An output or workflow input whose schema is `false` never has a value, so it counts as missing ([types.maybe-missing]). The reference checker crashed on one, or let it through.
 - A schema that isn't valid JSON Schema is reported once, at the schema itself, such as `/inputSchema` ([check.paths]). A regular expression that doesn't compile makes its schema invalid ([manifest.json-schema]).
 - Several rules that only the test cases showed before are now written down. They are in [doc.formats], [manifest.invalid], [manifest.left-out], [manifest.duplicate], [manifest.required-declared], [workflow.input-schema], [workflow.reference-form], [check.all-at-once], [check.bad-reference], [check.step-never-runs], [check.policy], [check.paths], [publish.as-step] and section 6.3.
 - The details that only someone who writes a checker needs moved to Annex A of SPEC.md, word for word. They are the schema comparison, the order of the manifest rules, and where each problem is reported.

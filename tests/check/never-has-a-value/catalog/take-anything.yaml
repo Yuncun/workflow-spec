@@ -1,0 +1,7 @@
+name: test/take-anything
+version: 1.0.0
+description: Takes any value, and may take a second one.
+inputSchema: { type: object, properties: { value: {}, extra: {} }, required: [value] }
+outputSchema: { type: object, properties: { out: { type: string } }, required: [out] }
+effects: none
+runtime: { container: { image: example.test/take-anything:1.0.0 } }

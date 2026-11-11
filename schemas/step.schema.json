@@ -95,9 +95,9 @@
   "additionalProperties": false,
   "$defs": {
     "name": {
-      "description": "owner/name, lowercase.",
+      "description": "owner/name, lowercase. The owner may contain _, the name may not.",
       "type": "string",
-      "pattern": "^[a-z0-9][a-z0-9-]*/[a-z0-9][a-z0-9-]*$"
+      "pattern": "^[a-z0-9][a-z0-9_-]*/[a-z0-9][a-z0-9-]*$"
     },
     "version": {
       "description": "Semantic version: MAJOR.MINOR.PATCH, optionally with a pre-release tag.",
@@ -107,7 +107,7 @@
     "stepRef": {
       "description": "owner/name@version, with an exact version.",
       "type": "string",
-      "pattern": "^[a-z0-9][a-z0-9-]*/[a-z0-9][a-z0-9-]*@(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)(-[0-9A-Za-z.-]+)?$"
+      "pattern": "^[a-z0-9][a-z0-9_-]*/[a-z0-9][a-z0-9-]*@(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)(-[0-9A-Za-z.-]+)?$"
     },
     "objectSchema": {
       "description": "A JSON Schema (2020-12) for an object whose properties are the named inputs or outputs.",
