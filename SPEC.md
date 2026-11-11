@@ -390,26 +390,7 @@ A workflow has no conditions, loops or expressions. Where one is needed:
 
 ### 8.2 Codes
 
-| Code | Level | Requirement |
-|---|---|---|
-| `parse_error` | error | [doc.parse-error] |
-| `invalid_workflow` | error | [check.invalid-workflow] |
-| `invalid_manifest` | error | [manifest.invalid] |
-| `unknown_step` | error | [check.unknown-step], [manifest.invalid] |
-| `unknown_input` | error | [check.unknown-input] |
-| `missing_input` | error | [check.missing-input] |
-| `bad_reference` | error | [check.bad-reference] |
-| `unknown_reference` | error | [check.unknown-reference] |
-| `type_mismatch` | error | [check.type-mismatch] |
-| `invalid_value` | error | [check.invalid-value] |
-| `cycle` | error | [check.cycle] |
-| `no_outputs` | error | [check.no-outputs] |
-| `effects_not_allowed` | error | [check.effects-not-allowed] |
-| `secret_not_granted` | error | [check.secret-not-granted] |
-| `duplicate_step` | error, in a catalog | [manifest.duplicate] |
-| `type_unchecked` | warning | [check.type-unchecked] |
-| `step_never_runs` | warning | [check.step-never-runs] |
-| `unused_input` | warning | [check.unused-input] |
+Section 8.1 gives the code for each problem in a workflow. Three more codes come from reading documents and catalogs: `parse_error` ([doc.parse-error]), `invalid_manifest` ([manifest.invalid]) and `duplicate_step` ([manifest.duplicate]). `type_unchecked`, `step_never_runs` and `unused_input` are warnings, and every other code is an error.
 
 - **[check.codes-stable]** A code MUST keep its meaning in every later version of this specification, and new checks MUST get new codes. Messages are for people and MAY change.
 - **[check.platform-codes]** A checker MAY report problems this specification doesn't define, such as a platform's own rules. Each MUST have a code that starts with `x-`. No code of this specification starts that way, so the two can't collide.

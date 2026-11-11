@@ -11,7 +11,38 @@ The package also gives the rules for:
 - what running it must produce, the same for everyone
 - saving an agent's run as a job anyone can rerun
 
-Read [SPEC.md](SPEC.md) first.
+A workflow connects steps. Each input of a step gets either a literal value or a reference to a workflow input or to another step's output:
+
+```yaml
+name: acme/pr-summary
+version: 1.0.0
+description: Summarize a pull request's diff in plain words and post the summary as a comment on it.
+inputSchema:
+  type: object
+  properties:
+    repo: { type: string, pattern: "^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$" }
+    pr: { type: integer, minimum: 1 }
+  required: [repo, pr]
+outputs:
+  comment: { from: steps.post.outputs.url }
+steps:
+  diff:
+    uses: acme/fetch-pr-diff@1.2.0
+    with: { repo: { from: inputs.repo }, pr: { from: inputs.pr } }
+  summary:
+    uses: acme/summarize-diff@1.0.0
+    with: { diff: { from: steps.diff.outputs.diff }, audience: everyone, max_words: 150 }
+  post:
+    uses: acme/post-pr-comment@1.1.0
+    with:
+      repo: { from: inputs.repo }
+      pr: { from: inputs.pr }
+      body: { from: steps.summary.outputs.summary }
+```
+
+To write a workflow, start with [guides/write-a-workflow.md](guides/write-a-workflow.md). To build a checker or a runner, read [SPEC.md](SPEC.md).
+
+## In this repository
 
 | Document | Status |
 |---|---|

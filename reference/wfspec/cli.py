@@ -26,7 +26,7 @@ from .store import Store
 
 
 def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(prog="wfspec", description="Reference tools for the workflow spec (see SPEC.md).")
+    parser = argparse.ArgumentParser(prog="wfspec", description="The reference checker and runner for the workflow spec (see SPEC.md).")
     sub = parser.add_subparsers(dest="command", required=True)
 
     p = sub.add_parser("check", help="check a workflow against a catalog of step manifests")
