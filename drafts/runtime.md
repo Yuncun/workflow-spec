@@ -1,6 +1,6 @@
 # Step runtimes
 
-Draft, 2026-11-09. **Not normative.** The reference runner follows sections 1 and 2 for `process` and `agent` steps, and the cases in `tests/run/` exercise them. This document becomes a normative companion to [SPEC.md](../SPEC.md) once a second runner, or a platform, confirms it in practice. Until then, a runner may follow it or not.
+Draft, 2026-11-10. **Not normative.** The reference runner follows sections 1 and 2 for `process` and `agent` steps, and the cases in `tests/run/` exercise them. This document becomes a normative companion to [SPEC.md](../SPEC.md) once a second runner, or a platform, confirms it in practice. Until then, a runner may follow it or not.
 
 SPEC.md says what a run must produce. This document says how a runner starts one step, for each runtime kind a manifest can name in `runtime`. SPEC.md, section 5.3 defines the `workflow` kind.
 

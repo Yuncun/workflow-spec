@@ -15,7 +15,7 @@ Read [SPEC.md](SPEC.md) first.
 
 | Document | Status |
 |---|---|
-| [SPEC.md](SPEC.md): the format layer | normative; version 0.3 draft |
+| [SPEC.md](SPEC.md): the format layer | normative; version 0.4 draft |
 | [drafts/runtime.md](drafts/runtime.md): how a runner starts a step | draft, not normative |
 | [drafts/mcp.md](drafts/mcp.md): steps as MCP tools | draft, not normative |
 | [proposals.md](proposals.md): features left out, open questions | not normative |

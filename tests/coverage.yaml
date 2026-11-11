@@ -8,6 +8,7 @@
 
 conform.checker-tests: [test_conformance.py::test_check_case, test_conformance.py::test_manifest_case]
 conform.runner-tests: [test_runner.py::test_run_case]
+conform.verdict: [test_conformance.py::test_check_case, test_conformance.py::test_manifest_case]
 
 doc.formats: [check/json-duplicate-key, check/yaml-1-2-words, check/yaml-binary, check/yaml-local-tag, check/not-unicode, check/yaml-1-1-directive]
 doc.yaml-1.2: [check/yaml-1-2-words, check/yaml-1-2-numbers]

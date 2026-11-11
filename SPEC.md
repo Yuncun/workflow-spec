@@ -1,6 +1,6 @@
 # Workflow format for shared jobs
 
-Version 0.3, draft, 2026-11-09. Changes from earlier versions are listed in [CHANGELOG.md](CHANGELOG.md).
+Version 0.4, draft, 2026-11-10. Changes from earlier versions are listed in [CHANGELOG.md](CHANGELOG.md).
 
 This specification defines a text format for jobs built from published steps. It says how such a job is checked before it runs, and what running it must produce. A job written in the format can be shared as a file, and it runs the same way on any conforming runner.
 
@@ -92,6 +92,9 @@ There are three conformance classes. One program can belong to several.
 
 - **[conform.checker-tests]** A checker MUST pass every test case in `tests/check/` and `tests/manifests/`. It passes a case when it reports exactly the expected errors and warnings: the same `(code, path)` pairs, each the same number of times. Annex A gives the paths and counts. Problems with a platform's own code ([check.platform-codes]) aren't counted.
 - **[conform.runner-tests]** A runner MUST pass every test case in `tests/run/`.
+- **[conform.verdict]** A workflow or manifest that breaks a rule of sections 4 to 8 MUST get at least one error from every checker, and one that breaks none MUST get none. So a file passes everywhere or fails everywhere.
+
+Sections 4 to 8 and Annex A say which problems to report, at which paths, for the mistakes people usually make, and the test cases pin those down. They don't settle every combination of mistakes in one file. Where they don't say whether one problem hides another, or how many times to report one, checkers MAY differ.
 
 [tests/README.md](tests/README.md) says what a test case holds.
 
@@ -652,7 +655,7 @@ Informative:
 
 ## Annex A. Exact checking
 
-*This annex is normative. It holds the details that make two checkers report the same problems at the same paths. Only someone who writes a checker needs it. Each part names the requirement it belongs to.*
+*This annex is normative. It holds the details that make two checkers report the same problems at the same paths in the cases it covers ([conform.verdict]). Only someone who writes a checker needs it. Each part names the requirement it belongs to.*
 
 ### A.1 Comparing two schemas
 

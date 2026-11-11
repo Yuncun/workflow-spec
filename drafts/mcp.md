@@ -1,6 +1,6 @@
 # Steps as MCP tools
 
-Draft, 2026-11-09. **Not normative.** This document becomes a normative companion to [SPEC.md](../SPEC.md) once a platform that offers steps as MCP tools has tests for it.
+Draft, 2026-11-10. **Not normative.** This document becomes a normative companion to [SPEC.md](../SPEC.md) once a platform that offers steps as MCP tools has tests for it.
 
 A step manifest is an MCP tool definition plus a few fields (SPEC.md, section 5.1). This document says how a step is offered as a tool, which agent steps also rely on ([runtime.md](runtime.md), section 2). What else a platform's MCP server offers is the platform's choice.
 

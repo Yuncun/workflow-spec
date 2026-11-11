@@ -163,3 +163,16 @@ A proposal joins the specification only through a new version of SPEC.md, with r
 - **Problem:** a runner may ask for approval before a step that writes (SPEC.md, [run.effects]), but nothing says what the run record holds when the answer is no. One runner could fail the step, another skip it, and a third cancel the run.
 - **Idea:** record the step as `skipped` with a reason, as the reference runner does. The steps that depend on it are skipped too, and the run still succeeds.
 - **Settled by:** a second runner that asks for approval.
+
+## P23. Agreement beyond pass or fail
+
+- **Status:** deferred.
+- **Problem:** every checker gives the same pass or fail (SPEC.md, [conform.verdict]), but on a file with several mistakes two checkers can list different further problems. Known cases:
+  - the order in which a catalog's manifests are first checked against each other, which decides whether a manifest gets `unknown_step` or `invalid_manifest`
+  - whether a reference to an output that doesn't exist still counts toward a loop, or toward which steps are needed
+  - whether a schema that isn't valid JSON Schema also gets its reference and `required` problems reported
+  - how many `invalid_value` problems an input with several wrong files gets
+  - whether two manifests whose `version` isn't text can be duplicates of each other
+- **Idea:** settle a case in Annex A, with a test case, when it causes trouble in practice.
+- **Settled by:** a person or an agent misled by two checkers that list different problems for one file.
+

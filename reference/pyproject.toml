@@ -1,6 +1,6 @@
 [project]
 name = "wfspec"
-version = "0.3.0"
+version = "0.4.0"
 description = "Reference checker for the workflow spec in this repository"
 requires-python = ">=3.11"
 license = "Apache-2.0"

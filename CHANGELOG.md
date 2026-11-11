@@ -7,38 +7,37 @@
 - **Error codes never change meaning** (SPEC.md, [check.codes-stable]), and requirement ids are never reused.
 - **Each version lists its changes here.**
 
-## Unreleased
+## 0.4, 2026-11-10 (draft)
 
-- A platform can add its own error codes and fields, with names that start with `x-`: a checker's own problems ([check.platform-codes]), a runner's own reasons for a failure ([run.error-codes]), and fields in run records ([run.extensions]), lock files and policies. Before, only manifests and workflows had this.
+Version 0.4 settles what two reviews and a second, independent checker found, and moves the detail only a checker's author needs into an annex.
+
+**What conforms**
+- Every checker gives the same pass or fail for a workflow or manifest ([conform.verdict]). On a file with several mistakes, checkers may differ in which further problems they list, wherever the text doesn't say (proposals.md, P23). Before, the text implied they never differ.
+- Within a stage of manifest checking, a checker reports every problem of every rule in that stage (Annex A.3).
+
+**Extension points**
+- A platform can add its own error codes and fields, with names that start with `x-`: a checker's own problems ([check.platform-codes]), a runner's own reasons for a failure ([run.error-codes]), and fields in run records ([run.extensions]), lock files, policies, a manifest's examples and its `workflow` runtime. Before, only the top level of manifests and workflows had this.
+
+**Changed rules**
 - A step's owner may contain `_`, as some account names do. The part of a name after the slash still may not, so a tool name reads back one way (drafts/mcp.md).
-- Within a stage of manifest checking, a checker reports every problem of every rule in that stage (Annex A.3). The reference checker stopped at the first group of problems in the last stage.
-- An output or workflow input whose schema is `false` never has a value, so it counts as missing ([types.maybe-missing]). The reference checker crashed on one, or let it through.
-- A manifest or workflow is saved as UTF-8 ([doc.formats]). A file in another encoding is a `parse_error`.
-- `x-` fields are also allowed inside an example and inside the `workflow` runtime of a manifest, as [manifest.extensions] already said.
-- A file is declared as the schema of a property or of `items`, at any depth, and not under another keyword such as `additionalProperties` or `anyOf` ([manifest.refs]). Media types, cache keys and the files handed to a step were already found only that way.
-- Text that isn't valid Unicode, such as half of a surrogate pair, is a `parse_error` ([doc.formats]).
-- Annex A.1 says when a schema "may be an object", and that an empty `properties` or `required` counts as none. A file wired into an input that only takes listed numbers is now a `type_mismatch`.
-- Fixed in the reference checker, where the text was already clear:
-  - no warnings after `no_outputs`
-  - both problems of a workflow's `inputSchema` when it has a reference it may not use and a required name it doesn't declare
-  - the media type of a manifest's default and examples
-  - `1_000` and `0b101` in YAML are text, as the YAML 1.2 core schema says
-  - a folder whose name ends in `.yaml` isn't a manifest
-  - `wfspec check-step` now reports exactly what loading the whole catalog reports for that manifest
-  - a name or reference that ends in a newline no longer passes a pattern that ends in `$`
-  - a workflow input whose schema is `true` stays `true` in the manifest a workflow gets
-- Fixed in the reference tools, on inputs that made them crash:
-  - a schema nested very deeply, a chain of more than a thousand steps, a YAML alias inside its own anchor, a `%YAML` directive other than 1.2
-  - a run of something that isn't a workflow now gets a record with `check_failed`
-  - a run refuses NaN, infinity and whole numbers beyond 2^53 − 1, in its inputs and in a step's outputs
-  - `wfspec lock` and `wfspec as-step` check the workflow first
+- A file is declared as the schema of a property or of `items`, at any depth, and not under another keyword such as `additionalProperties` or `anyOf` ([manifest.refs]).
+- An output or workflow input whose schema is `false` never has a value, so it counts as missing ([types.maybe-missing]).
+- A manifest or workflow is saved as UTF-8, and text that isn't valid Unicode is a `parse_error` ([doc.formats]).
 - A schema that isn't valid JSON Schema is reported once, at the schema itself, such as `/inputSchema` ([check.paths]). A regular expression that doesn't compile makes its schema invalid ([manifest.json-schema]).
-- Several rules that only the test cases showed before are now written down. They are in [doc.formats], [manifest.invalid], [manifest.left-out], [manifest.duplicate], [manifest.required-declared], [workflow.input-schema], [workflow.reference-form], [check.all-at-once], [check.bad-reference], [check.step-never-runs], [check.policy], [check.paths], [publish.as-step] and section 6.3.
-- The details that only someone who writes a checker needs moved to Annex A of SPEC.md, word for word. They are the schema comparison, the order of the manifest rules, and where each problem is reported.
+- Annex A.1 says when a schema "may be an object", and that an empty `properties` or `required` counts as none.
+
+**Written down**, where only the test cases showed it before: [doc.formats], [manifest.invalid], [manifest.left-out], [manifest.duplicate], [manifest.required-declared], [workflow.input-schema], [workflow.reference-form], [check.all-at-once], [check.bad-reference], [check.step-never-runs], [check.policy], [check.paths], [publish.as-step] and section 6.3.
+
+**Documents**
+- The details only someone who writes a checker needs are in Annex A of SPEC.md, word for word: the schema comparison, the order of the manifest rules, and where each problem is reported.
 - What a test case holds is described in tests/README.md, not in sections 8.5 and 9.11.
 - Section 12, a list of the entries in proposals.md, is removed. "Where the ideas come from" is now section 12, "Prior art".
 - HANDOFF.md is removed.
-- The reference runner can ask before a step that writes, and report each step as it starts and ends (`Options.approve` and `Options.watch`). What a refused step records is an open question (proposals.md, P22).
+
+**Reference tools**
+- The runner can ask before a step that writes, and report each step as it starts and ends (`Options.approve` and `Options.watch`). What a refused step records is an open question (proposals.md, P22).
+- `wfspec check-step` reports exactly what loading the whole catalog reports for that manifest.
+- Fixed: several places where the checker didn't do what the text said, and several unusual files that crashed a tool, such as one saved as UTF-16 or a step that outputs NaN. Each has a test now.
 
 ## 0.3, 2026-11-09 (draft)
 
