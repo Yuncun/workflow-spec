@@ -156,3 +156,10 @@ A proposal joins the specification only through a new version of SPEC.md, with r
 - **Problem:** JSON Schema recommends ECMA-262 regular expressions, but validators use their own language's engine. Python's `re`, which the reference checker uses, rejects `\p{L}` and accepts `(?P<name>…)`, while ECMA-262 does the opposite. Two checkers can then disagree on whether a pattern is valid, and on which values fit it.
 - **Idea:** require ECMA-262 with the `u` flag, and give the reference an ECMA-262 engine such as `regress`. Or allow only a subset that every engine reads the same way, such as I-Regexp [[RFC 9485](https://www.rfc-editor.org/rfc/rfc9485)].
 - **Settled by:** a manifest that needs a pattern the two engines read differently.
+
+## P22. What a run records when approval is refused
+
+- **Status:** open.
+- **Problem:** a runner may ask for approval before a step that writes (SPEC.md, [run.effects]), but nothing says what the run record holds when the answer is no. One runner could fail the step, another skip it, and a third cancel the run.
+- **Idea:** record the step as `skipped` with a reason, as the reference runner does. The steps that depend on it are skipped too, and the run still succeeds.
+- **Settled by:** a second runner that asks for approval.

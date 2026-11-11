@@ -178,3 +178,37 @@ def test_a_workflow_file_changed_after_loading_fails_its_step(tmp_path: Path):
     assert record["steps"]["shout"]["error"]["code"] == "pinned_mismatch", record["steps"]["shout"]
     assert record["error"]["code"] == "pinned_mismatch"
     assert (tmp_path / "store" / "runs" / f"{record['id']}.json").is_file()
+
+
+def test_a_write_that_isnt_approved_is_left_out(tmp_path: Path):
+    """Given `approve`, the runner asks before a step that writes (SPEC.md, [run.effects]). A refusal
+    skips that step and the steps that depend on it, the run still succeeds, and `watch` hears of
+    each step as it starts and ends."""
+    catalog = load_catalog([ROOT / "tests" / "run-catalog"])
+    workflow = {
+        "outputs": {"text": {"from": "steps.shout.outputs.text"}, "saved": {"from": "steps.after.outputs.text"}},
+        "steps": {
+            "shout": {"uses": "test/upper@1.0.0", "with": {"text": "hi"}},
+            "save": {"uses": "test/save-text@1.0.0", "with": {"text": {"from": "steps.shout.outputs.text"}, "folder": str(tmp_path), "name": "saved.txt"}},
+            "after": {"uses": "test/echo@1.0.0", "with": {"text": {"from": "steps.save.outputs.path"}}},
+        },
+    }
+    asked, heard = [], []
+
+    def run(answer: bool) -> dict:
+        options = Options(store=Store(tmp_path / "store"), sandbox=SANDBOX is not None, readable=PYTHON,
+                          approve=lambda ref, inputs: asked.append((ref, inputs["text"])) or answer,
+                          watch=lambda sid, entry: heard.append((sid, entry["status"])))
+        return Runner(catalog, options).run(workflow, {})
+
+    record = run(False)
+    assert asked == [("test/save-text@1.0.0", "HI")]  # only the step that writes is asked about
+    assert record["status"] == "succeeded" and record["outputs"] == {"text": "HI"}
+    assert record["steps"]["save"]["status"] == "skipped" and record["steps"]["save"]["reason"] == "not approved"
+    assert record["steps"]["after"]["status"] == "skipped"
+    assert not (tmp_path / "saved.txt").exists()
+    assert heard == [("shout", "running"), ("shout", "succeeded"), ("save", "running"), ("save", "skipped"), ("after", "skipped")]
+    assert schema_issues(record, "urn:wfspec:schema:run", "invalid") == []
+
+    record = run(True)
+    assert record["steps"]["save"]["status"] == "succeeded" and (tmp_path / "saved.txt").read_text() == "HI"

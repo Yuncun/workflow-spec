@@ -15,6 +15,7 @@
 - What a test case holds is described in tests/README.md, not in sections 8.5 and 9.11.
 - Section 12, a list of the entries in proposals.md, is removed. "Where the ideas come from" is now section 12, "Prior art".
 - HANDOFF.md is removed.
+- The reference runner can ask before a step that writes, and report each step as it starts and ends (`Options.approve` and `Options.watch`). What a refused step records is an open question (proposals.md, P22).
 
 ## 0.3, 2026-11-09 (draft)
 

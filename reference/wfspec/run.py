@@ -15,6 +15,7 @@ import uuid
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
+from typing import Callable
 
 from .check import INPUT_REF, OUTPUT_REF, check, split_value
 from .documents import Catalog, load_document, media_type_problems, value_problem
@@ -53,6 +54,10 @@ class Options:
     replay: dict | None = None  # a run record: steps that write return its outputs (a dry run)
     lock: dict | None = None  # the workflow's lock file, when it was published
     readable: list[Path] = field(default_factory=list)  # folders programs may read under the home folder
+    # Asked with a step's name@version and input values before it writes; False leaves the step out ([run.effects]).
+    approve: Callable[[str, dict], bool] | None = None
+    # Told the step id and the record so far when each step of the workflow starts, and again when it ends.
+    watch: Callable[[str, dict], None] | None = None
 
 
 class Runner:
@@ -128,6 +133,7 @@ class Runner:
                 upstream = done[blocked[0]]
                 why = upstream.get("reason") if upstream["status"] == "skipped" else f"step {blocked[0]!r} failed"
                 done[sid] = {"uses": step["uses"], "status": "skipped", "reason": why or f"step {blocked[0]!r} skipped"}
+                self._tell(sid, done[sid], depth)
                 continue
             given = {}
             for name, value in (step.get("with") or {}).items():
@@ -138,7 +144,9 @@ class Runner:
                 found, v = self._resolve(x, values, done)
                 if found:  # a missing value leaves the input unset, so its default applies ([run.missing-value])
                     given[name] = v
+            self._tell(sid, {"uses": step["uses"], "status": "running"}, depth)
             done[sid] = self.run_step(step["uses"], given, depth)
+            self._tell(sid, done[sid], depth)
         steps = {sid: done.get(sid, {"uses": workflow["steps"][sid]["uses"], "status": "not_needed"}) for sid in workflow["steps"]}
         outputs = {}
         for name, source in result.outputs.items():
@@ -147,6 +155,10 @@ class Runner:
             if found:  # outputs that depend on a skipped or failed step are left out
                 outputs[name] = v
         return steps, outputs, [sid for sid in result.order if done[sid]["status"] == "failed"]
+
+    def _tell(self, sid: str, entry: dict, depth: int) -> None:
+        if self.options.watch is not None and depth == 0:  # the steps of the workflow itself, not of one used as a step
+            self.options.watch(sid, self._scrub(entry))
 
     @staticmethod
     def _resolve(ref: str, values: dict, done: dict) -> tuple[bool, object]:
@@ -190,6 +202,11 @@ class Runner:
                     raise StepFailed("failed", "dry run: the original run has no recorded outputs for this step")
                 entry.update(status="succeeded", outputs=recorded, attempts=0, ended=now(),
                              reason=f"dry run: outputs recorded in {self.options.replay['id']}")
+                return entry
+            # An agent or a workflow writes only through the steps it runs, and each of those is asked about in turn.
+            asks = manifest["effects"] == "writes" and next(iter(manifest["runtime"])) not in ("agent", "workflow")
+            if asks and self.options.approve is not None and not self.options.approve(ref, self._scrub(inputs)):
+                entry.update(status="skipped", reason="not approved", attempts=0, ended=now())
                 return entry
             outcome = self._attempts(ref, manifest, inputs, entry, depth)
             if outcome.skipped is not None:
