@@ -463,13 +463,15 @@ def calls_issues(manifest: dict, catalog: Catalog, file: str | None = None) -> l
 
 def load_catalog(dirs: list[Path], also: Path | None = None) -> Catalog:
     """Load every *.yaml, *.yml and *.json manifest in the given folders (not recursive), and after
-    them the manifest in `also`, unless it is one of those already.
+    them the manifest in `also`, unless it is one of those already. A path in `dirs` that is a file
+    is read as one manifest.
 
     A manifest with problems is left out, so no workflow can use it."""
     catalog = Catalog()
     seen: dict[str, str] = {}  # name@version -> the file that first had it, valid or not
-    paths = [p for folder in dirs
-             for p in sorted(q for q in Path(folder).iterdir() if q.suffix in (".yaml", ".yml", ".json") and q.is_file())]
+    paths = [p for given in map(Path, dirs)
+             for p in ([given] if given.is_file() else
+                       sorted(q for q in given.iterdir() if q.suffix in (".yaml", ".yml", ".json") and q.is_file()))]
     if also is not None and not any(p.resolve() == Path(also).resolve() for p in paths):
         paths.append(Path(also))
     for path in paths:

@@ -7,6 +7,12 @@
 - **Error codes never change meaning** (SPEC.md, [check.codes-stable]), and requirement ids are never reused.
 - **Each version lists its changes here.**
 
+## Unreleased
+
+**Reference tools**
+- A program that starts runs for other programs can drive the runner. `Runner.run` takes the run's id, and saves the record in the store when the run starts and each time a step starts or ends. Raising `RunCancelled` ends the run with the status `cancelled`: a step cut short fails with the runner's own code `x-cancelled`, and the steps after it are skipped.
+- `load_catalog` reads a path that is a file as one manifest.
+
 ## 0.4, 2026-11-10 (draft)
 
 Version 0.4 settles what two reviews and a second, independent checker found, and moves the detail only a checker's author needs into an annex.

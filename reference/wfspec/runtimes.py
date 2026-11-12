@@ -158,7 +158,7 @@ def _end_group(proc: subprocess.Popen) -> None:
 
 
 def _leftover_output(proc: subprocess.Popen) -> bytes:
-    """What a timed-out program wrote, once its process group has ended."""
+    """What a program that was stopped wrote, once its process group has ended."""
     try:
         return b"".join(proc.communicate(timeout=5))
     except subprocess.TimeoutExpired:  # a process that left the group still holds the output open
@@ -230,6 +230,8 @@ def _finish_process(manifest: dict, argv: list[str], folder: Path, env: dict, wo
                          _leftover_output(proc))
     finally:
         _end_group(proc)  # what a program leaves running ends with its step
+        if proc.returncode is None:  # the run was cancelled: don't leave the ended program behind, or its pipes open
+            _leftover_output(proc)
     logs = stdout + stderr
     if proc.returncode != 0:
         hint = ""

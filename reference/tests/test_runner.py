@@ -212,3 +212,145 @@ def test_a_write_that_isnt_approved_is_left_out(tmp_path: Path):
 
     record = run(True)
     assert record["steps"]["save"]["status"] == "succeeded" and (tmp_path / "saved.txt").read_text() == "HI"
+
+
+# ---- a runner that another program drives: an id of its choice, the record so far, cancelling ----
+
+SLOW = """\
+name: test/slow
+version: 1.0.0
+description: Say it has started, then wait for a minute.
+inputSchema: { type: object, properties: { started: { type: string } }, required: [started] }
+outputSchema: { type: object, properties: { text: { type: string } }, required: [text] }
+effects: writes
+runtime: { process: { command: [python3, slow.py] } }
+"""
+SLOW_PROGRAM = """\
+import json, os, time
+from pathlib import Path
+Path(json.loads(Path(os.environ["WF_INPUTS"]).read_text())["started"]).write_text(str(os.getpid()))
+time.sleep(60)
+"""
+
+
+def test_the_record_is_saved_as_the_run_goes(tmp_path: Path):
+    """The store holds the run's record from its start, under the id the caller chose, and each
+    step's record changes there as the step starts and ends. Every state fits run.schema.json."""
+    catalog = load_catalog([ROOT / "tests" / "run-catalog"])
+    workflow = {
+        "outputs": {"text": {"from": "steps.shout.outputs.text"}},
+        "steps": {
+            "first": {"uses": "test/echo@1.0.0", "with": {"text": "hi"}},
+            "shout": {"uses": "test/upper@1.0.0", "with": {"text": {"from": "steps.first.outputs.text"}}},
+            "spare": {"uses": "test/echo@1.0.0", "with": {"text": "nobody reads this"}},
+        },
+    }
+    saved = tmp_path / "store" / "runs" / "run_mine.json"
+    seen = []
+
+    def watch(sid: str, entry: dict) -> None:
+        record = json.loads(saved.read_text())
+        assert schema_issues(record, "urn:wfspec:schema:run", "invalid") == []
+        seen.append((sid, entry["status"], record["status"], {s: e["status"] for s, e in record["steps"].items()}))
+
+    options = Options(store=Store(tmp_path / "store"), sandbox=SANDBOX is not None, readable=PYTHON, watch=watch)
+    record = Runner(catalog, options).run(workflow, {}, run_id="run_mine")
+    assert record["id"] == "run_mine" and record["status"] == "succeeded"
+    assert seen == [
+        ("first", "running", "running", {"first": "running", "shout": "pending", "spare": "not_needed"}),
+        ("first", "succeeded", "running", {"first": "succeeded", "shout": "pending", "spare": "not_needed"}),
+        ("shout", "running", "running", {"first": "succeeded", "shout": "running", "spare": "not_needed"}),
+        ("shout", "succeeded", "running", {"first": "succeeded", "shout": "succeeded", "spare": "not_needed"}),
+    ]
+    assert json.loads(saved.read_text()) == record
+
+
+def slow_catalog(tmp_path: Path):
+    folder = tmp_path / "slow"
+    folder.mkdir()
+    (folder / "slow.yaml").write_text(SLOW)
+    (folder / "slow.py").write_text(SLOW_PROGRAM)
+    catalog = load_catalog([ROOT / "tests" / "run-catalog", folder])
+    assert catalog.problems == []
+    return catalog
+
+
+SLOW_WORKFLOW = {
+    "outputs": {"first": {"from": "steps.first.outputs.text"}, "last": {"from": "steps.after.outputs.text"}},
+    "steps": {
+        "first": {"uses": "test/echo@1.0.0", "with": {"text": "hi"}},
+        "wait": {"uses": "test/slow@1.0.0", "with": {"started": "{started}"}},
+        "after": {"uses": "test/echo@1.0.0", "with": {"text": {"from": "steps.wait.outputs.text"}}},
+    },
+}
+
+
+def test_cancelling_while_a_step_runs(tmp_path: Path):
+    """RunCancelled, raised here by a signal as a service would, ends the program that is running.
+    That step fails with the runner's own code x-cancelled, the steps after it are skipped, what
+    finished stays in the record, and the run's status is `cancelled`."""
+    import signal
+    import time
+
+    from wfspec.run import RunCancelled
+
+    catalog = slow_catalog(tmp_path)
+    started = tmp_path / "started.txt"
+
+    def cancel_once_started():
+        while not started.exists() or not started.read_text():
+            time.sleep(0.02)
+        os.kill(os.getpid(), signal.SIGUSR1)
+
+    def cancel(*_):
+        raise RunCancelled
+
+    before = signal.signal(signal.SIGUSR1, cancel)
+    threading.Thread(target=cancel_once_started, daemon=True).start()
+    try:
+        options = Options(store=Store(tmp_path / "store"), sandbox=SANDBOX is not None, readable=PYTHON)
+        record = Runner(catalog, options).run(substitute(SLOW_WORKFLOW, {"{started}": str(started)}), {})
+    finally:
+        signal.signal(signal.SIGUSR1, before)
+    assert record["status"] == "cancelled" and "error" not in record
+    assert record["outputs"] == {"first": "hi"}
+    assert record["steps"]["first"]["status"] == "succeeded"
+    assert record["steps"]["wait"]["status"] == "failed" and record["steps"]["wait"]["error"]["code"] == "x-cancelled"
+    assert record["steps"]["after"] == {"uses": "test/echo@1.0.0", "status": "skipped", "reason": "the run was cancelled"}
+    assert schema_issues(record, "urn:wfspec:schema:run", "invalid") == []
+    with pytest.raises(ProcessLookupError):  # the program was ended with its step
+        os.kill(int(started.read_text()), 0)
+
+
+@pytest.mark.parametrize("when", ["asked", "between steps"])
+def test_cancelling_before_a_step_starts(tmp_path: Path, when: str):
+    """A run cancelled while it waits for an answer about a step that writes, or between two steps,
+    records that step as skipped, or as cut short, and never starts its program."""
+    from wfspec.run import RunCancelled
+
+    catalog = slow_catalog(tmp_path)
+    started = tmp_path / "started.txt"
+
+    def cancel(*_):
+        raise RunCancelled
+
+    options = Options(store=Store(tmp_path / "store"), sandbox=SANDBOX is not None, readable=PYTHON,
+                      approve=cancel if when == "asked" else None,
+                      watch=(lambda sid, entry: cancel() if (sid, entry["status"]) == ("wait", "running") else None) if when != "asked" else None)
+    record = Runner(catalog, options).run(substitute(SLOW_WORKFLOW, {"{started}": str(started)}), {})
+    assert record["status"] == "cancelled" and not started.exists()
+    assert record["steps"]["first"]["status"] == "succeeded" and record["outputs"] == {"first": "hi"}
+    if when == "asked":
+        assert record["steps"]["wait"]["status"] == "skipped" and record["steps"]["wait"]["reason"] == "the run was cancelled"
+    else:
+        assert record["steps"]["wait"]["error"]["code"] == "x-cancelled"
+    assert record["steps"]["after"]["status"] == "skipped"
+    assert schema_issues(record, "urn:wfspec:schema:run", "invalid") == []
+    assert json.loads((tmp_path / "store" / "runs" / f"{record['id']}.json").read_text()) == record
+
+
+def test_a_catalog_can_name_single_manifests(tmp_path: Path):
+    """load_catalog reads a path that is a file as one manifest, so a registry that keeps each
+    step version in its own folder can load them without reading the other files there."""
+    catalog = load_catalog([ROOT / "tests" / "run-catalog" / "echo.yaml", ROOT / "tests" / "run-catalog" / "upper.yaml"])
+    assert catalog.problems == [] and sorted(catalog.steps) == ["test/echo@1.0.0", "test/upper@1.0.0"]

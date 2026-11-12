@@ -4,6 +4,9 @@ drafts/runtime.md (`process`, `agent`) and SPEC.md's `workflow` kind.
 It runs on one machine, one step at a time. On macOS it enforces `effects` for programs with the
 system sandbox: a `none` step gets no network, and neither a `none` nor a `reads` step may write
 outside its work folder.
+
+A program that starts runs for other programs can give each run its id, read the run's record from
+the store while it runs, and cancel it by raising RunCancelled.
 """
 
 from __future__ import annotations
@@ -26,6 +29,17 @@ from .store import Store
 CALL_FIELDS = ("uses", "digest", "cacheKey", "cacheHit", "attempts", "inputs", "outputs", "status", "reason",
                "started", "ended", "error", "logs", "calls", "steps")
 MAX_DEPTH = 32  # how deeply steps may nest, through calls and workflow steps
+
+
+class RunCancelled(BaseException):
+    """Raise this in the thread that runs a run to cancel it, for example from a signal handler.
+
+    The run ends with the status `cancelled`. A step that was running fails with the runner's own
+    code `x-cancelled` (SPEC.md, [run.error-codes]), since nothing says how far it got, and the
+    steps that hadn't started are skipped. It isn't an Exception, so no step runtime catches it."""
+
+
+CANCELLED = "the run was cancelled"
 
 
 def now() -> str:
@@ -64,13 +78,19 @@ class Runner:
     def __init__(self, catalog: Catalog, options: Options):
         self.catalog, self.options, self.store = catalog, options, options.store
         self._replayed: dict[str, int] = {}
+        self._live: dict | None = None  # the record of the run in progress
+        self._cancelled = False
 
     # ---- a whole run ----------------------------------------------------------------------
 
-    def run(self, workflow: dict, inputs: dict) -> dict:
-        """Run a workflow and return its run record, which is also saved in the store."""
+    def run(self, workflow: dict, inputs: dict, run_id: str | None = None) -> dict:
+        """Run a workflow and return its run record.
+
+        The record is saved in the store when the run starts, each time one of the workflow's steps
+        starts or ends, and when the run ends, so another program can read how far the run has got.
+        `run_id` gives the record's id, for a caller that has to name the run before it starts."""
         record = {
-            "id": "run_" + uuid.uuid4().hex[:12],
+            "id": run_id or "run_" + uuid.uuid4().hex[:12],
             "workflow": {k: workflow[k] for k in ("name", "version") if isinstance(workflow, dict) and k in workflow} | {"digest": digest(workflow)},
             "lock": {"lockVersion": 1, "steps": {}},
             "inputs": inputs,
@@ -94,10 +114,21 @@ class Runner:
             return self._refuse(record, "invalid_input", f"the inputs don't fit the workflow's inputSchema: {problem}")
         record["inputs"] = values
         record["started"] = now()
-        steps, outputs, failed = self._steps(workflow, result, values)
+        record["steps"] = {sid: {"uses": step["uses"], "status": "pending" if sid in result.order else "not_needed"}
+                           for sid, step in workflow["steps"].items()}
+        self._live, self._cancelled = record, False
+        try:
+            self._save(record)
+            steps, outputs, failed = self._steps(workflow, result, values)
+        except RunCancelled:  # between two steps; a step that is cancelled while it runs records that itself
+            self._cancelled = True
+            steps, failed = {sid: _cut_short(entry) for sid, entry in record["steps"].items()}, []
+            outputs = self._outputs(result, values, steps)
+        finally:
+            self._live = None
         record["steps"], record["outputs"] = steps, outputs
-        record["status"] = "failed" if failed else "succeeded"
-        if failed:
+        record["status"] = "cancelled" if self._cancelled else "failed" if failed else "succeeded"
+        if failed and not self._cancelled:
             first = steps[failed[0]]["error"]
             record["error"] = {"code": first["code"], "message": f"step {failed[0]!r}: {first['message']}"}
         record["ended"] = now()
@@ -113,11 +144,11 @@ class Runner:
         self.store.save_run(record)
         return record
 
-    def unreadable(self, raw: bytes, message: str) -> dict:
+    def unreadable(self, raw: bytes, message: str, run_id: str | None = None) -> dict:
         """The record of a run refused because its workflow can't be read ([run.check-first])."""
         import hashlib
 
-        record = {"id": "run_" + uuid.uuid4().hex[:12], "workflow": {"digest": "sha256:" + hashlib.sha256(raw).hexdigest()},
+        record = {"id": run_id or "run_" + uuid.uuid4().hex[:12], "workflow": {"digest": "sha256:" + hashlib.sha256(raw).hexdigest()},
                   "lock": {"lockVersion": 1, "steps": {}}, "inputs": {}, "status": "running", "caller": self.options.caller,
                   "created": now(), "traceId": tokens.token_hex(16), "steps": {}}
         return self._refuse(record, "check_failed", f"the workflow can't be read: {message}")
@@ -128,6 +159,10 @@ class Runner:
         done: dict[str, dict] = {}
         for sid in result.order:
             step = workflow["steps"][sid]
+            if self._cancelled:
+                done[sid] = {"uses": step["uses"], "status": "skipped", "reason": CANCELLED}
+                self._tell(sid, done[sid], depth)
+                continue
             blocked = [d for d in sorted(result.deps[sid]) if done[d]["status"] in ("failed", "skipped")]
             if blocked:  # [run.failure], [run.skip]
                 upstream = done[blocked[0]]
@@ -148,16 +183,25 @@ class Runner:
             done[sid] = self.run_step(step["uses"], given, depth)
             self._tell(sid, done[sid], depth)
         steps = {sid: done.get(sid, {"uses": workflow["steps"][sid]["uses"], "status": "not_needed"}) for sid in workflow["steps"]}
+        return steps, self._outputs(result, values, done), [sid for sid in result.order if done[sid]["status"] == "failed"]
+
+    def _outputs(self, result, values: dict, done: dict) -> dict:
+        """The workflow's outputs, leaving out those that depend on a step that didn't succeed."""
         outputs = {}
         for name, source in result.outputs.items():
             ref = f"inputs.{source.name}" if source.step is None else f"steps.{source.step}.outputs.{source.name}"
             found, v = self._resolve(ref, values, done)
-            if found:  # outputs that depend on a skipped or failed step are left out
+            if found:
                 outputs[name] = v
-        return steps, outputs, [sid for sid in result.order if done[sid]["status"] == "failed"]
+        return outputs
 
     def _tell(self, sid: str, entry: dict, depth: int) -> None:
-        if self.options.watch is not None and depth == 0:  # the steps of the workflow itself, not of one used as a step
+        if depth != 0:  # only the steps of the workflow itself, not of one used as a step
+            return
+        if self._live is not None:
+            self._live["steps"][sid] = entry
+            self._save(self._live)
+        if self.options.watch is not None:
             self.options.watch(sid, self._scrub(entry))
 
     @staticmethod
@@ -177,6 +221,7 @@ class Runner:
         entry: dict = {"uses": ref, "digest": digest(manifest), "status": "running", "started": now(),
                        "inputs": given if isinstance(given, dict) else {}}
         cacheable = manifest.get("deterministic", False) and manifest["effects"] != "writes"
+        began = False  # whether the step itself has started, so cancelling can't have left it half done
         try:
             if not isinstance(given, dict):  # a model can send anything as a call's arguments
                 raise StepFailed("invalid_input", f"the input values aren't a JSON object: {json.dumps(given)[:200]}")
@@ -209,6 +254,7 @@ class Runner:
             if asks and self.options.approve is not None and not self.options.approve(ref, self._scrub(inputs)):
                 entry.update(status="skipped", reason="not approved", attempts=0, ended=now())
                 return entry
+            began = True
             outcome = self._attempts(ref, manifest, inputs, entry, depth)
             if outcome.skipped is not None:
                 entry.update(status="skipped", reason=self._redact(outcome.skipped))
@@ -216,6 +262,12 @@ class Runner:
                 entry.update(status="succeeded", outputs=outcome.outputs)
                 if key:
                     self.store.cache(key, outcome.outputs)
+        except RunCancelled:  # whoever started this step sees _cancelled and stops too
+            self._cancelled = True
+            if began:
+                entry.update(status="failed", error={"code": "x-cancelled", "message": f"{CANCELLED} while this step was running"})
+            else:
+                entry.update(status="skipped", reason=CANCELLED)
         except StepFailed as exc:
             entry.update(status="failed", error={"code": exc.code, "message": self._redact(exc.message)})
             if exc.logs:
@@ -264,6 +316,8 @@ class Runner:
             def call(callee: str, args: dict) -> dict:  # [run.calls-listed], [run.calls-recorded]
                 child = self.run_step(callee, args, depth + 1)
                 calls.append({k: child[k] for k in CALL_FIELDS if k in child})
+                if self._cancelled:
+                    raise RunCancelled
                 if child["status"] == "succeeded":
                     return {"outputs": readable(child["outputs"], self.catalog.steps[callee]["outputSchema"], self.store)}
                 if child["status"] == "skipped":
@@ -284,6 +338,8 @@ class Runner:
                 raise StepFailed("failed", "the workflow inside this step fails checking")
             steps, outputs, failed = self._steps(inner, result, with_defaults(inner.get("inputSchema", {}), inputs), depth + 1)
             entry["steps"] = steps
+            if self._cancelled:
+                raise RunCancelled
             if failed:
                 raise StepFailed("failed", f"step {failed[0]!r} inside the workflow failed")
             return Outcome(outputs=outputs)
@@ -329,6 +385,15 @@ class Runner:
             return None
         self._replayed[ref] = k + 1
         return recorded.get("outputs", {})
+
+
+def _cut_short(entry: dict) -> dict:
+    """A step's record in a run cancelled between two steps."""
+    if entry["status"] == "pending":
+        return {**entry, "status": "skipped", "reason": CANCELLED}
+    if entry["status"] == "running":
+        return {**entry, "status": "failed", "error": {"code": "x-cancelled", "message": f"{CANCELLED} while this step was running"}}
+    return entry
 
 
 def _entries(record: dict) -> list[dict]:
