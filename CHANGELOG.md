@@ -9,6 +9,13 @@
 
 ## Unreleased
 
+**Extension points**
+- A problem in a checker's result may carry a platform's own fields, with names that start with `x-` ([check.output]).
+- A problem with a platform's own code is an error or a warning, as the platform chooses ([check.platform-codes]). [conform.verdict] counts only errors with a code of this specification, so a platform's own rules can refuse a workflow that breaks no rule of sections 4 to 8.
+
+**Changed rules**
+- When a workflow names an input, an output or a step that doesn't exist and no name is close, the message should list the names there are ([check.unknown-input], [check.unknown-reference]).
+
 **Reference tools**
 - A program that starts runs for other programs can drive the runner. `Runner.run` takes the run's id, and saves the record in the store when the run starts and each time a step starts or ends. Raising `RunCancelled` ends the run with the status `cancelled`: a step cut short fails with the runner's own code `x-cancelled`, and the steps after it are skipped.
 - `load_catalog` reads a path that is a file as one manifest.

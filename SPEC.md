@@ -92,7 +92,7 @@ There are three conformance classes. One program can belong to several.
 
 - **[conform.checker-tests]** A checker MUST pass every test case in `tests/check/` and `tests/manifests/`. It passes a case when it reports exactly the expected errors and warnings: the same `(code, path)` pairs, each the same number of times. Annex A gives the paths and counts. Problems with a platform's own code ([check.platform-codes]) aren't counted.
 - **[conform.runner-tests]** A runner MUST pass every test case in `tests/run/`.
-- **[conform.verdict]** A workflow or manifest that breaks a rule of sections 4 to 8 MUST get at least one error from every checker, and one that breaks none MUST get none. So a file passes everywhere or fails everywhere.
+- **[conform.verdict]** A workflow or manifest that breaks a rule of sections 4 to 8 MUST get at least one error from every checker, and one that breaks none MUST get no error with a code of this specification. So a file passes everywhere or fails everywhere, apart from a platform's own rules ([check.platform-codes]).
 
 Sections 4 to 8 and Annex A say which problems to report, at which paths, for the mistakes people usually make, and the test cases pin those down. They don't settle every combination of mistakes in one file. Where they don't say whether one problem hides another, or how many times to report one, checkers MAY differ.
 
@@ -374,10 +374,10 @@ A workflow has no conditions, loops or expressions. Where one is needed:
 | **[check.invalid-workflow]** | `invalid_workflow` | the workflow breaks [workflow.schema] or [workflow.input-schema] |
 | **[check.invalid-value]** | `invalid_value` | a literal in `with`, or a workflow input's default, doesn't fit its input or its media type ([types.media-type]) |
 | **[check.unknown-step]** | `unknown_step` | `uses` isn't in the catalog; the message SHOULD list the versions it has, or why the manifest was left out |
-| **[check.unknown-input]** | `unknown_input` | `with` names an input the step doesn't have; the message SHOULD suggest a close name |
+| **[check.unknown-input]** | `unknown_input` | `with` names an input the step doesn't have; the message SHOULD suggest a close name, or list the step's inputs when none is close |
 | **[check.missing-input]** | `missing_input` | a required input has no value and no default |
 | **[check.bad-reference]** | `bad_reference` | a reference isn't `inputs.<name>` or `steps.<id>.outputs.<name>` |
-| **[check.unknown-reference]** | `unknown_reference` | a reference names a missing input, step or output |
+| **[check.unknown-reference]** | `unknown_reference` | a reference names a missing input, step or output; the message SHOULD suggest a close name, or list the names there are when none is close |
 | **[check.type-mismatch]** | `type_mismatch` | [types.fits-error] or [types.maybe-missing] |
 | **[check.type-unchecked]** | `type_unchecked`, a warning | [types.fits-warning] |
 | **[check.outputs-resolve]** | `bad_reference` or `unknown_reference` | a workflow output doesn't resolve the way a reference must |
@@ -393,7 +393,7 @@ A workflow has no conditions, loops or expressions. Where one is needed:
 Section 8.1 gives the code for each problem in a workflow. Three more codes come from reading documents and catalogs: `parse_error` ([doc.parse-error]), `invalid_manifest` ([manifest.invalid]) and `duplicate_step` ([manifest.duplicate]). `type_unchecked`, `step_never_runs` and `unused_input` are warnings, and every other code is an error.
 
 - **[check.codes-stable]** A code MUST keep its meaning in every later version of this specification, and new checks MUST get new codes. Messages are for people and MAY change.
-- **[check.platform-codes]** A checker MAY report problems this specification doesn't define, such as a platform's own rules. Each MUST have a code that starts with `x-`. No code of this specification starts that way, so the two can't collide.
+- **[check.platform-codes]** A checker MAY report problems this specification doesn't define, such as a platform's own rules. Each MUST have a code that starts with `x-`, and is an error or a warning as the platform chooses. No code of this specification starts that way, so the two can't collide.
 
 - **[check.paths]** A checker MUST report each problem at the path Annex A.5 gives, as a JSON Pointer into the checked document, and as many times as it says.
 
@@ -410,7 +410,9 @@ Section 8.1 gives the code for each problem in a workflow. Three more codes come
 }
 ```
 
-- **[check.output]** A checker's result MUST have `ok`, `errors` and `warnings`. Each problem MUST have a `code`, a `path`, a JSON Pointer [[RFC6901](https://www.rfc-editor.org/rfc/rfc6901)] into the workflow file, and a `message` for people. A problem MAY also have `step` and `input`. `ok` is true when there are no errors; warnings don't block a run.
+- **[check.output]** A checker's result MUST have `ok`, `errors` and `warnings`. Each problem MUST have a `code`, a `path`, a JSON Pointer [[RFC6901](https://www.rfc-editor.org/rfc/rfc6901)] into the workflow file, and a `message` for people. A problem MAY also have `step` and `input`, and fields of a platform's own whose names start with `x-`. `ok` is true when there are no errors; warnings don't block a run.
+
+*Informative.* A platform that knows more about a problem than its code says, such as why a step version isn't in a caller's catalog, can say so in an `x-` field. One mistake then stays one problem.
 
 ### 8.4 Caller policy
 
