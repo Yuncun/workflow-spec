@@ -19,6 +19,10 @@
 **Drafts**
 - drafts/runtime.md: a runner may add environment variables of its own, and names that start with `WF_` are reserved. An agent step may leave out `model`. The publisher writes digests into the manifest it publishes, and the author's own file needn't hold them.
 
+**Proposals**
+- P4, P20 and P22 record what a second platform found. P22's idea is now to fail a step whose write isn't approved, because skipping it breaks what a published workflow's manifest says about its outputs.
+- New: P24, secrets that are files. P25, agents that work in a folder. P26, checking a run's input values before it starts.
+
 **Reference tools**
 - A program that starts runs for other programs can drive the runner. `Runner.run` takes the run's id, and saves the record in the store when the run starts and each time a step starts or ends. Raising `RunCancelled` ends the run with the status `cancelled`: a step cut short fails with the runner's own code `x-cancelled`, and the steps after it are skipped.
 - `load_catalog` reads a path that is a file as one manifest.

@@ -34,9 +34,9 @@ A proposal joins the specification only through a new version of SPEC.md, with r
 ## P4. Resource limits
 
 - **Status:** open.
-- **Problem:** a step can't say it needs a long time or a lot of memory, so a runner applies one default to every step.
-- **Idea:** declare limits such as a timeout, CPU and memory in the manifest, with the runner free to lower them.
-- **Settled by:** a runner that schedules steps on machines of different sizes.
+- **Problem:** a step can't say it needs a long time or a lot of memory, so a runner applies one default to every step. On one platform, every published program and agent step sets a time limit in a field of the platform's own, from 1 minute for a small program to 30 for one that queries a data store. `maxTurns` limits an agent's turns, not its time.
+- **Idea:** declare limits such as a timeout, CPU and memory in the manifest, with the runner free to lower them. The time limit can come first, because steps of different kinds needed it on a single machine.
+- **Settled by:** for the time limit, a second platform whose steps set one. For CPU and memory, a runner that schedules steps on machines of different sizes.
 
 ## P5. Labels on workflow steps
 
@@ -148,6 +148,8 @@ A proposal joins the specification only through a new version of SPEC.md, with r
 - **Status:** open.
 - **Problem:** a step can already wait for a person's answer, as a program, a remote tool or a platform's own runtime kind. But each platform names its own kind, so a step that asks a person on one platform doesn't run on another.
 - **Idea:** a runtime kind in [drafts/runtime.md](drafts/runtime.md) that shows a person the step's inputs and takes their answer as its outputs. Approval before a step that writes is separate, and a runner can already ask for it (SPEC.md, [run.effects]).
+  - One platform runs such a kind. It asks again when an answer doesn't fit `outputSchema`, and fails the step when the person stops instead of answering.
+  - A step of this kind runs only when something needed uses its output (SPEC.md, section 9.2). So a step that asks for approval has to pass the approved item on to the step it guards.
 - **Settled by:** two platforms that want to share steps that ask a person.
 
 ## P21. The dialect of regular expressions
@@ -160,9 +162,13 @@ A proposal joins the specification only through a new version of SPEC.md, with r
 ## P22. What a run records when approval is refused
 
 - **Status:** open.
-- **Problem:** a runner may ask for approval before a step that writes (SPEC.md, [run.effects]), but nothing says what the run record holds when the answer is no. One runner could fail the step, another skip it, and a third cancel the run.
-- **Idea:** record the step as `skipped` with a reason, as the reference runner does. The steps that depend on it are skipped too, and the run still succeeds.
-- **Settled by:** a second runner that asks for approval.
+- **Problem:** a runner may ask for approval before a step that writes (SPEC.md, [run.effects]), but nothing says what the run record holds when the answer is no, or when nobody answers. Two runners already differ:
+  - The reference runner records the step as `skipped` with a reason, and the run still succeeds.
+  - A platform whose approvals are steps that ask a person (P20) fails the step with a code of its own, and the run fails.
+
+  Skipping has a flaw. A published workflow's manifest lists an output as required unless a step it depends on has `maySkip` (SPEC.md, [publish.as-step]). A refused write leaves that output out. A workflow that uses the published one as a step then fails with `invalid_output`, which hides the real reason.
+- **Idea:** fail the step with a code this specification defines, such as `not_approved`. [run.failure] then covers the rest: the steps that depend on it are skipped, and the run fails with that code.
+- **Settled by:** a choice between the two, with a test case in `tests/run/` for a refused write inside a workflow used as a step.
 
 ## P23. Agreement beyond pass or fail
 
@@ -176,3 +182,23 @@ A proposal joins the specification only through a new version of SPEC.md, with r
 - **Idea:** settle a case in Annex A, with a test case, when it causes trouble in practice.
 - **Settled by:** a person or an agent misled by two checkers that list different problems for one file.
 
+## P24. Secrets that are files
+
+- **Status:** open.
+- **Problem:** `secrets` passes values, as environment variables. Some command-line tools keep their sign-in in files under the home folder instead, and a program's `HOME` is its work folder ([drafts/runtime.md](drafts/runtime.md), section 1), so the tool finds none. A platform can keep the person's real home folder for such a step. That gives the step everything under it, far more than one named secret, and the manifest doesn't show it.
+- **Idea:** a secret that is a file or a folder. The runner puts a copy in the step's work folder and sets a variable to its path, since most such tools can be told where their files are.
+- **Settled by:** a second platform with steps that need a tool's sign-in, and whether those tools work from a copy.
+
+## P25. Agents that work in a folder
+
+- **Status:** open.
+- **Problem:** the `agent` kind ([drafts/runtime.md](drafts/runtime.md), section 2) is a model that answers and calls steps. A coding agent works another way: it reads and edits files in a folder, runs commands, and writes its outputs to a file, as a program does. A platform whose agents work that way adds a runtime kind of its own, so its agent steps don't run on another platform. The draft also doesn't say whether a runner may give an agent tools of its own, or how `effects` bounds them.
+- **Idea:** a runtime kind that runs an agent under the contract for programs: a work folder, the same files for inputs, outputs and skipping, and instructions from a text file. The runner bounds the agent's own tools by `effects`, as it bounds a program.
+- **Settled by:** two platforms that run such agents and want to share their steps.
+
+## P26. Checking a run's input values before it starts
+
+- **Status:** open.
+- **Problem:** a form can show a workflow's problems before a run starts, but not a value that doesn't fit the workflow's `inputSchema`. A checker has no code or path for input values: its paths point into the workflow file (SPEC.md, [check.output]), and `invalid_input` is a run's code ([run.check-first]). Platforms that check the values early each report them their own way.
+- **Idea:** `check` takes the input values as an optional argument, and reports each value that doesn't fit at a path into the values.
+- **Settled by:** two platforms whose clients read each other's check results. It overlaps with P18.
