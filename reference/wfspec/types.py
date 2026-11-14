@@ -239,7 +239,7 @@ def _objects(src: dict, dst: dict, where: str) -> list[Finding]:
     findings = []
     have_props = src.get("properties", {})
     have_required = set(src.get("required", []))
-    declared = "properties" in src or "required" in src
+    declared = bool(src.get("properties") or src.get("required"))  # an empty one counts as having none (Annex A.1)
     for name in dst.get("required", []):
         if name in have_required:
             continue

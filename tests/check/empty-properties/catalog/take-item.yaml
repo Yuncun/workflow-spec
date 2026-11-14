@@ -1,0 +1,12 @@
+name: test/take-item
+version: 1.0.0
+description: Takes two objects that must each have an id.
+inputSchema:
+  type: object
+  properties:
+    first: { type: object, properties: { id: { type: string } }, required: [id] }
+    second: { type: object, properties: { id: { type: string } }, required: [id] }
+  required: [first, second]
+outputSchema: { type: object, properties: { done: { type: boolean } }, required: [done] }
+effects: none
+runtime: { container: { image: example.test/take-item:1.0.0 } }

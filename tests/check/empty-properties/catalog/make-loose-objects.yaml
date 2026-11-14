@@ -1,0 +1,12 @@
+name: test/make-loose-objects
+version: 1.0.0
+description: Makes two objects whose schemas list no properties and no required names.
+inputSchema: { type: object, properties: {} }
+outputSchema:
+  type: object
+  properties:
+    no_properties: { type: object, properties: {} }
+    no_required: { type: object, required: [] }
+  required: [no_properties, no_required]
+effects: none
+runtime: { container: { image: example.test/make-loose-objects:1.0.0 } }

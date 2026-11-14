@@ -37,13 +37,13 @@ manifest.left-out: [check/left-out-step, manifests/left-out-workflow, manifests/
 manifest.duplicate: [manifests/duplicate-step, manifests/duplicate-after-invalid, manifests/not-manifests]
 
 types.json-schema: [manifests/bad-input-name]
-types.fits: [check/shape-errors, check/shape-warnings, check/shape-edges, check/shape-more, check/shape-fits, check/file-into-object, check/keyword-names, check/maybe-missing-once, check/file-into-values]
+types.fits: [check/shape-errors, check/shape-warnings, check/shape-edges, check/shape-more, check/shape-fits, check/file-into-object, check/keyword-names, check/maybe-missing-once, check/file-into-values, check/empty-properties]
 types.format: [check/format-is-annotation]
 types.file-value: [check/literal-files]
 types.media-type: [check/literal-files, run/media-type, manifests/default-media-type]
 types.file-store: [run/file-flow]
 types.fits-error: [check/shape-errors, check/shape-edges, check/shape-more, check/files, check/file-into-object, check/type-mismatch-scalars, check/type-mismatch-object, check/type-mismatch-enum, check/constant-fits, check/ok-integer-into-number, check/shape-fits, check/keyword-names, check/maybe-missing-once]
-types.fits-warning: [check/shape-warnings, check/shape-edges, check/shape-more, check/warnings-only]
+types.fits-warning: [check/shape-warnings, check/shape-edges, check/shape-more, check/warnings-only, check/empty-properties]
 types.maybe-missing: [check/type-mismatch-optional-input, check/type-mismatch-optional-output, check/maybe-missing-once, check/never-has-a-value]
 
 workflow.schema: [check/invalid-missing-steps, check/invalid-uses-without-version, check/invalid-unknown-field]

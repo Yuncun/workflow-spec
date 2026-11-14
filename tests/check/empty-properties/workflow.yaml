@@ -1,0 +1,11 @@
+# A source whose `properties` or `required` is empty declares neither, so a name the input requires
+# is a warning, not an error (SPEC.md, [types.fits], Annex A.1).
+steps:
+  make: { uses: test/make-loose-objects@1.0.0 }
+  take:
+    uses: test/take-item@1.0.0
+    with:
+      first: { from: steps.make.outputs.no_properties }
+      second: { from: steps.make.outputs.no_required }
+outputs:
+  done: { from: steps.take.outputs.done }

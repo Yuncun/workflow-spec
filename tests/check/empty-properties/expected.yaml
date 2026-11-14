@@ -1,0 +1,5 @@
+ok: true
+errors: []
+warnings:
+  - { code: type_unchecked, path: "/steps/take/with/first" }
+  - { code: type_unchecked, path: "/steps/take/with/second" }
