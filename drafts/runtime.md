@@ -1,6 +1,6 @@
 # Step runtimes
 
-Draft, 2026-11-10. **Not normative.** The reference runner follows sections 1 and 2 for `process` and `agent` steps, and the cases in `tests/run/` exercise them. This document becomes a normative companion to [SPEC.md](../SPEC.md) once a second runner, or a platform, confirms it in practice. Until then, a runner may follow it or not.
+Draft, 2026-11-10. **Not normative.** The reference runner follows sections 1 and 2 for `process` and `agent` steps, and the cases in `tests/run/` exercise them. This document becomes a normative companion to [SPEC.md](../SPEC.md) once a second runner, or a platform, confirms it in practice. Until then, a runner may follow it or not. So far, a second runner passes the nine cases in `tests/run/` that need only programs, without files or secrets.
 
 SPEC.md says what a run must produce. This document says how a runner starts one step, for each runtime kind a manifest can name in `runtime`. SPEC.md, section 5.3 defines the `workflow` kind.
 
@@ -25,7 +25,10 @@ The contract:
   - Wherever `outputSchema` declares a file, the program writes `{"path": "...", "mediaType": "..."}`. It can leave out `mediaType` when the schema's `x-mediaType` names a single type.
   - A relative `path` is relative to the folder that holds the `WF_OUTPUTS` file, which is the program's work folder. It must lead to a regular file inside that folder without passing through a symbolic link; the runner refuses any other with `invalid_output`, because it reads the file outside any sandbox.
   - The runner stores each file, replaces it with a file value, and then checks the outputs ([run.output-check]). A file that holds the value of any of the run's secrets fails the step instead ([run.secrets-hidden]).
-- **Environment.** The program gets only these environment variables: `PATH`, `LANG`, `HOME` and `TMPDIR` (both set to its work folder), `WF_INPUTS`, `WF_OUTPUTS`, `WF_SKIP`, and its secrets. On macOS the system adds `__CF_USER_TEXT_ENCODING` to every program.
+- **Environment.** The program gets these environment variables: `PATH`, `LANG`, `HOME` and `TMPDIR` (both set to its work folder), `WF_INPUTS`, `WF_OUTPUTS`, `WF_SKIP`, and its secrets. On macOS the system adds `__CF_USER_TEXT_ENCODING` to every program.
+  - A runner MAY add variables of its own, such as more locale settings or the run's id. It doesn't pass on the rest of the environment it runs in.
+  - Names that start with `WF_` are reserved for this document.
+  - A step that reads a variable this document doesn't define runs only on a platform that sets it.
 - **Skipping.** A step whose manifest has `maySkip` and that has nothing to do writes a reason to the file named by `WF_SKIP` instead of writing outputs ([run.skip]).
 - **Secrets.** Each secret named in `secrets` is set as an environment variable with the same name, and no other secret is set ([run.secrets-named]).
 - **Exit and logs.** Exit code 0 means success. Any other exit code fails the step with `failed`. Standard output and standard error are the step's logs.
@@ -35,6 +38,8 @@ The contract:
   - for `process`, the runtime object gets `digests`, mapping each file the program needs, by its path relative to the manifest's folder, to the SHA-256 of its bytes, written `sha256:<hex>`
 
   A runner checks each digest before the step runs, and fails the step with `pinned_mismatch` when a file differs or isn't inside the manifest's folder (SPEC.md, [run.pinned]).
+
+  The publisher writes the digests into the manifest it publishes. The author's own file needn't hold them. A platform that takes a step from a Git tag, for example, can write `digests` for every file in the tagged folder when it first reads the tag.
 
 A program can't call steps under this draft (proposals.md, P16).
 
@@ -51,7 +56,7 @@ Where `sandbox-exec` isn't available, the runner refuses programs that don't wri
 
 ## 2. Agents: `agent`
 
-- `model` names a model the runner can serve. How the runner maps names to models and providers is its choice.
+- `model` names a model the runner can serve. How the runner maps names to models and providers is its choice. When it's left out, the runner chooses the model, because a step's author can't know which models a platform serves.
 - `instructions` is the path of a text file inside the manifest's folder, relative to it. Before computing the step's digest, a publisher writes the SHA-256 of the file's bytes into the runtime object as `instructionsDigest` ([publish.resolve]). A runner checks it before the step runs, and fails the step with `pinned_mismatch` when the file differs or isn't inside the manifest's folder ([run.pinned]).
 - `maxTurns` limits the number of model responses. When it's left out, the runner chooses the limit.
 
@@ -85,3 +90,5 @@ The runner:
 - Can a program step call steps? It would need an interface from the runner, which brings in a service API (proposals.md, P16).
 - What resource limits does a step declare (proposals.md, P4)?
 - How does a runner report a step's progress while it runs?
+- How does a program use a tool whose sign-in is kept in files under the home folder (proposals.md, P24)?
+- May a runner give an agent tools of its own, such as reading files and running commands in a work folder, and how does `effects` bound them (proposals.md, P25)?

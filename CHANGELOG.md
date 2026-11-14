@@ -16,6 +16,9 @@
 **Changed rules**
 - When a workflow names an input, an output or a step that doesn't exist and no name is close, the message should list the names there are ([check.unknown-input], [check.unknown-reference]).
 
+**Drafts**
+- drafts/runtime.md: a runner may add environment variables of its own, and names that start with `WF_` are reserved. An agent step may leave out `model`. The publisher writes digests into the manifest it publishes, and the author's own file needn't hold them.
+
 **Reference tools**
 - A program that starts runs for other programs can drive the runner. `Runner.run` takes the run's id, and saves the record in the store when the run starts and each time a step starts or ends. Raising `RunCancelled` ends the run with the status `cancelled`: a step cut short fails with the runner's own code `x-cancelled`, and the steps after it are skipped.
 - `load_catalog` reads a path that is a file as one manifest.
