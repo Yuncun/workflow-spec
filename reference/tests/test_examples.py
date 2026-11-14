@@ -148,6 +148,17 @@ def test_cli_exit_codes(capsys):
     assert [e["code"] for e in out["errors"]] == ["type_mismatch", "type_mismatch"]
 
 
+def test_a_wrong_name_gets_the_close_one_or_all_of_them(catalog):
+    """A message suggests a close name. When none is close it lists the names there are, so an
+    agent can fix the name from the message alone (SPEC.md, principle 3)."""
+    steps = {"logs": {"uses": "acme/fetch-ci-logs@2.1.0", "with": {"repo": "acme/app", "run_id": 7, "branch": "main", "repos": "x"}}}
+    result = check({"outputs": {"out": {"from": "steps.logs.outputs.text"}}, "steps": steps}, catalog)
+    messages = {error.path: error.message for error in result.errors}
+    assert messages["/steps/logs/with/repos"].endswith("did you mean 'repo'?")
+    assert messages["/steps/logs/with/branch"].endswith("its inputs: 'repo', 'run_id'")
+    assert messages["/outputs/out"].endswith("its outputs: 'logs'")
+
+
 def test_lock_includes_the_steps_inside_a_published_workflow(catalog, tmp_path):
     # Publish ci-triage as a step whose workflow file sits next to its manifest.
     (tmp_path / "ci-triage.yaml").write_text((EXAMPLES / "workflows" / "ci-triage.yaml").read_text())

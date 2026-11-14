@@ -13,6 +13,8 @@
 - A program that starts runs for other programs can drive the runner. `Runner.run` takes the run's id, and saves the record in the store when the run starts and each time a step starts or ends. Raising `RunCancelled` ends the run with the status `cancelled`: a step cut short fails with the runner's own code `x-cancelled`, and the steps after it are skipped.
 - `load_catalog` reads a path that is a file as one manifest.
 - The checker follows Annex A.1 for a source schema whose `properties` or `required` is empty. Such a schema declares neither, so a name the input requires is a warning, `type_unchecked`. Before, the checker reported `type_mismatch`. The new case `check/empty-properties` covers it.
+- When a workflow names an input, an output or a step that doesn't exist and no name is close, the checker's message lists the names there are.
+- An agent step whose manifest names no model fails with a message that says so, unless the runner was given a model to use. Before, the runner reported a `KeyError`.
 
 ## 0.4, 2026-11-10 (draft)
 

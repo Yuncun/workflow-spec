@@ -214,6 +214,25 @@ def test_a_write_that_isnt_approved_is_left_out(tmp_path: Path):
     assert record["steps"]["save"]["status"] == "succeeded" and (tmp_path / "saved.txt").read_text() == "HI"
 
 
+def test_an_agent_step_without_a_model_says_so(tmp_path: Path):
+    """An agent step whose manifest names no model fails with a message that says so, unless the
+    runner was given a model to use."""
+    (tmp_path / "steps").mkdir()
+    (tmp_path / "steps" / "notes.md").write_text("Answer briefly.")
+    (tmp_path / "steps" / "ask.yaml").write_text("""\
+name: test/ask
+version: 1.0.0
+description: An agent step that names no model.
+inputSchema: { type: object, properties: { text: { type: string } }, required: [text] }
+outputSchema: { type: object, properties: { answer: { type: string } }, required: [answer] }
+effects: reads
+runtime: { agent: { instructions: notes.md } }
+""")
+    workflow = {"outputs": {"answer": {"from": "steps.ask.outputs.answer"}}, "steps": {"ask": {"uses": "test/ask@1.0.0", "with": {"text": "hi"}}}}
+    record = Runner(load_catalog([tmp_path / "steps"]), Options(store=Store(tmp_path / "store"))).run(workflow, {})
+    assert record["steps"]["ask"]["error"] == {"code": "failed", "message": "the manifest names no model, and the runner was given none to use"}
+
+
 # ---- a runner that another program drives: an id of its choice, the record so far, cancelling ----
 
 SLOW = """\

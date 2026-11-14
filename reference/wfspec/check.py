@@ -161,7 +161,7 @@ class _Checker:
             where = pointer("steps", sid, "with", name)
             known = manifest is not None and name in props
             if manifest is not None and not known:
-                self.error("unknown_input", where, f"{step['uses']} has no input {name!r}" + _suggest(name, props), sid, name)
+                self.error("unknown_input", where, f"{step['uses']} has no input {name!r}" + _suggest(name, props, "its inputs"), sid, name)
             kind, payload = split_value(value)
             if kind == "reference":
                 source = self._resolve(payload, where, sid, name)
@@ -188,7 +188,7 @@ class _Checker:
             self.used_inputs.add(input_name)
             props = self.inputs["properties"]
             if input_name not in props:
-                self.error("unknown_reference", where, f"the workflow has no input {input_name!r}" + _suggest(input_name, props), sid, name)
+                self.error("unknown_reference", where, f"the workflow has no input {input_name!r}" + _suggest(input_name, props, "its inputs"), sid, name)
                 return None
             schema = props[input_name]  # a schema, or true or false
             optional = schema is False or (input_name not in self.inputs.get("required", []) and not _has_default(schema))
@@ -197,7 +197,7 @@ class _Checker:
         if match:
             upstream, output = match.groups()
             if upstream not in self.steps:
-                self.error("unknown_reference", where, f"there is no step {upstream!r}" + _suggest(upstream, self.steps), sid, name)
+                self.error("unknown_reference", where, f"there is no step {upstream!r}" + _suggest(upstream, self.steps, "the steps"), sid, name)
                 return None
             if sid is not None:
                 self.deps[sid].add(upstream)
@@ -209,7 +209,7 @@ class _Checker:
                 self.error(
                     "unknown_reference",
                     where,
-                    f"step {upstream!r} ({self.steps[upstream]['uses']}) has no output {output!r}" + _suggest(output, outputs["properties"]),
+                    f"step {upstream!r} ({self.steps[upstream]['uses']}) has no output {output!r}" + _suggest(output, outputs["properties"], "its outputs"),
                     sid,
                     name,
                 )
@@ -294,9 +294,19 @@ def _has_default(schema) -> bool:
     return isinstance(schema, dict) and "default" in schema
 
 
-def _suggest(name: str, options) -> str:
-    close = difflib.get_close_matches(name, list(options), n=1, cutoff=0.6)
-    return f"; did you mean {close[0]!r}?" if close else ""
+def _suggest(name: str, options, listed: str | None = None) -> str:
+    """The close name, if there is one. Without one, `listed` names what the options are, such as
+    "its inputs", and they are all given, so an agent can fix the name from the message alone."""
+    options = list(options)
+    close = difflib.get_close_matches(name, options, n=1, cutoff=0.6)
+    if close:
+        return f"; did you mean {close[0]!r}?"
+    if listed is None:
+        return ""
+    if not options:
+        return f"; {listed}: none"
+    more = f", and {len(options) - 20} more" if len(options) > 20 else ""
+    return f"; {listed}: " + ", ".join(repr(o) for o in options[:20]) + more
 
 
 def _order(issue: Issue):

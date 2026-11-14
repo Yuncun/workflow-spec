@@ -347,7 +347,9 @@ def run_agent(manifest: dict, folder: Path, inputs: dict, store: Store, model: M
         {"role": "system", "content": path.read_text()},
         {"role": "user", "content": json.dumps(readable(inputs, manifest["inputSchema"], store), ensure_ascii=False)},
     ]
-    name = model.name or spec["model"]
+    name = model.name or spec.get("model")
+    if name is None:
+        raise StepFailed("failed", "the manifest names no model, and the runner was given none to use")
     calls = manifest.get("calls", [])
 
     if not calls and not manifest.get("maySkip"):
