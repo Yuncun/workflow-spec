@@ -7,7 +7,6 @@
   "required": [
     "name",
     "version",
-    "description",
     "inputSchema",
     "outputSchema",
     "effects",
@@ -49,7 +48,7 @@
     },
     "maySkip": {
       "type": "boolean",
-      "description": "The step can finish by skipping: it gives a reason instead of outputs, and the steps that depend on it are skipped (SPEC.md, section 9.6)."
+      "description": "The step can finish by skipping: it gives a reason instead of outputs, and the steps that depend on it are skipped (SPEC.md, section 9.4)."
     },
     "secrets": {
       "type": "array",
@@ -110,6 +109,11 @@
       "type": "string",
       "pattern": "^[a-z0-9][a-z0-9_-]*/[a-z0-9][a-z0-9-]*@(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)(-[0-9A-Za-z.-]+)?$"
     },
+    "digest": {
+      "description": "sha256: followed by a SHA-256 in lowercase hex (SPEC.md, section 10.1).",
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    },
     "objectSchema": {
       "description": "A JSON Schema (2020-12) for an object whose properties are the named inputs or outputs.",
       "type": "object",
@@ -154,7 +158,7 @@
               "minLength": 1
             },
             "digest": {
-              "$ref": "urn:wfspec:schema:lock#/$defs/digest"
+              "$ref": "#/$defs/digest"
             }
           },
           "patternProperties": { "^x-": {} },

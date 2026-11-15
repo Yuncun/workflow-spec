@@ -21,15 +21,18 @@ CATALOG = ROOT / "examples" / "steps"
 
 
 def kind_of(data) -> str:
+    """What a full example is, from the fields that say what it is rather than the ones being checked, so an example
+    that drops a required field or adds an unknown one is still checked, and fails."""
     if not isinstance(data, dict):
         return "other"
-    if "runtime" in data:
-        return "manifest"
-    if "steps" in data:
+    keys = set(data)
+    if "steps" in keys:
         return "workflow"
-    if data and set(data) <= {"maxEffects", "secrets"}:
+    if "runtime" in keys or {"name", "version"} <= keys:
+        return "manifest"
+    if keys & {"maxEffects", "secrets"}:
         return "policy"
-    if {"digest", "mediaType"} <= set(data):
+    if {"digest", "mediaType"} <= keys:
         return "file value"
     return "other"
 

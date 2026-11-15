@@ -4,7 +4,6 @@ Each reads its inputs from WF_INPUTS and writes outputs to WF_OUTPUTS, as drafts
 """
 import json
 import os
-import secrets
 import socket
 import sys
 from pathlib import Path
@@ -32,8 +31,11 @@ elif behaviour == "greet":
     give({"greeting": f"hello {inputs['name']}"})
 elif behaviour == "maybe-name":
     give({"name": "ada"} if inputs["give"] else {})
-elif behaviour == "random":
-    give({"token": secrets.token_hex(8)})
+elif behaviour == "flaky-write":
+    if bump(inputs["counter"]) == 1:
+        print("first attempt fails")
+        sys.exit(1)
+    give({"done": True})
 elif behaviour == "fail":
     print("failing on purpose")
     sys.exit(3)
@@ -51,11 +53,6 @@ elif behaviour == "save-text":
 elif behaviour == "show-secrets":
     print("TOKEN_A is", os.environ.get("TOKEN_A"))
     give({"a_set": "TOKEN_A" in os.environ, "b_set": "TOKEN_B" in os.environ})
-elif behaviour in ("flaky", "flaky-write"):
-    if bump(inputs["counter"]) == 1:
-        print("first attempt fails")
-        sys.exit(1)
-    give({"done": True})
 elif behaviour == "try-network":
     try:
         socket.create_connection(("127.0.0.1", inputs["port"]), timeout=2).close()

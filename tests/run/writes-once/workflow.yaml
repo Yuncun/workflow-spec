@@ -1,0 +1,3 @@
+# A step that writes and fails isn't run again; a retry would succeed (SPEC.md, [run.writes-once]).
+steps:
+  writing: { uses: test/flaky-write@1.0.0, with: { counter: "{tmp}/writing.count" } }

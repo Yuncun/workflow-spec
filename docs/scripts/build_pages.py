@@ -59,6 +59,7 @@ CITATION = re.compile(rf"(?<![*\w\[])\[({REQUIREMENT_ID})\](?![(\]])")
 LINK = re.compile(r"(?<!!)\[((?:[^\[\]]|\[[^\[\]]*\])*)\]\(([^)\s]+)\)")
 KEY_WORD = re.compile(r"\b(MUST NOT|MUST|SHALL NOT|SHALL|SHOULD NOT|SHOULD|NOT RECOMMENDED|RECOMMENDED|REQUIRED|MAY|OPTIONAL)\b")
 FENCE = re.compile(r"^(```|~~~)[^\n]*\n.*?^\1[ \t]*$", re.S | re.M)
+CODE_SPAN = re.compile(r"(`+[^`]*?`+)")
 NUMBER = r"\d+(?:\.\d+)*"
 ANNEX_REF = re.compile(r"\bAnnex ([A-Z](?:\.\d+)*)\b")
 SECTION_REF = re.compile(rf"\b([Ss]ection) ({NUMBER})\b")
@@ -101,7 +102,24 @@ def outside_code(text: str, change) -> str:
 
 
 def _outside_spans(text: str, change) -> str:
-    parts = re.split(r"(`+[^`]*?`+)", text)
+    """change() gets every part outside code spans. A link whose label holds a code span, such as [`SPEC.md`](SPEC.md),
+    reaches change() whole, so its target is still checked and rewritten; link-like text inside a code span stays code."""
+    spans = [found.span() for found in CODE_SPAN.finditer(text)]
+    out, at = [], 0
+    for found in LINK.finditer(text):
+        start, end = found.span()
+        in_code = any(a <= start < b for a, b in spans)
+        holds_code = any(start < a and b <= end for a, b in spans)
+        if in_code or not holds_code or start < at:
+            continue
+        out += [_split_spans(text[at:start], change), change(found.group(0))]
+        at = end
+    out.append(_split_spans(text[at:], change))
+    return "".join(out)
+
+
+def _split_spans(text: str, change) -> str:
+    parts = CODE_SPAN.split(text)
     return "".join(part if i % 2 else change(part) for i, part in enumerate(parts))
 
 
@@ -490,7 +508,6 @@ SCHEMA_PAGES = [
     ("step.schema.json", "reference/schemas/step.md"),
     ("workflow.schema.json", "reference/schemas/workflow.md"),
     ("file.schema.json", "reference/schemas/file.md"),
-    ("lock.schema.json", "reference/schemas/lock.md"),
     ("run.schema.json", "reference/schemas/run.md"),
     ("policy.schema.json", "reference/schemas/policy.md"),
 ]
@@ -736,7 +753,7 @@ def cli_page() -> str:
 
 def examples_page() -> str:
     groups = [("Steps", "examples/steps/*.yaml"), ("Workflows", "examples/workflows/*.yaml"),
-              ("Run records", "examples/runs/*.json"), ("Lock files", "examples/*.lock.json")]
+              ("Run records", "examples/runs/*.json")]
     out = [front_matter(editLink=False), "# Examples", ""]
     for title, pattern in groups:
         out += [f"## {title}", ""]

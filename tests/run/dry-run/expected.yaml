@@ -1,4 +1,0 @@
-status: succeeded
-outputs: { path: /original/note.txt }
-dry_run_differences: []
-steps: { saved: { attempts: 0 } }

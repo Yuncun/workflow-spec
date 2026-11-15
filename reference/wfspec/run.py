@@ -22,12 +22,11 @@ from typing import Callable
 
 from .check import INPUT_REF, OUTPUT_REF, check, split_value
 from .documents import Catalog, json_problem, load_document, media_type_problems, value_problem
-from .publish import cache_key, digest, lock, pinned_workflow
+from .publish import digest, pinned_workflow
 from .runtimes import Model, Outcome, StepFailed, inside, readable, run_agent, run_process
 from .store import Store
 
-CALL_FIELDS = ("uses", "digest", "cacheKey", "cacheHit", "attempts", "inputs", "outputs", "status", "reason",
-               "started", "ended", "error", "logs", "calls", "steps")
+CALL_FIELDS = ("uses", "digest", "inputs", "outputs", "status", "reason", "started", "ended", "error", "logs", "calls", "steps")
 MAX_DEPTH = 32  # how deeply steps may nest, through calls and workflow steps
 
 
@@ -60,13 +59,10 @@ class Options:
     store: Store
     policy: dict | None = None
     secrets: dict[str, str] = field(default_factory=dict)  # the caller's secrets, by name
-    retries: int = 0  # automatic retries for a failed step that doesn't write
     timeout: float = 300  # seconds, per program
     model: Model = field(default_factory=Model)
     sandbox: bool = True
     caller: str = field(default_factory=getpass.getuser)
-    replay: dict | None = None  # a run record: steps that write return its outputs (a dry run)
-    lock: dict | None = None  # the workflow's lock file, when it was published
     readable: list[Path] = field(default_factory=list)  # folders programs may read under the home folder
     # Asked with a step's name@version and input values before it writes; False leaves the step out ([run.effects]).
     approve: Callable[[str, dict], bool] | None = None
@@ -77,7 +73,6 @@ class Options:
 class Runner:
     def __init__(self, catalog: Catalog, options: Options):
         self.catalog, self.options, self.store = catalog, options, options.store
-        self._replayed: dict[str, int] = {}
         self._live: dict | None = None  # the record of the run in progress
         self._cancelled = False
 
@@ -92,7 +87,6 @@ class Runner:
         record = {
             "id": run_id or "run_" + uuid.uuid4().hex[:12],
             "workflow": {k: workflow[k] for k in ("name", "version") if isinstance(workflow, dict) and k in workflow} | {"digest": digest(workflow)},
-            "lock": {"lockVersion": 1, "steps": {}},
             "inputs": inputs,
             "status": "running",
             "caller": self.options.caller,
@@ -104,9 +98,6 @@ class Runner:
         if not result.ok:  # SPEC.md, [run.check-first]
             problems = "; ".join(f"{e.code} at {e.path or '/'}" for e in result.errors)
             return self._refuse(record, "check_failed", f"the workflow failed checking: {problems}")
-        record["lock"] = lock(workflow, self.catalog)
-        if self.options.lock is not None and self.options.lock.get("steps") != record["lock"]["steps"]:  # [run.lock]
-            return self._refuse(record, "lock_mismatch", "a step version no longer matches the workflow's lock file")
         schema = workflow.get("inputSchema", {"type": "object", "properties": {}})
         values = with_defaults(schema, inputs)
         problem = json_problem(values) or value_problem(schema, values) or next(iter(media_type_problems(values, schema)), None)
@@ -149,12 +140,12 @@ class Runner:
         import hashlib
 
         record = {"id": run_id or "run_" + uuid.uuid4().hex[:12], "workflow": {"digest": "sha256:" + hashlib.sha256(raw).hexdigest()},
-                  "lock": {"lockVersion": 1, "steps": {}}, "inputs": {}, "status": "running", "caller": self.options.caller,
+                  "inputs": {}, "status": "running", "caller": self.options.caller,
                   "created": now(), "traceId": tokens.token_hex(16), "steps": {}}
         return self._refuse(record, "check_failed", f"the workflow can't be read: {message}")
 
     def _steps(self, workflow: dict, result, values: dict, depth: int = 0) -> tuple[dict, dict, list[str]]:
-        """Run the needed steps in order (SPEC.md, sections 9.2 to 9.6). Returns the step records, the
+        """Run the needed steps in order (SPEC.md, sections 9.2 to 9.4). Returns the step records, the
         workflow's outputs, and the ids of the steps that failed."""
         done: dict[str, dict] = {}
         for sid in result.order:
@@ -216,11 +207,10 @@ class Runner:
     # ---- one step -------------------------------------------------------------------------
 
     def run_step(self, ref: str, given, depth: int = 0) -> dict:
-        """Run one step version with the given input values, and return its record (SPEC.md, sections 9.3 to 9.8)."""
+        """Run one step version with the given input values, and return its record (SPEC.md, sections 9.3 to 9.7)."""
         manifest = self.catalog.steps[ref]
         entry: dict = {"uses": ref, "digest": digest(manifest), "status": "running", "started": now(),
                        "inputs": given if isinstance(given, dict) else {}}
-        cacheable = manifest.get("deterministic", False) and manifest["effects"] != "writes"
         began = False  # whether the step itself has started, so cancelling can't have left it half done
         try:
             if not isinstance(given, dict):  # a model can send anything as a call's arguments
@@ -233,35 +223,17 @@ class Runner:
                        or next(iter(media_type_problems(inputs, manifest["inputSchema"])), None))
             if problem:  # [run.input-check], [types.media-type], [doc.numbers]
                 raise StepFailed("invalid_input", problem)
-            key = None
-            if cacheable:  # [run.cache-key], [run.cache-only-cacheable]
-                key = cache_key(manifest, inputs)
-                entry["cacheKey"] = key
-                hit = self.store.cached(key)
-                if hit is not None:
-                    entry.update(status="succeeded", outputs=hit, cacheHit=True, attempts=0, ended=now())
-                    return entry
-                entry["cacheHit"] = False
-            if self.options.replay is not None and manifest["effects"] == "writes":
-                recorded = self._recorded_outputs(ref)
-                if recorded is None:
-                    raise StepFailed("failed", "dry run: the original run has no recorded outputs for this step")
-                entry.update(status="succeeded", outputs=recorded, attempts=0, ended=now(),
-                             reason=f"dry run: outputs recorded in {self.options.replay['id']}")
-                return entry
             # An agent or a workflow writes only through the steps it runs, and each of those is asked about in turn.
             asks = manifest["effects"] == "writes" and next(iter(manifest["runtime"])) not in ("agent", "workflow")
             if asks and self.options.approve is not None and not self.options.approve(ref, self._scrub(inputs)):
-                entry.update(status="skipped", reason="not approved", attempts=0, ended=now())
+                entry.update(status="skipped", reason="not approved", ended=now())
                 return entry
             began = True
-            outcome = self._attempts(ref, manifest, inputs, entry, depth)
+            outcome = self._once(ref, manifest, inputs, entry, depth)
             if outcome.skipped is not None:
                 entry.update(status="skipped", reason=self._redact(outcome.skipped))
             else:
                 entry.update(status="succeeded", outputs=outcome.outputs)
-                if key:
-                    self.store.cache(key, outcome.outputs)
         except RunCancelled:  # whoever started this step sees _cancelled and stops too
             self._cancelled = True
             if began:
@@ -277,28 +249,19 @@ class Runner:
         entry["ended"] = now()
         return entry
 
-    def _attempts(self, ref: str, manifest: dict, inputs: dict, entry: dict, depth: int) -> Outcome:
-        """Run a step, retrying a failure only when the step doesn't write ([run.retry])."""
-        attempts = 0
-        while True:
-            attempts += 1
-            entry["attempts"] = attempts
-            try:
-                outcome = self._execute(ref, manifest, inputs, entry, depth)
-                if outcome.logs:
-                    entry["logs"] = self.store.put_bytes(self._redact(outcome.logs), "text/plain", f"{ref.split('/')[1]}.log")
-                if outcome.skipped is None:
-                    problem = json_problem(outcome.outputs) or value_problem(manifest["outputSchema"], outcome.outputs) or next(
-                        iter(media_type_problems(outcome.outputs, manifest["outputSchema"])), None)
-                    if problem:  # [run.output-check], [types.media-type]
-                        raise StepFailed("invalid_output", problem, outcome.logs)
-                    if self._holds_secret(outcome.outputs):  # [run.secrets-hidden]
-                        raise StepFailed("failed", "the outputs contain a secret's value", outcome.logs)
-                return outcome
-            except StepFailed:
-                if attempts <= self.options.retries and manifest["effects"] != "writes":
-                    continue
-                raise
+    def _once(self, ref: str, manifest: dict, inputs: dict, entry: dict, depth: int) -> Outcome:
+        """Run a step once, and check its outputs. The runner retries no step ([run.writes-once])."""
+        outcome = self._execute(ref, manifest, inputs, entry, depth)
+        if outcome.logs:
+            entry["logs"] = self.store.put_bytes(self._redact(outcome.logs), "text/plain", f"{ref.split('/')[1]}.log")
+        if outcome.skipped is None:
+            problem = json_problem(outcome.outputs) or value_problem(manifest["outputSchema"], outcome.outputs) or next(
+                iter(media_type_problems(outcome.outputs, manifest["outputSchema"])), None)
+            if problem:  # [run.output-check], [types.media-type]
+                raise StepFailed("invalid_output", problem, outcome.logs)
+            if self._holds_secret(outcome.outputs):  # [run.secrets-hidden]
+                raise StepFailed("failed", "the outputs contain a secret's value", outcome.logs)
+        return outcome
 
     def _execute(self, ref: str, manifest: dict, inputs: dict, entry: dict, depth: int) -> Outcome:
         kind = next(iter(manifest["runtime"]))
@@ -375,17 +338,6 @@ class Runner:
             return any(self._holds_secret(v) for v in value)
         return False
 
-    # ---- dry runs (SPEC.md, [publish.saved-run]) --------------------------------------------
-
-    def _recorded_outputs(self, ref: str) -> dict | None:
-        """The outputs the original run recorded for the next write of `ref` not yet replayed."""
-        k = self._replayed.get(ref, 0)
-        recorded = _recorded_write(self.options.replay, ref, k)
-        if recorded is None:
-            return None
-        self._replayed[ref] = k + 1
-        return recorded.get("outputs", {})
-
 
 def _cut_short(entry: dict) -> dict:
     """A step's record in a run cancelled between two steps."""
@@ -394,94 +346,3 @@ def _cut_short(entry: dict) -> dict:
     if entry["status"] == "running":
         return {**entry, "status": "failed", "error": {"code": "x-cancelled", "message": f"{CANCELLED} while this step was running"}}
     return entry
-
-
-def _entries(record: dict) -> list[dict]:
-    """Every step and call in a run record, in run order: steps by start time, each followed by
-    what ran inside it."""
-    return [entry for entry, _ in _walk(record)]
-
-
-def _walk(record: dict, outer: tuple = ()) -> list[tuple[dict, tuple]]:
-    """Every step and call in a run record, in run order, each with the steps and calls it ran inside."""
-    found = []
-    for entry in sorted(record.get("steps", {}).values(), key=lambda e: e.get("started", "")):
-        found.extend(_walk_entry(entry, outer))
-    return found
-
-
-def _walk_entry(entry: dict, outer: tuple) -> list[tuple[dict, tuple]]:
-    """A step or call, then the calls it made and the steps of its workflow, at every depth."""
-    found, inside = [(entry, outer)], (*outer, entry)
-    for call in entry.get("calls", []):
-        found.extend(_walk_entry(call, inside))
-    if "steps" in entry:
-        found.extend(_walk(entry, inside))
-    return found
-
-
-def _recorded_write(record: dict, ref: str, k: int) -> dict | None:
-    """The k-th succeeded step or call of `ref` in a run record, in run order, counting from 0."""
-    found = [e for e in _entries(record) if e["uses"] == ref and e.get("status") == "succeeded"]
-    return found[k] if k < len(found) else None
-
-
-def compare_dry_run(original: dict, dry: dict, catalog: Catalog, workflow: dict) -> list[str]:
-    """How a dry run of a saved workflow differs from the run it was saved from (SPEC.md,
-    [publish.saved-run]): a deterministic step that gave other outputs than the original run
-    recorded for the same inputs, a step that writes given another value for a fixed input than
-    the write it replayed was given, or a write of the original run that nothing replayed."""
-    differences = []
-    before = _entries(original)
-    for entry in _entries(dry):
-        manifest = catalog.steps.get(entry["uses"], {})
-        if entry.get("status") != "succeeded" or not manifest.get("deterministic") or manifest.get("effects") == "writes":
-            continue
-        same = [e for e in before if e["uses"] == entry["uses"] and digest(e.get("inputs", {})) == digest(entry.get("inputs", {}))]
-        if same and digest(same[0].get("outputs", {})) != digest(entry.get("outputs", {})):
-            differences.append(f"{entry['uses']} gave different outputs for the same inputs")
-    order = check(workflow, catalog).order  # the order the dry run replayed its writes in
-    fixed = _fixed_steps(workflow, catalog, order)
-    counted: dict[str, int] = {}
-    replayed: set[int] = set()  # the original run's writes the dry run replayed
-    for sid in order:
-        entry = dry["steps"].get(sid, {})
-        if entry.get("status") != "succeeded" or catalog.steps[entry["uses"]]["effects"] != "writes":
-            continue
-        k = counted.get(entry["uses"], 0)
-        counted[entry["uses"]] = k + 1
-        recorded = _recorded_write(original, entry["uses"], k)
-        if recorded is None:
-            continue
-        replayed.add(id(recorded))
-        given = workflow["steps"][sid].get("with") or {}
-        for name in sorted(set(entry.get("inputs", {})) | set(recorded.get("inputs", {}))):
-            if name in given and not _is_fixed(given[name], fixed):
-                continue  # a value that can differ from one run to the next, such as a model's answer
-            if digest(entry.get("inputs", {}).get(name)) != digest(recorded.get("inputs", {}).get(name)):
-                differences.append(f"{entry['uses']} gets a different {name!r} than in the original run")
-    for entry, outer in _walk(original):  # a write that made no calls, replayed neither by itself nor with what it ran inside
-        if (catalog.steps.get(entry["uses"], {}).get("effects") == "writes" and entry.get("status") == "succeeded"
-                and not entry.get("calls") and "steps" not in entry and not any(id(e) in replayed for e in (entry, *outer))):
-            differences.append(f"{entry['uses']} wrote in the original run, but no step of the saved workflow replays it")
-    return differences
-
-
-def _fixed_steps(workflow: dict, catalog: Catalog, order: list[str]) -> set[str]:
-    """The steps whose outputs are fixed: deterministic steps whose inputs are all fixed."""
-    fixed: set[str] = set()
-    for sid in order:  # each step comes after the steps it references
-        step = workflow["steps"][sid]
-        if catalog.steps[step["uses"]].get("deterministic") and all(_is_fixed(v, fixed) for v in (step.get("with") or {}).values()):
-            fixed.add(sid)
-    return fixed
-
-
-def _is_fixed(value, fixed: set[str]) -> bool:
-    """Whether a `with` value is the same in every run with the same inputs: a literal, a workflow
-    input, or an output of a fixed step."""
-    kind, ref = split_value(value)
-    if kind == "literal" or INPUT_REF.match(ref):
-        return True
-    m = OUTPUT_REF.match(ref)
-    return bool(m) and m.group(1) in fixed

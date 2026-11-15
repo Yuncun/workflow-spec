@@ -1,5 +1,5 @@
 # A container step that reads outside data. Its output depends only on its inputs
-# (a finished run's logs never change), so it is deterministic and can be cached.
+# (a finished run's logs never change), so it is deterministic: a runner may reuse its outputs for the same inputs.
 name: acme/fetch-ci-logs
 version: 2.1.0
 title: Fetch CI logs

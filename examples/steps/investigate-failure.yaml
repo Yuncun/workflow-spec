@@ -1,7 +1,7 @@
 # An agent step that calls other steps: it decides for itself which of the steps in `calls`
 # to call. One of them opens issues, so its effects are 'writes', and it names that step's
 # secret. examples/runs/investigate.run.json records one run of it, and
-# examples/workflows/ci-triage.yaml is that run saved as a workflow.
+# examples/workflows/ci-triage.yaml is a workflow that fixes the steps it took.
 name: acme/investigate-failure
 version: 0.1.0
 title: Investigate a CI failure

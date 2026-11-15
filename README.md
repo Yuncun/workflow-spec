@@ -8,8 +8,7 @@ A text format for jobs built from published steps. A step can be:
 
 The package also gives the rules for:
 - checking a job before it runs
-- what running it must produce, the same for everyone
-- saving an agent's run as a job anyone can rerun
+- what running it must produce, on any runner
 
 A workflow connects steps. Each input of a step gets either a literal value or a reference to a workflow input or to another step's output:
 
@@ -46,7 +45,7 @@ To write a workflow, start with [guides/write-a-workflow.md](guides/write-a-work
 
 | Document | Status |
 |---|---|
-| [SPEC.md](SPEC.md): the format layer | normative; version 0.4 draft |
+| [SPEC.md](SPEC.md): the format layer | normative; draft |
 | [drafts/runtime.md](drafts/runtime.md): how a runner starts a step | draft, not normative |
 | [drafts/mcp.md](drafts/mcp.md): steps as MCP tools | draft, not normative |
 | [proposals.md](proposals.md): features left out, open questions | not normative |
@@ -55,12 +54,8 @@ To write a workflow, start with [guides/write-a-workflow.md](guides/write-a-work
 
 ```text
 schemas/     JSON Schemas for each kind of document
-examples/    step manifests, workflows, run records and a lock file
+examples/    step manifests, workflows and run records
 guides/      for step authors and workflow authors
 tests/       test cases for checkers and runners
 reference/   a small Python checker and runner that pass them
 ```
-
-## License
-
-Apache-2.0, the license OpenAPI and Arazzo use. See [LICENSE](LICENSE).

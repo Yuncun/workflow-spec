@@ -1,0 +1,4 @@
+status: failed
+error: failed
+steps:
+  writing: { status: failed, error: failed }

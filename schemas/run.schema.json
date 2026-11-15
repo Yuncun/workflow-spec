@@ -2,12 +2,11 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "urn:wfspec:schema:run",
   "title": "Run record",
-  "description": "What happened when a workflow ran: which step versions, with which inputs, giving which outputs. Enough to rerun it or save it as a new workflow. See SPEC.md, section 9.10.",
+  "description": "What happened when a workflow ran: which step versions, with which inputs, giving which outputs. See SPEC.md, section 9.8.",
   "type": "object",
   "required": [
     "id",
     "workflow",
-    "lock",
     "inputs",
     "status",
     "created",
@@ -31,13 +30,10 @@
           "$ref": "urn:wfspec:schema:step#/$defs/version"
         },
         "digest": {
-          "$ref": "urn:wfspec:schema:lock#/$defs/digest"
+          "$ref": "urn:wfspec:schema:step#/$defs/digest"
         }
       },
       "additionalProperties": false
-    },
-    "lock": {
-      "$ref": "urn:wfspec:schema:lock"
     },
     "inputs": {
       "type": "object"
@@ -55,7 +51,7 @@
       ]
     },
     "error": {
-      "description": "Why the run failed or never started: 'check_failed', 'invalid_input' or 'lock_mismatch' for a run that never started, otherwise the code of the first step that failed.",
+      "description": "Why the run failed or never started: 'check_failed' or 'invalid_input' for a run that never started, otherwise the code of the first step that failed.",
       "type": "object",
       "required": [
         "code",
@@ -70,7 +66,6 @@
             { "enum": [
             "check_failed",
             "invalid_input",
-            "lock_mismatch",
             "invalid_output",
             "pinned_mismatch",
             "timeout",
@@ -122,7 +117,7 @@
           "$ref": "urn:wfspec:schema:step#/$defs/stepRef"
         },
         "digest": {
-          "$ref": "urn:wfspec:schema:lock#/$defs/digest"
+          "$ref": "urn:wfspec:schema:step#/$defs/digest"
         },
         "status": {
           "enum": [
@@ -137,16 +132,6 @@
         "reason": {
           "description": "Why the step was skipped or not needed.",
           "type": "string"
-        },
-        "cacheKey": {
-          "$ref": "urn:wfspec:schema:lock#/$defs/digest"
-        },
-        "cacheHit": {
-          "type": "boolean"
-        },
-        "attempts": {
-          "type": "integer",
-          "minimum": 0
         },
         "inputs": {
           "type": "object"
@@ -191,7 +176,7 @@
           "additionalProperties": false
         },
         "calls": {
-          "description": "The steps this step called while it ran, in order (SPEC.md, section 9.9).",
+          "description": "The steps this step called while it ran, in order (SPEC.md, section 9.7).",
           "type": "array",
           "items": {
             "$ref": "#/$defs/call"
@@ -233,17 +218,7 @@
           "$ref": "urn:wfspec:schema:step#/$defs/stepRef"
         },
         "digest": {
-          "$ref": "urn:wfspec:schema:lock#/$defs/digest"
-        },
-        "cacheKey": {
-          "$ref": "urn:wfspec:schema:lock#/$defs/digest"
-        },
-        "cacheHit": {
-          "type": "boolean"
-        },
-        "attempts": {
-          "type": "integer",
-          "minimum": 0
+          "$ref": "urn:wfspec:schema:step#/$defs/digest"
         },
         "inputs": {
           "type": "object"

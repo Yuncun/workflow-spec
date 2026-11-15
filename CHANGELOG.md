@@ -9,12 +9,36 @@
 
 ## Unreleased
 
+These changes ask less of a runner. The specification covers the format and what a run gives back, so that a workflow behaves the same on any runner. How a runner does its work is its own business.
+
+**Removed**
+- The cache (was 9.4): the cache key, `run.cache-key`, `run.cache-only-cacheable`, and `cacheKey` and `cacheHit` in run records. A runner may reuse outputs as it likes; `deterministic` says when that is safe.
+- Retries (was 9.5): `run.retry` and `attempts` in run records. What it protected, that a step that writes doesn't run twice, is now [run.writes-once].
+- Lock files (was 10.3): `publish.lock`, `run.lock`, `lock_mismatch`, `schemas/lock.schema.json`, and `lock` in run records. Versions that never change ([publish.immutable]) and pinned content ([run.pinned]) already keep a workflow from running different code.
+- Saving a run as a workflow, and dry runs (was 10.6): `publish.saved-run`. Nobody built it. The idea is back in proposals.md, P12.
+- Proposals P15 (layout for editors), P17 (triggers and schedules), P18 (a service API) and P19 (a registry API), left to platforms.
+- Exact agreement between checkers (was Annex A.3's order of rules, A.4's exceptions and A.5's paths and counts). Checkers must agree on pass or fail and on the error codes; a problem's path SHOULD point at its cause ([check.paths]). Proposal P23 goes with it.
+- How a runner stores files (`types.file-store`), the advice to run independent steps in parallel, and the version-bump checklist (`publish.versions`, with proposal P13). Versions follow Semantic Versioning.
+- `publish.resolve`: a publisher may write content digests into a manifest, but doesn't have to. A runner still checks the ones there are ([run.pinned]).
+- `manifest.calls-one-per-major`, which only drafts/mcp.md needs; it's described there now.
+
+**Relaxed**
+- Warnings are optional. A checker SHOULD report `step_never_runs`, and MAY report `type_unchecked` and `unused_input`.
+- Optional runner features (section 3): `calls`, `workflow-step`, `file-inputs` and `run-record`. A runner passes the run cases whose features and runtime kinds it supports; each case lists them under `needs` in its `options.yaml`. The `effects` case checks the reference runner's own sandbox, so no other runner has to pass it.
+- A platform's own `x-` errors don't break [conform.verdict], and a platform that knows why a version is missing may report its own code in place of `unknown_step`.
+- `description` is optional in a manifest (section 5.1).
+- drafts/runtime.md: a runner may add environment variables, and an agent's `model` is optional.
+
+**Fixed**
+- The reference checker treated an empty `properties` or `required` as declaring some, where Annex A.1 says it counts as none (`check/empty-properties`).
+
 **Reference tools**
 - A program that starts runs for other programs can drive the runner. `Runner.run` takes the run's id, and saves the record in the store when the run starts and each time a step starts or ends. Raising `RunCancelled` ends the run with the status `cancelled`: a step cut short fails with the runner's own code `x-cancelled`, and the steps after it are skipped.
 - `load_catalog` reads a path that is a file as one manifest.
-- The checker follows Annex A.1 for a source schema whose `properties` or `required` is empty. Such a schema declares neither, so a name the input requires is a warning, `type_unchecked`. Before, the checker reported `type_mismatch`. The new case `check/empty-properties` covers it.
 - When a workflow names an input, an output or a step that doesn't exist and no name is close, the checker's message lists the names there are.
-- An agent step whose manifest names no model fails with a message that says so, unless the runner was given a model to use. Before, the runner reported a `KeyError`.
+- An agent step whose manifest names no model runs with the runner's default model. Before, the runner reported a `KeyError`.
+
+Sections 9.6 to 9.10 are now 9.4 to 9.8, and 10.4 and 10.5 are now 10.3 and 10.4.
 
 ## 0.4, 2026-11-10 (draft)
 
@@ -50,9 +74,9 @@ Version 0.4 settles what two reviews and a second, independent checker found, an
 
 ## 0.3, 2026-11-09 (draft)
 
-- [publish.saved-run]: a dry run also compares what a saved workflow would write. Each step that writes must get the same value as the write it replays, for every fixed input. A write of the original run that the saved workflow leaves out is reported too.
+- `publish.saved-run`: a dry run also compares what a saved workflow would write. Each step that writes must get the same value as the write it replays, for every fixed input. A write of the original run that the saved workflow leaves out is reported too.
 - [run.failure]: a failed run's error has the code of the first step that failed.
-- [run.retry]: `attempts` of 0 also covers a write replayed in a dry run.
+- `run.retry`: `attempts` of 0 also covers a write replayed in a dry run.
 - `schemas/run.schema.json`: an error always has a code, and a call records its step digest.
 - Removed: section 2 of drafts/mcp.md, on the tools a platform's MCP server offers, and the guide that described that server. What the server offers is a platform's choice.
 
@@ -64,7 +88,7 @@ Version 0.2 cut the specification down to the format layer.
 - **Added to the documents:** requirement ids, conformance classes (checker, runner and publisher), the BCP 14 key words, and test cases for runners.
 - **Added to the format:** `calls`, which replaces `runtime.agent.tools`. The `process` runtime kind. `x-` fields in workflows. Caller policies. A `digest` on the `workflow` runtime kind.
 - **New error codes:** `invalid_input` and `lock_mismatch` for a run that never starts, and `pinned_mismatch` for a step.
-- **Changed:** steps that write are never retried automatically. [publish.versions] is a SHOULD. `schemas/step.schema.json` fixes the fields of the `workflow` runtime kind only.
+- **Changed:** steps that write are never retried automatically. `publish.versions` is a SHOULD. `schemas/step.schema.json` fixes the fields of the `workflow` runtime kind only.
 - **Removed:** `description` on workflow steps, and `plan` in run records.
 
 ## 0.1, 2026-11-07 (draft)

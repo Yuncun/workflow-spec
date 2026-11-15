@@ -86,23 +86,12 @@ Warnings don't block a run:
 ## 3. Run it
 
 Run it through the platform: its API, its MCP server, or a form built from `inputSchema`.
-- A rerun with some inputs changed reuses the cached results of deterministic steps whose inputs didn't change.
-- An output whose source was skipped, or is optional and wasn't produced, is left out of the run's outputs.
+
+An output whose source was skipped, or is optional and wasn't produced, is left out of the run's outputs.
 
 ## 4. Share it
 
-- Publish it with `name`, `version` and `description`. The platform writes a lock file that pins, by content hash, every step it can run, including the steps its steps can call.
-- The published workflow becomes a step that other workflows can use (SPEC.md, section 10.4).
+- Publish it with `name` and `version`.
+- The published workflow becomes a step that other workflows can use (SPEC.md, section 10.3).
 - On a platform with an MCP server, it also appears as a tool in MCP clients (drafts/mcp.md).
 - People who only want to run it get a form built from its inputs.
-
-## Save an agent's run as a workflow
-
-When an agent step solves something you'll need again, save its run as a workflow (SPEC.md, section 10.6):
-1. Open the run record and list the steps the agent called, in order.
-2. Make each call a step with the same `uses`.
-3. Where a value came from an earlier call, reference that call's output.
-4. Where the agent wrote something new between calls, add a narrow agent step with a typed output, or a fixed value.
-5. Check it, then do a dry run with the original inputs. It compares the outputs of deterministic steps, what each step that writes would be given, and whether any write is left out, with the original run. Steps that write return their recorded outputs instead of running again.
-
-`examples/runs/investigate.run.json` and `examples/workflows/ci-triage.yaml` show one run before and after.

@@ -227,7 +227,7 @@ def validator(schema: dict | str) -> Draft202012Validator:
 
 def schema_issues(doc, schema_id: str, code: str, file: str | None = None) -> list[Issue]:
     """One issue per location in `doc` where validation against the spec schema `schema_id` fails
-    (SPEC.md, Annex A.5), so the count doesn't depend on how many keywords a validator reports."""
+    so the count doesn't depend on how many keywords a validator reports."""
     errors = sorted(validator(schema_id).iter_errors(doc), key=lambda e: ([str(p) for p in e.absolute_path], e.message))
     first: dict[str, str] = {}
     for e in errors:
@@ -396,12 +396,6 @@ def manifest_issues(doc, file: str | None = None) -> list[Issue]:
                 why = value_problem(doc[key], example[part]) or next(iter(media_type_problems(example[part], doc[key])), None)
                 if why:  # [manifest.examples-fit], [types.media-type]
                     problem(pointer("examples", n, part), f"the example's {part} don't fit {key}: {why}")
-    seen: dict[str, str] = {}
-    for i, callee in enumerate(doc.get("calls", [])):
-        name = mcp_name(*callee.split("@"))
-        if name in seen:
-            problem(pointer("calls", i), f"{callee} and {seen[name]} have the same major version; list one version per major version")
-        seen.setdefault(name, callee)
     return issues
 
 

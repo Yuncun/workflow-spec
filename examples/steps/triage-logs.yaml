@@ -1,5 +1,6 @@
 # An agent step. It calls a model, so it reads outside data and is not deterministic:
-# it is never cached. Its outputs are still typed, so later steps can be checked.
+# the same inputs can give other outputs. Its outputs are still typed, so later steps
+# can be checked.
 name: acme/triage-logs
 version: 0.4.1
 title: Triage CI logs
