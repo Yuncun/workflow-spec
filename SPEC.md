@@ -34,7 +34,7 @@ How the parts turn into each other:
 The design goals:
 - Workflows should be portable between platforms.
 - Workflows should be reproducible.
-- Workflows should be safe to run.
+- It should be clear what a workflow can do before it runs.
 - Steps should be reusable.
 - Workflows should be easy to read and write, for people and for agents.
 - The format should be easy to implement.
