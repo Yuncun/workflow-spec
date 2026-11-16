@@ -9,7 +9,6 @@ SPEC.md says what a run must produce. This document says how a runner starts one
 | `process` | a program started on the runner's machine | `command` |
 | `container` | a program in a container image | `image`, `command` |
 | `agent` | a model that answers, and may call steps | `model`, `instructions`, `maxTurns` |
-| `mcp` | a tool on a remote MCP server | `server`, `tool` |
 
 ## 1. Programs: `process` and `container`
 
@@ -36,7 +35,7 @@ The contract:
 
   A runner checks each digest before the step runs, and fails the step with `pinned_mismatch` when a file differs or isn't inside the manifest's folder (SPEC.md, [run.pinned]).
 
-A program can't call steps under this draft (proposals.md, P16).
+A program can't call steps under this draft.
 
 *Informative.* The reference runner (`reference/wfspec/runtimes.py`) enforces `effects` for programs on macOS with the system sandbox (`sandbox-exec`):
 - A `none` step gets no network, and can't read the shared temporary folders (`/private/tmp` and `/private/var/folders`) or other volumes, apart from its work folder.
@@ -58,7 +57,7 @@ Where `sandbox-exec` isn't available, the runner refuses programs that don't wri
 The runner:
 1. **Starts the model.** The instructions become the system prompt, and the input values, as JSON, the first user message. Every file input must be readable by the agent. Whether the runner puts the text in the message, attaches it, or relies on a step in `calls` that reads files is its choice. *Informative:* the reference runner puts the text of `text/*` files in the message, up to 200,000 characters, with `textCut: true` when it cuts one short. It gives other files only as their digest, media type and size, so an agent step that needs one must call a step that reads it.
 2. **Offers tools:**
-   - each step in `calls`, under its MCP tool name ([mcp.md](mcp.md), section 1), with its `inputSchema` as the parameters
+   - each step in `calls`, under its tool name, with its `inputSchema` as the parameters. The name is `<owner>_<name>_v<major>`, such as `acme_open-issue_v1`. Only an owner can contain `_`, so a name reads back from the right. A name over 64 characters is cut, and 8 hex characters of the full name's SHA-256 are appended. A step lists only one version per major version in `calls`, because two would get the same name.
    - `finish`, whose parameters are the step's `outputSchema`
    - `skip`, with one text parameter `reason`, when the manifest has `maySkip`
 3. **Runs each tool call as a step** ([run.calls-listed]) and returns the step's outputs, or its error, as the tool result. A response can contain several calls; the runner runs all of them in order and records each one ([run.calls-recorded]).
@@ -73,15 +72,7 @@ The runner:
 
 *Informative.* Some model servers don't hold tool-call arguments to their schema, which is why step 4 checks them.
 
-## 3. Remote tools: `mcp`
+## 3. Open questions
 
-- `server` is the URL of an MCP server, and `tool` is the name of a tool on it.
-- The runner calls the tool with the input values as its arguments. It takes the `structuredContent` of the tool's result as the outputs.
-- A result with `isError` fails the step with `failed`.
-- The server's code can't be pinned by content hash, so the manifest's author vouches for `effects` and `deterministic`. A runner should treat such a step as not deterministic unless it trusts the server's owner.
-
-## 4. Open questions
-
-- Can a program step call steps? It would need an interface from the runner, which brings in a service API (proposals.md, P16).
 - What resource limits does a step declare (proposals.md, P4)?
 - How does a runner report a step's progress while it runs?

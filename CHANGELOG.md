@@ -15,12 +15,17 @@ These changes ask less of a runner. The specification covers the format and what
 - The cache (was 9.4): the cache key, `run.cache-key`, `run.cache-only-cacheable`, and `cacheKey` and `cacheHit` in run records. A runner may reuse outputs as it likes; `deterministic` says when that is safe.
 - Retries (was 9.5): `run.retry` and `attempts` in run records. What it protected, that a step that writes doesn't run twice, is now [run.writes-once].
 - Lock files (was 10.3): `publish.lock`, `run.lock`, `lock_mismatch`, `schemas/lock.schema.json`, and `lock` in run records. Versions that never change ([publish.immutable]) and pinned content ([run.pinned]) already keep a workflow from running different code.
-- Saving a run as a workflow, and dry runs (was 10.6): `publish.saved-run`. Nobody built it. The idea is back in proposals.md, P12.
+- Saving a run as a workflow, and dry runs (was 10.6): `publish.saved-run`. Nobody built it, and it's a tool's job, not the format's.
 - Proposals P15 (layout for editors), P17 (triggers and schedules), P18 (a service API) and P19 (a registry API), left to platforms.
 - Exact agreement between checkers (was Annex A.3's order of rules, A.4's exceptions and A.5's paths and counts). Checkers must agree on pass or fail and on the error codes; a problem's path SHOULD point at its cause ([check.paths]). Proposal P23 goes with it.
 - How a runner stores files (`types.file-store`), the advice to run independent steps in parallel, and the version-bump checklist (`publish.versions`, with proposal P13). Versions follow Semantic Versioning.
 - `publish.resolve`: a publisher may write content digests into a manifest, but doesn't have to. A runner still checks the ones there are ([run.pinned]).
-- `manifest.calls-one-per-major`, which only drafts/mcp.md needs; it's described there now.
+- `manifest.calls-one-per-major`. The tool names it protected are described in drafts/runtime.md, section 2.
+- drafts/mcp.md (steps as MCP tools), the `mcp` runtime kind, and `wfspec mcp-tool`. Nothing used them; offering steps over MCP is left to platforms.
+- Proposals P1 (plans), P2 (retrying steps that write), P3 (marking destructive steps), P5 (labels on workflow steps), P10 (lazy inputs), P11 (automatic upgrades), P12 (saving a run as a workflow), P14 (running examples at publish), P16 (programs that call steps) and P22 (what a refused approval records): runners', tools' or platforms' business, or nothing needs them. P9 keeps only `$defs`; `format` stays an annotation.
+
+**Changed**
+- Section 1 states the design goals in place of five principles.
 
 **Relaxed**
 - Warnings are optional. A checker SHOULD report `step_never_runs`, and MAY report `type_unchecked` and `unused_input`.

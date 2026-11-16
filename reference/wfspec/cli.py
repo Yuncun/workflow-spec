@@ -1,4 +1,4 @@
-"""Command line: wfspec check | check-step | run | as-step | mcp-tool."""
+"""Command line: wfspec check | check-step | run | as-step."""
 
 from __future__ import annotations
 
@@ -19,7 +19,7 @@ from .documents import (
     manifest_issues,
     schema_issues,
 )
-from .publish import as_step, mcp_tool
+from .publish import as_step
 from .run import Options, Runner
 from .runtimes import Model
 from .store import Store
@@ -61,9 +61,6 @@ def main(argv: list[str] | None = None) -> int:
     p = sub.add_parser("as-step", help="print the manifest a workflow gets when it is published")
     p.add_argument("workflow", type=Path)
     p.add_argument("--catalog", type=Path, action="append", required=True, help="folder of step manifests (repeatable)")
-
-    p = sub.add_parser("mcp-tool", help="print the MCP tool definition for a step manifest")
-    p.add_argument("manifest", type=Path)
 
     args = parser.parse_args(argv)
     args.restart_argv = sys.argv[1:] if argv is None else None  # only a program started from the command line restarts
@@ -201,15 +198,6 @@ def _as_step(args) -> int:
     return 0
 
 
-def _mcp_tool(args) -> int:
-    manifest = load_document(args.manifest)
-    issues = manifest_issues(manifest)
-    if issues:
-        _report([i.to_dict() for i in issues], "error")
-        return 1
-    print(json.dumps(mcp_tool(manifest), indent=2, ensure_ascii=False))
-    return 0
-
 
 def _policy(path: Path) -> dict:
     policy = load_document(path)
@@ -263,7 +251,6 @@ _COMMANDS = {
     "check-step": _check_step,
     "run": _run,
     "as-step": _as_step,
-    "mcp-tool": _mcp_tool,
 }
 
 if __name__ == "__main__":

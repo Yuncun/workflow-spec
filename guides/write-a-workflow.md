@@ -93,5 +93,4 @@ An output whose source was skipped, or is optional and wasn't produced, is left 
 
 - Publish it with `name` and `version`.
 - The published workflow becomes a step that other workflows can use (SPEC.md, section 10.3).
-- On a platform with an MCP server, it also appears as a tool in MCP clients (drafts/mcp.md).
 - People who only want to run it get a form built from its inputs.

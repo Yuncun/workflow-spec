@@ -1,4 +1,4 @@
-# The part after the slash may not, so that a tool name built from the two reads back one way (drafts/mcp.md).
+# The part after the slash may not, so that a tool name built from the two reads back one way (drafts/runtime.md, section 2).
 name: mona-cat/open_issue
 version: 1.0.0
 description: A step whose own name has an underscore.

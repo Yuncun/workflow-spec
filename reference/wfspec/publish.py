@@ -1,5 +1,5 @@
 """Publishing helpers: digests and the manifest a workflow gets when it is published as a step
-(SPEC.md, section 10), and MCP tool definitions (drafts/mcp.md)."""
+(SPEC.md, section 10)."""
 
 from __future__ import annotations
 
@@ -166,27 +166,9 @@ def workflow_step_issues(manifest: dict, catalog: Catalog, file: str | None) -> 
 
 
 def mcp_name(manifest: dict) -> str:
-    """The MCP tool name of a step (drafts/mcp.md, section 1)."""
+    """The tool name of a step, as an agent step is offered it (drafts/runtime.md, section 2)."""
     return tool_name(manifest["name"], manifest["version"])
 
-
-def mcp_tool(manifest: dict) -> dict:
-    """The MCP tool definition for a step (drafts/mcp.md, section 1).
-
-    For steps that write, destructiveHint and idempotentHint are left to MCP's defaults:
-    destructive, and not idempotent."""
-    effects = manifest["effects"]
-    hints = {"readOnlyHint": effects != "writes", "openWorldHint": effects != "none"}
-    tool = {"name": mcp_name(manifest)}
-    for key in ("title", "description"):
-        if key in manifest:
-            tool[key] = manifest[key]
-    tool.update({
-        "inputSchema": _inline_files(manifest["inputSchema"]),
-        "outputSchema": _inline_files(manifest["outputSchema"]),
-        "annotations": hints,
-    })
-    return tool
 
 
 def _inline_files(schema):

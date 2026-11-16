@@ -23,7 +23,7 @@ A checker must pass every checker case to conform, and a runner every runner cas
 
 - The shared steps are in `run-catalog/`. They are programs (`process` steps, drafts/runtime.md).
 - Agent cases give their model replies as a script, served as an OpenAI-compatible API, so they need no model.
-- The cases rely on the `process` and `agent` contracts in drafts/runtime.md, and on the tool names in drafts/mcp.md. A runner that starts steps another way passes them by giving these steps the same behaviour in its own runtime.
+- The cases rely on the `process` and `agent` contracts and the tool names in drafts/runtime.md. A runner that starts steps another way passes them by giving these steps the same behaviour in its own runtime.
 
 `options.yaml` can set:
 

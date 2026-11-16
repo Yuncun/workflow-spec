@@ -94,7 +94,7 @@ wfspec check-step step.yaml --catalog <catalog folder>   # when the steps it cal
 
 The platform does four things when you publish:
 - builds the image at your commit and pins it by digest
-- checks your `examples` against the schemas. Running them as tests is a proposal (proposals.md, P14).
+- checks your `examples` against the schemas.
 - refuses to reuse a name@version that already holds different content
 - adds `your-team/diff-stats@1.0.0` to the catalog
 

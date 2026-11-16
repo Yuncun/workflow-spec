@@ -16,7 +16,7 @@ Systems that run workflows are built in layers. This specification covers the fo
 |---|---|---|---|
 | format | files, checking, what a run produces | this specification | draft |
 | step runtime | how a runner starts one step | [drafts/runtime.md](drafts/runtime.md) | draft, not normative |
-| agent access | steps as MCP tools | [drafts/mcp.md](drafts/mcp.md) | draft, not normative |
+| agent access | steps as MCP tools | none | left to platforms |
 | service API | starting and watching runs | none | left to platforms |
 | registry | publishing and finding steps | none | left to platforms |
 
@@ -31,12 +31,13 @@ How the parts turn into each other:
 | workflow | check, then run | run record |
 | workflow | publish | step |
 
-The design has five principles:
-1. **Everything runnable has the same interface:** JSON Schema inputs and outputs, declared effects, and a name@version. That interface is an MCP tool definition plus a few fields, so any step can be offered to an agent as a tool.
-2. **A workflow only connects steps.** It has no expressions, conditions or loops; all computation, including decisions, happens inside steps. So a workflow can be checked completely before it runs, and every runner reads it the same way. This follows the [Rule of Least Power](https://www.w3.org/2001/tag/doc/leastPower.html): use the least powerful language that does the job.
-3. **Checking reports every problem at once,** each with a code whose meaning never changes, so an agent can fix a workflow from the codes alone.
-4. **Shared files pin everything.** A workflow names exact step versions, and a version's content never changes.
-5. **Steps declare what they do,** such as whether they change anything, so any runner knows what is safe to run twice.
+The design goals:
+- Workflows should be portable between platforms.
+- Workflows should be reproducible.
+- Workflows should be safe to run.
+- Steps should be reusable.
+- Workflows should be easy to read and write, for people and for agents.
+- The format should be easy to implement.
 
 ## 2. Conventions and terminology
 
@@ -158,10 +159,10 @@ Manifests, workflows and run records are JSON documents. Manifests and workflows
 | `runtime` | yes | how the step runs (section 5.3) |
 | `examples` | no | sample inputs, and optionally outputs |
 
-- **[manifest.schema]** A manifest MUST conform to `schemas/step.schema.json`. A runtime kind is one of the five in section 5.3, or a platform's own whose name starts with `x-`. The schema fixes the fields of the `workflow` kind only; the other kinds are objects whose fields their documents define.
+- **[manifest.schema]** A manifest MUST conform to `schemas/step.schema.json`. A runtime kind is one of the four in section 5.3, or a platform's own whose name starts with `x-`. The schema fixes the fields of the `workflow` kind only; the other kinds are objects whose fields their documents define.
 - **[manifest.extensions]** Fields whose names start with `x-` are reserved for platforms. A checker MUST ignore them.
 
-*Informative.* `name`, `title`, `description`, `inputSchema` and `outputSchema` are the fields of an MCP tool definition. [drafts/mcp.md](drafts/mcp.md) maps a step to a tool.
+*Informative.* `name`, `title`, `description`, `inputSchema` and `outputSchema` are the fields of an MCP tool definition, so a platform can offer any step to an agent as a tool.
 
 ### 5.2 Effects
 
@@ -185,7 +186,7 @@ Manifests, workflows and run records are JSON documents. Manifests and workflows
 | Kind | Defined in |
 |---|---|
 | `workflow` | this section |
-| `process`, `container`, `agent`, `mcp` | [drafts/runtime.md](drafts/runtime.md) |
+| `process`, `container`, `agent` | [drafts/runtime.md](drafts/runtime.md) |
 | `x-...` | the platform that defines it |
 
 For `workflow`, `path` names a workflow file relative to the folder of the manifest, and `digest` is that file's digest (section 10.1). Section 10.3 says how a published workflow's manifest is derived.
@@ -356,7 +357,7 @@ steps:
 
 *This section is informative.*
 
-A workflow has no conditions, loops or expressions. Where one is needed:
+A workflow has no conditions, loops or expressions, so it can be checked completely before it runs and every runner reads it the same way. This follows the [Rule of Least Power](https://www.w3.org/2001/tag/doc/leastPower.html). Where one is needed:
 - **A fixed rule** goes in a small step that computes it.
 - **A judgment** goes in an agent step with a typed output, such as `category: { enum: [test, build, infrastructure, flaky] }`.
 - **"Only if there's something to do"** is a step with `maySkip`. When it skips, the steps after it are skipped too (section 9.4).
@@ -539,7 +540,6 @@ A version follows Semantic Versioning: a change that can break a workflow using 
 - **Reused outputs can cross callers.** A runner that reuses outputs computed for one caller can serve them to another with the same inputs. A platform should decide how far that goes, because outputs can contain private data.
 - **YAML aliases can expand without limit**, an attack known as the "billion laughs". Readers should limit document size and alias expansion.
 - **Pinning protects shared workflows.** Versions that never change ([publish.immutable]) and pinned content ([run.pinned]) stop a shared workflow from silently running different code.
-- **MCP annotations are hints.** [drafts/mcp.md](drafts/mcp.md) says how a platform's own server is trusted.
 
 ## 12. Prior art
 

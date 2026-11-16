@@ -5,7 +5,7 @@ from pathlib import Path
 
 import pytest
 
-from wfspec import as_step, check, digest, load_catalog, load_document, mcp_tool
+from wfspec import as_step, check, digest, load_catalog, load_document
 from wfspec.cli import main
 from wfspec.documents import schema_issues
 from wfspec.publish import mcp_name
@@ -68,25 +68,14 @@ def test_workflow_published_without_description(catalog):
     manifest = as_step(flow, catalog, "workflows/ci-triage.yaml")
     assert schema_issues(manifest, "urn:wfspec:schema:step", "invalid") == []
     assert "description" not in manifest
-    assert "description" not in mcp_tool(manifest)
 
 
-def test_mcp_tool_definitions(catalog):
-    issue = mcp_tool(catalog.steps["acme/open-issue@1.0.3"])
-    assert issue["name"] == "acme_open-issue_v1"
-    assert issue["annotations"] == {"readOnlyHint": False, "openWorldHint": True}
-    logs = mcp_tool(catalog.steps["acme/fetch-ci-logs@2.1.0"])
-    assert logs["annotations"] == {"readOnlyHint": True, "openWorldHint": True}
-    assert "$ref" not in json.dumps(logs)
-    assert logs["outputSchema"]["properties"]["logs"]["required"] == ["digest", "mediaType"]
-
-
-def test_mcp_names_stay_short_and_distinct():
+def test_tool_names_stay_short_and_distinct():
     long_a = {"name": "acme/" + "a" * 70, "version": "2.0.0"}
     long_b = {"name": "acme/" + "a" * 69 + "b", "version": "2.0.0"}
     assert len(mcp_name(long_a)) == 64
     assert mcp_name(long_a) != mcp_name(long_b)
-    # Only an owner can contain _, so the name reads back from the right: version, step, owner (drafts/mcp.md).
+    # Only an owner can contain _, so the name reads back from the right: version, step, owner (drafts/runtime.md).
     assert mcp_name({"name": "mona-cat_octo/open-issue", "version": "1.2.0"}) == "mona-cat_octo_open-issue_v1"
 
 
@@ -130,7 +119,7 @@ def test_cli_exit_codes(capsys):
 
 def test_a_wrong_name_gets_the_close_one_or_all_of_them(catalog):
     """A message suggests a close name. When none is close it lists the names there are, so an
-    agent can fix the name from the message alone (SPEC.md, principle 3)."""
+    agent can fix the name from the message alone (SPEC.md, section 1)."""
     steps = {"logs": {"uses": "acme/fetch-ci-logs@2.1.0", "with": {"repo": "acme/app", "run_id": 7, "branch": "main", "repos": "x"}}}
     result = check({"outputs": {"out": {"from": "steps.logs.outputs.text"}}, "steps": steps}, catalog)
     messages = {error.path: error.message for error in result.errors}
