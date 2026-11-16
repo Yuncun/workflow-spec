@@ -1,8 +1,7 @@
-"""A runner's local storage: files by content hash, cached outputs, and run records.
+"""A runner's local storage: files by content hash, and run records.
 
-    <root>/files/<sha256 hex>    file contents (SPEC.md, [types.file-store])
-    <root>/cache/<key hex>.json  the outputs of a cacheable step call (SPEC.md, section 9.4)
-    <root>/runs/<run id>.json    run records (SPEC.md, section 9.10)
+    <root>/files/<sha256 hex>    file contents, by content hash
+    <root>/runs/<run id>.json    run records (SPEC.md, section 9.8)
 """
 
 from __future__ import annotations
@@ -24,7 +23,7 @@ def _write(path: Path, text: str) -> None:
 class Store:
     def __init__(self, root: Path):
         self.root = Path(root)
-        for part in ("files", "cache", "runs"):
+        for part in ("files", "runs"):
             (self.root / part).mkdir(parents=True, exist_ok=True)
 
     # ---- files --------------------------------------------------------------------------
@@ -58,16 +57,6 @@ class Store:
         shutil.copyfile(self.path_of(value), target)
         target.chmod(0o444)
         return target
-
-    # ---- cache --------------------------------------------------------------------------
-
-    def cached(self, key: str) -> dict | None:
-        path = self.root / "cache" / (key.removeprefix("sha256:") + ".json")
-        return json.loads(path.read_text()) if path.is_file() else None
-
-    def cache(self, key: str, outputs: dict) -> None:
-        path = self.root / "cache" / (key.removeprefix("sha256:") + ".json")
-        _write(path, json.dumps(outputs, ensure_ascii=False))
 
     # ---- run records ----------------------------------------------------------------------
 

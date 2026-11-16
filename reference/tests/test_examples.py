@@ -5,10 +5,10 @@ from pathlib import Path
 
 import pytest
 
-from wfspec import as_step, check, digest, load_catalog, load_document, lock, mcp_tool
+from wfspec import as_step, check, digest, load_catalog, load_document, mcp_tool
 from wfspec.cli import main
 from wfspec.documents import schema_issues
-from wfspec.publish import cache_key, mcp_name
+from wfspec.publish import mcp_name
 
 ROOT = Path(__file__).resolve().parents[2]
 EXAMPLES = ROOT / "examples"
@@ -35,50 +35,22 @@ def test_example_workflows_check_clean(catalog, name):
     assert result.ok and not result.warnings, result.to_dict()
 
 
-def test_lock_file_is_current(catalog):
-    saved = load_document(EXAMPLES / "ci-triage.lock.json")
-    assert schema_issues(saved, "urn:wfspec:schema:lock", "invalid") == []
-    assert saved == lock(workflow("ci-triage"), catalog)
-
-
 @pytest.mark.parametrize("name", RUNS)
 def test_run_records_are_valid_and_pinned(catalog, name):
     run = load_document(EXAMPLES / "runs" / f"{name}.run.json")
     assert schema_issues(run, "urn:wfspec:schema:run", "invalid") == []
     assert run["workflow"]["digest"] == digest(workflow(name))
-    assert run["lock"] == lock(workflow(name), catalog)
     for step in run["steps"].values():
-        assert step["digest"] == run["lock"]["steps"][step["uses"]]["digest"]
+        assert step["digest"] == digest(catalog.steps[step["uses"]])
         for call in step.get("calls", []):
             assert call["digest"] == digest(catalog.steps[call["uses"]])
 
 
-def test_cache_key_is_step_digest_plus_input_values(catalog):
-    logs = load_document(EXAMPLES / "runs" / "ci-triage.run.json")["steps"]["logs"]
-    assert logs["cacheHit"] is True
-    assert logs["cacheKey"] == cache_key(catalog.steps[logs["uses"]], logs["inputs"])
-    assert logs["cacheKey"] == digest({"step": logs["digest"], "inputs": logs["inputs"]})
-
-
-def test_cache_key_ignores_file_names(catalog):
-    manifest = catalog.steps["acme/triage-logs@0.4.1"]
-    file = {"digest": "sha256:" + "a" * 64, "mediaType": "text/plain", "size": 10}
-    one = cache_key(manifest, {"logs": {**file, "name": "one.log"}, "style": "short"})
-    two = cache_key(manifest, {"logs": {**file, "name": "two.log"}, "style": "short"})
-    assert one == two
-    assert one != cache_key(manifest, {"logs": file, "style": "long"})
-
-
-def test_lock_includes_the_steps_a_step_can_call(catalog):
-    steps = lock(workflow("investigate"), catalog)["steps"]
-    assert set(steps) == {"acme/investigate-failure@0.1.0", "acme/fetch-ci-logs@2.1.0", "acme/open-issue@1.0.3"}
-
-
-def test_saved_workflow_uses_the_steps_the_agent_called():
+def test_fixed_workflow_uses_the_steps_the_agent_called():
     agent_run = load_document(EXAMPLES / "runs" / "investigate.run.json")
     called = {call["uses"] for call in agent_run["steps"]["investigate"]["calls"]}
-    saved = {step["uses"] for step in workflow("ci-triage")["steps"].values()}
-    assert called <= saved
+    fixed = {step["uses"] for step in workflow("ci-triage")["steps"].values()}
+    assert called <= fixed
 
 
 def test_workflow_published_as_step(catalog):
@@ -89,6 +61,14 @@ def test_workflow_published_as_step(catalog):
     assert "idempotent" not in manifest and "destructive" not in manifest
     assert manifest["secrets"] == ["GITHUB_TOKEN"]
     assert manifest["outputSchema"]["required"] == ["report", "issue"]
+
+
+def test_workflow_published_without_description(catalog):
+    flow = {k: v for k, v in workflow("ci-triage").items() if k != "description"}
+    manifest = as_step(flow, catalog, "workflows/ci-triage.yaml")
+    assert schema_issues(manifest, "urn:wfspec:schema:step", "invalid") == []
+    assert "description" not in manifest
+    assert "description" not in mcp_tool(manifest)
 
 
 def test_mcp_tool_definitions(catalog):
@@ -111,11 +91,11 @@ def test_mcp_names_stay_short_and_distinct():
 
 
 def test_a_platform_can_add_its_own_fields_and_error_codes():
-    """Run records, lock files and policies take fields that start with x-, and an error takes a code
-    that starts with x- (SPEC.md, [run.extensions], [run.error-codes], [publish.lock], [check.policy])."""
+    """Run records and policies take fields that start with x-, and an error takes a code that starts
+    with x- (SPEC.md, [run.extensions], [run.error-codes], [check.policy])."""
     record = json.loads((EXAMPLES / "runs" / "investigate.run.json").read_text())
     step = next(s for s in record["steps"].values() if s.get("calls"))
-    record["x-queue"], step["x-machine"], step["calls"][0]["x-cost"], record["lock"]["x-registry"] = "fast", "m1", 0.01, "example.test"
+    record["x-queue"], step["x-machine"], step["calls"][0]["x-cost"] = "fast", "m1", 0.01
     assert schema_issues(record, "urn:wfspec:schema:run", "invalid") == []
     record.update(status="failed", error={"code": "x-quota", "message": "the caller is over its quota"})
     step.update(status="failed", error={"code": "x-quota", "message": "the caller is over its quota"})
@@ -159,19 +139,6 @@ def test_a_wrong_name_gets_the_close_one_or_all_of_them(catalog):
     assert messages["/outputs/out"].endswith("its outputs: 'logs'")
 
 
-def test_lock_includes_the_steps_inside_a_published_workflow(catalog, tmp_path):
-    # Publish ci-triage as a step whose workflow file sits next to its manifest.
-    (tmp_path / "ci-triage.yaml").write_text((EXAMPLES / "workflows" / "ci-triage.yaml").read_text())
-    published = as_step(workflow("ci-triage"), catalog, "ci-triage.yaml")
-    (tmp_path / "ci-triage.step.json").write_text(json.dumps(published))
-    both = load_catalog([EXAMPLES / "steps", tmp_path])
-    outer = {"steps": {"triage": {"uses": "acme/ci-triage@1.2.0", "with": {"repo": "acme/web", "run_id": 7}}}}
-    assert check(outer, both).ok
-    assert set(lock(outer, both)["steps"]) == {
-        "acme/ci-triage@1.2.0", "acme/fetch-ci-logs@2.1.0", "acme/triage-logs@0.4.1", "acme/open-issue@1.0.3",
-    }
-
-
 def _first_yaml_block(guide: str) -> str:
     text = (ROOT / "guides" / guide).read_text()
     return text.split("```yaml\n", 1)[1].split("```", 1)[0]
@@ -202,13 +169,3 @@ def test_digest_matches_a_known_answer():
     doc = {"b": [1, 2.5, "x"], "a": {"z": True, "y": None}}
     canonical = b'{"a":{"y":null,"z":true},"b":[1,2.5,"x"]}'
     assert digest(doc) == "sha256:" + hashlib.sha256(canonical).hexdigest()
-
-
-def test_cache_key_matches_a_known_answer():
-    """The key is the digest of {inputs, step}, with each file cut down to its digest and media type."""
-    import hashlib
-    manifest = {"inputSchema": {"type": "object", "properties": {"f": {"$ref": "urn:wfspec:file"}}}, "name": "t/x"}
-    step = "sha256:" + hashlib.sha256(b'{"inputSchema":{"properties":{"f":{"$ref":"urn:wfspec:file"}},"type":"object"},"name":"t/x"}').hexdigest()
-    file = {"digest": "sha256:" + "a" * 64, "mediaType": "text/plain", "name": "n.txt", "size": 3}
-    expected = b'{"inputs":{"f":{"digest":"sha256:' + b"a" * 64 + b'","mediaType":"text/plain"},"n":1},"step":"' + step.encode() + b'"}'
-    assert cache_key(manifest, {"f": file, "n": 1}) == "sha256:" + hashlib.sha256(expected).hexdigest()

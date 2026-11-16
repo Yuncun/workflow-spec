@@ -1,5 +1,5 @@
-"""Publishing helpers: digests, cache keys, lock files and the manifest a workflow gets when it
-is published as a step (SPEC.md, sections 9.4 and 10), and MCP tool definitions (drafts/mcp.md)."""
+"""Publishing helpers: digests and the manifest a workflow gets when it is published as a step
+(SPEC.md, section 10), and MCP tool definitions (drafts/mcp.md)."""
 
 from __future__ import annotations
 
@@ -12,60 +12,6 @@ from .documents import mcp_name as tool_name
 __all__ = ["canonical_json", "digest"]  # re-exported from documents, where the checker also needs them
 
 _FILE_SCHEMA = {k: v for k, v in REGISTRY.contents(FILE_REF).items() if k not in ("$schema", "$id", "title", "description")}
-
-
-def cache_key(manifest: dict, inputs: dict) -> str:
-    """The cache key of one step call (SPEC.md, [run.cache-key]).
-
-    `inputs` are the values the step receives, defaults filled in. Each file value counts only
-    by its digest and media type, so a file's name doesn't change the key."""
-    return digest({"step": digest(manifest), "inputs": _file_identities(inputs, manifest["inputSchema"])})
-
-
-def _file_identities(value, schema):
-    if not isinstance(schema, dict):
-        return value
-    if schema.get("$ref") == FILE_REF and isinstance(value, dict):
-        return {k: value[k] for k in ("digest", "mediaType") if k in value}
-    if isinstance(value, dict):
-        props = schema.get("properties", {})
-        return {k: _file_identities(v, props.get(k)) for k, v in value.items()}
-    if isinstance(value, list):
-        return [_file_identities(v, schema.get("items")) for v in value]
-    return value
-
-
-def lock(workflow: dict, catalog: Catalog) -> dict:
-    """The lock file for a workflow: the digest of every step version it can run, directly or not.
-
-    That includes the steps its steps can call and the steps inside workflows it uses as steps
-    (SPEC.md, [publish.lock])."""
-    refs = _all_refs([step["uses"] for step in workflow["steps"].values()], catalog)
-    out: dict = {"lockVersion": 1}
-    if workflow.get("name") and workflow.get("version"):
-        out["workflow"] = f"{workflow['name']}@{workflow['version']}"
-    out["steps"] = {ref: {"digest": digest(catalog.steps[ref])} for ref in sorted(refs)}
-    return out
-
-
-def _all_refs(start: list[str], catalog: Catalog) -> set[str]:
-    seen: set[str] = set()
-    stack = list(start)
-    while stack:
-        ref = stack.pop()
-        if ref in seen:
-            continue
-        manifest = catalog.steps.get(ref)
-        if manifest is None:
-            raise ValueError(f"not in the catalog: {ref}")
-        seen.add(ref)
-        stack.extend(manifest.get("calls", []))
-        runtime = manifest["runtime"]
-        if "workflow" in runtime:
-            inner = pinned_workflow(Path(catalog.files[ref]).parent / runtime["workflow"]["path"], runtime["workflow"]["digest"])
-            if inner is not None:  # a file changed since the catalog was loaded fails its step when it runs ([run.pinned])
-                stack.extend(step["uses"] for step in inner["steps"].values())
-    return seen
 
 
 def pinned_workflow(path: Path, pinned: str) -> dict | None:
@@ -85,13 +31,13 @@ def as_step(workflow: dict, catalog: Catalog, path: str) -> dict:
     result = check(workflow, catalog)
     if not result.ok:
         raise ValueError("the workflow has errors; run `wfspec check` first")
-    missing = [key for key in ("name", "version", "description") if not workflow.get(key)]
+    missing = [key for key in ("name", "version") if not workflow.get(key)]
     if missing:
         raise ValueError("a published workflow needs " + ", ".join(missing))
     manifest: dict = {"name": workflow["name"], "version": workflow["version"]}
-    if "title" in workflow:
-        manifest["title"] = workflow["title"]
-    manifest["description"] = workflow["description"]
+    for key in ("title", "description"):
+        if key in workflow:
+            manifest[key] = workflow[key]
     derived = _derived(workflow, catalog, result)
     manifest.update({k: derived[k] for k in ("inputSchema", "outputSchema", "effects", "deterministic")})
     if derived["secrets"]:
@@ -232,10 +178,10 @@ def mcp_tool(manifest: dict) -> dict:
     effects = manifest["effects"]
     hints = {"readOnlyHint": effects != "writes", "openWorldHint": effects != "none"}
     tool = {"name": mcp_name(manifest)}
-    if "title" in manifest:
-        tool["title"] = manifest["title"]
+    for key in ("title", "description"):
+        if key in manifest:
+            tool[key] = manifest[key]
     tool.update({
-        "description": manifest["description"],
         "inputSchema": _inline_files(manifest["inputSchema"]),
         "outputSchema": _inline_files(manifest["outputSchema"]),
         "annotations": hints,

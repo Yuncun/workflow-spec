@@ -296,6 +296,7 @@ class Model:
 
     url: str = "http://127.0.0.1:1234/v1"
     name: str | None = None  # overrides the manifest's `model` when set
+    default: str = "default"  # the model for a step whose manifest names none
     finish_retries: int = 2  # how many times a final answer that doesn't fit may be retried
 
     def chat(self, body: dict) -> dict:
@@ -347,9 +348,7 @@ def run_agent(manifest: dict, folder: Path, inputs: dict, store: Store, model: M
         {"role": "system", "content": path.read_text()},
         {"role": "user", "content": json.dumps(readable(inputs, manifest["inputSchema"], store), ensure_ascii=False)},
     ]
-    name = model.name or spec.get("model")
-    if name is None:
-        raise StepFailed("failed", "the manifest names no model, and the runner was given none to use")
+    name = model.name or spec.get("model") or model.default
     calls = manifest.get("calls", [])
 
     if not calls and not manifest.get("maySkip"):
@@ -373,7 +372,7 @@ def run_agent(manifest: dict, folder: Path, inputs: dict, store: Store, model: M
         raise StepFailed("invalid_output", f"the agent's answer doesn't fit outputSchema: {problem}")
 
     offered = {mcp_name(*ref.split("@")): ref for ref in calls}
-    tools = [_tool(mcp, lookup(ref)["description"], _inline_files(lookup(ref)["inputSchema"])) for mcp, ref in offered.items()]
+    tools = [_tool(mcp, lookup(ref).get("description"), _inline_files(lookup(ref)["inputSchema"])) for mcp, ref in offered.items()]
     tools.append(_tool("finish", "Give your final answer. Call this once, last.", _inline_files(out_schema)))
     if manifest.get("maySkip"):
         tools.append(_tool("skip", "Finish without outputs because there is nothing to do.",
@@ -416,5 +415,6 @@ def run_agent(manifest: dict, folder: Path, inputs: dict, store: Store, model: M
     raise StepFailed("failed", f"the agent didn't finish within {spec.get('maxTurns', 20)} turns")
 
 
-def _tool(name: str, description: str, parameters: dict) -> dict:
-    return {"type": "function", "function": {"name": name, "description": description, "parameters": parameters}}
+def _tool(name: str, description: str | None, parameters: dict) -> dict:
+    function = {"name": name, **({"description": description} if description is not None else {}), "parameters": parameters}
+    return {"type": "function", "function": function}

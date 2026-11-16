@@ -8,9 +8,9 @@ A substantive change, one that changes what conforms, goes through a lightweight
 
 1. **Propose** it in [proposals.md](proposals.md): the problem, the idea, and what would settle it.
 2. **Settle** it with evidence, such as a real workflow, a test, or a second implementation.
-3. **Write the rule** in SPEC.md under a new requirement id, with an error code if checking reports it (section 8.2) and the path it's reported at (Annex A.5). Add test cases, and map the id to them in [tests/coverage.yaml](tests/coverage.yaml).
+3. **Write the rule** in SPEC.md under a new requirement id, with an error code if checking reports it (section 8.1). Add test cases, and map the id to them in [tests/coverage.yaml](tests/coverage.yaml).
 4. **Update the reference** checker or runner in [reference/](reference) until every test passes.
-5. **Record it** in [CHANGELOG.md](CHANGELOG.md) under the next version, and take its entry out of proposals.md.
+5. **Record it** in [CHANGELOG.md](CHANGELOG.md) under "Unreleased", and take its entry out of proposals.md.
 
 An editorial change, such as clearer wording, doesn't change what conforms and needs only a pull request.
 
@@ -29,10 +29,13 @@ uv venv .venv && uv pip install --python .venv/bin/python -e "reference[test]"
 .venv/bin/python -m pytest reference/tests
 ```
 
-All must pass after any change. CI runs them on every push to main and every pull request, on Linux and macOS; runner cases that need the macOS sandbox are skipped on Linux.
+All must pass after any change. Then check the documents themselves: that every example in them passes the checker, and that their links, requirement citations and section references resolve:
 
-After changing an example step or workflow, run `examples/regenerate.py`. `reference/tests/test_examples.py` checks that the lock file and run records still match.
+```bash
+.venv/bin/python docs/scripts/check_examples.py
+.venv/bin/python docs/scripts/build_pages.py
+```
 
-## License
+`build_pages.py` writes the documentation site's pages to `docs/.generated`, which isn't committed. CI runs the tests and both checks on every push to main and every pull request, on Linux and macOS; runner cases that need the macOS sandbox are skipped on Linux.
 
-Contributions are made under the [Apache License 2.0](LICENSE), as its section 5 provides.
+After changing an example step or workflow, run `examples/regenerate.py`. `reference/tests/test_examples.py` checks that the run records still match.

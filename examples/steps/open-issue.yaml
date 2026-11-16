@@ -1,5 +1,5 @@
-# A step that changes outside data. It always runs when its workflow runs, and it is
-# never cached or retried automatically.
+# A step that changes outside data. It always runs when its workflow runs, and a runner
+# never runs it a second time on its own (SPEC.md, [run.writes-once]).
 name: acme/open-issue
 version: 1.0.3
 title: Open an issue

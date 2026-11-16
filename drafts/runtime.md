@@ -25,12 +25,12 @@ The contract:
   - Wherever `outputSchema` declares a file, the program writes `{"path": "...", "mediaType": "..."}`. It can leave out `mediaType` when the schema's `x-mediaType` names a single type.
   - A relative `path` is relative to the folder that holds the `WF_OUTPUTS` file, which is the program's work folder. It must lead to a regular file inside that folder without passing through a symbolic link; the runner refuses any other with `invalid_output`, because it reads the file outside any sandbox.
   - The runner stores each file, replaces it with a file value, and then checks the outputs ([run.output-check]). A file that holds the value of any of the run's secrets fails the step instead ([run.secrets-hidden]).
-- **Environment.** The program gets only these environment variables: `PATH`, `LANG`, `HOME` and `TMPDIR` (both set to its work folder), `WF_INPUTS`, `WF_OUTPUTS`, `WF_SKIP`, and its secrets. On macOS the system adds `__CF_USER_TEXT_ENCODING` to every program.
+- **Environment.** The program gets at least these environment variables: `PATH`, `LANG`, `HOME` and `TMPDIR` (both set to its work folder), `WF_INPUTS`, `WF_OUTPUTS`, `WF_SKIP`, and its secrets. On macOS the system adds `__CF_USER_TEXT_ENCODING` to every program.
 - **Skipping.** A step whose manifest has `maySkip` and that has nothing to do writes a reason to the file named by `WF_SKIP` instead of writing outputs ([run.skip]).
 - **Secrets.** Each secret named in `secrets` is set as an environment variable with the same name, and no other secret is set ([run.secrets-named]).
 - **Exit and logs.** Exit code 0 means success. Any other exit code fails the step with `failed`. Standard output and standard error are the step's logs.
 - **Processes.** The program runs in a process group of its own. When it exits or times out, the runner ends every process left in that group.
-- **Pinning** ([publish.resolve]). Before computing the step's digest, a publisher writes content digests into the manifest, so the step's digest covers them:
+- **Pinning.** A publisher may write content digests into the manifest, so the step's digest covers them:
   - for `container`, the image reference becomes `image@sha256:...`
   - for `process`, the runtime object gets `digests`, mapping each file the program needs, by its path relative to the manifest's folder, to the SHA-256 of its bytes, written `sha256:<hex>`
 
@@ -51,8 +51,8 @@ Where `sandbox-exec` isn't available, the runner refuses programs that don't wri
 
 ## 2. Agents: `agent`
 
-- `model` names a model the runner can serve. How the runner maps names to models and providers is its choice.
-- `instructions` is the path of a text file inside the manifest's folder, relative to it. Before computing the step's digest, a publisher writes the SHA-256 of the file's bytes into the runtime object as `instructionsDigest` ([publish.resolve]). A runner checks it before the step runs, and fails the step with `pinned_mismatch` when the file differs or isn't inside the manifest's folder ([run.pinned]).
+- `model`, when given, names a model the runner can serve; when it's left out, the runner chooses. How the runner maps names to models and providers is its choice.
+- `instructions` is the path of a text file inside the manifest's folder, relative to it. A publisher may write the SHA-256 of the file's bytes into the runtime object as `instructionsDigest`. A runner then checks it before the step runs, and fails the step with `pinned_mismatch` when the file differs or isn't inside the manifest's folder ([run.pinned]).
 - `maxTurns` limits the number of model responses. When it's left out, the runner chooses the limit.
 
 The runner:

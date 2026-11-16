@@ -5,21 +5,6 @@
     "version": "1.2.0",
     "digest": "sha256:49bd3567a3d4692ae2e7dc86441a107976415d5fd92eef7565fd2293a55c82a1"
   },
-  "lock": {
-    "lockVersion": 1,
-    "workflow": "acme/ci-triage@1.2.0",
-    "steps": {
-      "acme/fetch-ci-logs@2.1.0": {
-        "digest": "sha256:d3430eb9c4163bf5290c227fdd379ca064aac5f6e2505c048a7f2595e9971c06"
-      },
-      "acme/open-issue@1.0.3": {
-        "digest": "sha256:e2d034a77d871b0c93b9cf67e9b49e492fe37304be332f75b70cc7d92237bb77"
-      },
-      "acme/triage-logs@0.4.1": {
-        "digest": "sha256:e7937b9c908644c5131e0bfd6904068ecf19974ae91686396f30b5a877c1e6f7"
-      }
-    }
-  },
   "inputs": {
     "repo": "acme/web",
     "run_id": 1234,
@@ -40,9 +25,6 @@
       "uses": "acme/fetch-ci-logs@2.1.0",
       "digest": "sha256:d3430eb9c4163bf5290c227fdd379ca064aac5f6e2505c048a7f2595e9971c06",
       "status": "succeeded",
-      "cacheKey": "sha256:52882076a6e59b777bd4d98757a354d77f9a7f170a8b16400cf0b0daa10b3e81",
-      "cacheHit": true,
-      "attempts": 0,
       "inputs": {
         "repo": "acme/web",
         "run_id": 1234
@@ -54,13 +36,14 @@
           "size": 48213,
           "name": "run-1234.log"
         }
-      }
+      },
+      "started": "2026-11-07T19:40:03Z",
+      "ended": "2026-11-07T19:40:04Z"
     },
     "triage": {
       "uses": "acme/triage-logs@0.4.1",
       "digest": "sha256:e7937b9c908644c5131e0bfd6904068ecf19974ae91686396f30b5a877c1e6f7",
       "status": "succeeded",
-      "attempts": 1,
       "inputs": {
         "logs": {
           "digest": "sha256:d52a9fbbd59cbade17be761368b02529abcfa48c51f6e82376f544233b9c8603",
@@ -82,7 +65,6 @@
       "uses": "acme/open-issue@1.0.3",
       "digest": "sha256:e2d034a77d871b0c93b9cf67e9b49e492fe37304be332f75b70cc7d92237bb77",
       "status": "succeeded",
-      "attempts": 1,
       "inputs": {
         "repo": "acme/web",
         "title": "test_checkout_total fails: rounding changed in currency.format",

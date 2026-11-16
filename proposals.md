@@ -20,7 +20,7 @@ A proposal joins the specification only through a new version of SPEC.md, with r
 ## P2. Retrying steps that write
 
 - **Status:** deferred.
-- **Problem:** steps that write are never retried automatically, even when repeating one is harmless, such as setting a label.
+- **Problem:** a runner never retries a step that writes on its own ([run.writes-once]), even when repeating one is harmless, such as setting a label.
 - **Idea:** an `idempotent` flag, which only steps that write may set, allowing automatic retries.
 - **Settled by:** failure rates from a runner showing that retries matter for steps that write.
 
@@ -57,7 +57,7 @@ A proposal joins the specification only through a new version of SPEC.md, with r
 - **Status:** open.
 - **Problem:** handling each item of a list needs a step that takes the whole list, or an agent step that makes one call per item.
 - **Idea:** a mapping form in `with` that runs the step once per item and collects the outputs into a list. ComfyUI has `INPUT_IS_LIST` and `OUTPUT_IS_LIST`.
-- **Settled by:** real workflows that need it, and how each item would be cached and recorded.
+- **Settled by:** real workflows that need it, and how each item would be recorded.
 
 ## P8. Generic steps
 
@@ -87,19 +87,12 @@ A proposal joins the specification only through a new version of SPEC.md, with r
 - **Idea:** migration notes in a manifest that a tool can apply to workflows.
 - **Settled by:** catalogs with steps that have reached a second major version.
 
-## P12. Working out a saved workflow from the calls
+## P12. Saving a run as a workflow
 
-- **Status:** open.
-- **Problem:** saving a run as a workflow (SPEC.md, section 10.6) is done by hand.
-- **Idea:** a tool that drafts the workflow from the run record, turning values that came from earlier calls into references.
-- **Settled by:** saving several real runs by hand, to see which parts a tool can draft.
-
-## P13. Checking version rules
-
-- **Status:** open.
-- **Problem:** SPEC.md, [publish.versions] says when a new version should bump its major number, but nothing checks it.
-- **Idea:** a command that compares two versions of a step and reports breaking changes.
-- **Settled by:** a publisher that wants to enforce the rule.
+- **Status:** deferred.
+- **Problem:** what an agent worked out once in a run can't be turned into a fixed workflow that anyone can rerun, except by hand.
+- **Idea:** turn the steps a run called into fixed steps and its values into references, then replay the run without its writes to show the workflow does the same thing. Version 0.4 had a full rule for this (`publish.saved-run`). Nobody built it, so it was removed.
+- **Settled by:** a platform that saves real runs as workflows.
 
 ## P14. Running examples at publish
 
@@ -108,40 +101,12 @@ A proposal joins the specification only through a new version of SPEC.md, with r
 - **Idea:** a publisher runs the examples and checks the outputs. It doesn't run the examples of a step that writes, since that would change real data.
 - **Settled by:** a publisher with a place to run steps safely.
 
-## P15. Layout for visual editors
-
-- **Status:** deferred.
-- **Problem:** a workflow has no positions, so every editor lays it out its own way.
-- **Idea:** a separate layout file, so that layout never changes what a workflow means.
-- **Settled by:** an editor that wants to save positions.
-
 ## P16. Program steps that call steps
 
 - **Status:** open.
 - **Problem:** only agent steps can call steps ([drafts/runtime.md](drafts/runtime.md)). A program that wants to call a step has no way to reach the runner.
 - **Idea:** the runner gives the program an address it can send calls to.
-- **Settled by:** a program step that needs it. Any answer adds an interface between runner and program, so it overlaps with P18.
-
-## P17. Triggers and schedules
-
-- **Status:** open, and left to platforms for now.
-- **Problem:** the format doesn't say when a workflow starts, for example on a push or every night.
-- **Idea:** keep triggers outside the workflow file, in the platform, so that one file can be started in different ways.
-- **Settled by:** whether platforms need to exchange triggers.
-
-## P18. A service API
-
-- **Status:** open, and left to platforms for now.
-- **Problem:** each platform has its own way to start, watch, cancel and read runs, so clients don't work across platforms.
-- **Idea:** standardize only once a second platform exists. GA4GH's Workflow Execution Service already covers starting, watching, cancelling and reading workflow runs, and is the model to read first.
-- **Settled by:** two platforms that need to share clients.
-
-## P19. A registry API
-
-- **Status:** open, and left to platforms for now.
-- **Problem:** publishing and finding steps works differently on each platform.
-- **Idea:** GA4GH's Tool Registry Service, which WorkflowHub implements, is the model to read first.
-- **Settled by:** steps shared between platforms.
+- **Settled by:** a program step that needs it. Any answer adds an interface between runner and program, close to a service API, which is left to platforms (SPEC.md, section 3).
 
 ## P20. A shared step kind for asking a person
 
@@ -163,16 +128,3 @@ A proposal joins the specification only through a new version of SPEC.md, with r
 - **Problem:** a runner may ask for approval before a step that writes (SPEC.md, [run.effects]), but nothing says what the run record holds when the answer is no. One runner could fail the step, another skip it, and a third cancel the run.
 - **Idea:** record the step as `skipped` with a reason, as the reference runner does. The steps that depend on it are skipped too, and the run still succeeds.
 - **Settled by:** a second runner that asks for approval.
-
-## P23. Agreement beyond pass or fail
-
-- **Status:** deferred.
-- **Problem:** every checker gives the same pass or fail (SPEC.md, [conform.verdict]), but on a file with several mistakes two checkers can list different further problems. Known cases:
-  - the order in which a catalog's manifests are first checked against each other, which decides whether a manifest gets `unknown_step` or `invalid_manifest`
-  - whether a reference to an output that doesn't exist still counts toward a loop, or toward which steps are needed
-  - whether a schema that isn't valid JSON Schema also gets its reference and `required` problems reported
-  - how many `invalid_value` problems an input with several wrong files gets
-  - whether two manifests whose `version` isn't text can be duplicates of each other
-- **Idea:** settle a case in Annex A, with a test case, when it causes trouble in practice.
-- **Settled by:** a person or an agent misled by two checkers that list different problems for one file.
-

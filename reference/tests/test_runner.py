@@ -16,13 +16,14 @@ import pytest
 
 from wfspec import load_catalog, load_document
 from wfspec.documents import schema_issues
-from wfspec.publish import lock
-from wfspec.run import Options, Runner, compare_dry_run
+from wfspec.run import Options, Runner
 from wfspec.runtimes import SANDBOX, Model, home_installation
 from wfspec.store import Store
 
 ROOT = Path(__file__).resolve().parents[2]
 CASES = sorted(p for p in (ROOT / "tests" / "run").iterdir() if p.is_dir())
+# The optional features of SPEC.md, section 3, and the runtime kinds a case can need. The reference runner has them all.
+NEEDS = {"calls", "workflow-step", "file-inputs", "run-record", "agent"}
 # The test programs run python3. When it's installed under a home folder, as on GitHub's macOS
 # runners, the sandbox lets programs read it only when granted, as a person would grant it.
 PYTHON = [p for p in [home_installation(["python3"], os.environ.get("PATH", ""))] if p]
@@ -101,6 +102,7 @@ def substitute(value, places: dict):
 @pytest.mark.parametrize("case", CASES, ids=lambda p: p.name)
 def test_run_case(case: Path, tmp_path: Path):
     opts = optional(case, "options.yaml", {})
+    assert set(opts.get("needs", [])) <= NEEDS, f"unknown needs: {opts['needs']}"
     if opts.get("macos_only") and not SANDBOX:
         pytest.skip("needs the macOS sandbox")
     if SANDBOX is None and opts.get("sandbox", True):
@@ -115,7 +117,6 @@ def test_run_case(case: Path, tmp_path: Path):
     places = {"{tmp}": str(tmp_path), "{port}": listener.getsockname()[1], "{case}": str(case)}
     workflow = substitute(load_document(case / "workflow.yaml"), places)
     inputs = substitute(optional(case, "inputs.yaml", {}), places)
-    replay = optional(case, opts["replay"], None) if "replay" in opts else None
     model = FakeModel(optional(case, "model.yaml", {}).get("replies", []))
     store = Store(tmp_path / "store")
     try:
@@ -123,16 +124,11 @@ def test_run_case(case: Path, tmp_path: Path):
             store=store,
             policy=optional(case, "policy.yaml", None),
             secrets=optional(case, "secrets.yaml", {}),
-            retries=opts.get("retries", 0),
             sandbox=opts.get("sandbox", True),
             model=Model(url=model.url),
-            replay=replay,
-            lock=(lock(workflow, catalog) if opts["lock"] == "current" else optional(case, opts["lock"], None)) if "lock" in opts else None,
             readable=PYTHON,
         )
-        runs = opts.get("runs", 1)
-        for run_inputs in (substitute(runs, places) if isinstance(runs, list) else [inputs] * runs):
-            record = Runner(catalog, options).run(workflow, run_inputs)
+        record = Runner(catalog, options).run(workflow, inputs)
     finally:
         model.close()
         listener.close()
@@ -154,8 +150,6 @@ def test_run_case(case: Path, tmp_path: Path):
         assert matches(got, want), f"{sid} calls: {json.dumps(got)[:600]}"
     if "model_saw_tools" in expected:
         assert [t["function"]["name"] for t in model.requests[0]["tools"]] == expected["model_saw_tools"]
-    if "dry_run_differences" in expected:
-        assert compare_dry_run(replay, record, catalog, workflow) == expected["dry_run_differences"]
     for hidden in expected.get("logs_hide", []):
         for stored in (tmp_path / "store").rglob("*"):
             if stored.is_file():
@@ -214,9 +208,9 @@ def test_a_write_that_isnt_approved_is_left_out(tmp_path: Path):
     assert record["steps"]["save"]["status"] == "succeeded" and (tmp_path / "saved.txt").read_text() == "HI"
 
 
-def test_an_agent_step_without_a_model_says_so(tmp_path: Path):
-    """An agent step whose manifest names no model fails with a message that says so, unless the
-    runner was given a model to use."""
+def test_an_agent_step_without_a_model_uses_the_runners_default(tmp_path: Path):
+    """An agent step whose manifest names no model runs with the model the runner chooses
+    (drafts/runtime.md, section 2)."""
     (tmp_path / "steps").mkdir()
     (tmp_path / "steps" / "notes.md").write_text("Answer briefly.")
     (tmp_path / "steps" / "ask.yaml").write_text("""\
@@ -229,8 +223,14 @@ effects: reads
 runtime: { agent: { instructions: notes.md } }
 """)
     workflow = {"outputs": {"answer": {"from": "steps.ask.outputs.answer"}}, "steps": {"ask": {"uses": "test/ask@1.0.0", "with": {"text": "hi"}}}}
-    record = Runner(load_catalog([tmp_path / "steps"]), Options(store=Store(tmp_path / "store"))).run(workflow, {})
-    assert record["steps"]["ask"]["error"] == {"code": "failed", "message": "the manifest names no model, and the runner was given none to use"}
+    model = FakeModel([{"content": json.dumps({"outputs": {"answer": "hello"}})}])
+    try:
+        options = Options(store=Store(tmp_path / "store"), model=Model(url=model.url))
+        record = Runner(load_catalog([tmp_path / "steps"]), options).run(workflow, {})
+    finally:
+        model.close()
+    assert record["steps"]["ask"]["outputs"] == {"answer": "hello"}
+    assert model.requests[0]["model"] == Model().default
 
 
 # ---- a runner that another program drives: an id of its choice, the record so far, cancelling ----

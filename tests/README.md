@@ -1,12 +1,12 @@
 # Test cases
 
-A checker and a runner must pass these cases to conform (SPEC.md, section 3). [coverage.yaml](coverage.yaml) maps each requirement id in SPEC.md to the cases that cover it.
+A checker must pass every checker case to conform, and a runner every runner case whose needs it supports (SPEC.md, section 3). [coverage.yaml](coverage.yaml) maps each requirement id in SPEC.md to the cases that cover it.
 
 ## Checker cases
 
 - `check/<case>/` holds a `workflow.yaml` or `workflow.json`, an `expected.yaml` and, optionally, a `policy.yaml`. The catalog for these cases is `examples/steps/` plus `tests/catalog/`, plus the case's own `catalog/` folder when it has one. A case's own catalog may hold manifests that are meant to be left out.
 - `manifests/<case>/` holds manifests in `steps/` and an `expected.yaml`. The catalog for these cases is `examples/steps/` plus the case's `steps/` folder. Files in subfolders of `steps/`, such as a workflow that a manifest names, aren't manifests.
-- A checker passes a case when it reports exactly the expected errors and warnings: the same `(code, path)` pairs, each the same number of times.
+- A checker passes a case when its `ok` matches and it reports every expected error code (SPEC.md, [conform.checker-tests]). The paths, counts and warnings in `expected.yaml` are what the reference checker reports; other checkers don't have to match them.
 
 ## Runner cases
 
@@ -29,29 +29,25 @@ A checker and a runner must pass these cases to conform (SPEC.md, section 3). [c
 
 | Key | Means |
 |---|---|
-| `runs` | how many times to run the workflow, or a list with the inputs of each run |
-| `retries` | how many times the runner may retry a failed step |
+| `needs` | the optional features (SPEC.md, section 3: `calls`, `workflow-step`, `file-inputs`, `run-record`) and runtime kinds other than `process` (so far, `agent`) that the case needs; a runner that lacks one doesn't have to pass the case |
 | `sandbox` | `false` runs programs without a sandbox |
-| `lock` | a lock file to run under, or `current` for the workflow's lock as it is now |
-| `replay` | a run record; the run is a dry run that replays it (SPEC.md, [publish.saved-run]) |
-| `macos_only` | the case needs the macOS sandbox, which the reference runner uses to enforce effects |
+| `macos_only` | the case checks how the reference runner enforces effects, with the macOS sandbox. How a runner enforces effects is its choice ([run.effects]), so no other runner has to pass it |
 
-`expected.yaml` says what the last run must give:
+`expected.yaml` says what the run must give:
 
 | Key | Means |
 |---|---|
 | `status` | the run's status |
 | `error` | the run's error code |
 | `outputs` | the run's outputs |
-| `steps` | for chosen steps, fields of their records, such as `status`, `error`, `cacheHit`, `attempts`, `reason` or `outputs` |
+| `steps` | for chosen steps, fields of their records, such as `status`, `error`, `reason` or `outputs` |
 | `calls` | for a step id, the records of the calls it made, in order |
 | `model_saw_tools` | the tool names the model was offered in its first request |
-| `dry_run_differences` | what the dry run found different from the original run |
 | `logs_hide` | values that nothing the runner stored may contain |
 
-A record matches when every field the expectation gives matches. Other fields are free. Every run record must fit `schemas/run.schema.json`.
+A record matches when every field the expectation gives matches. Other fields are free. A runner with the `run-record` feature must also make every run record fit `schemas/run.schema.json`.
 
-The workflow, inputs and options can use three placeholders:
+The workflow and inputs can use three placeholders:
 - `{tmp}` is a scratch folder. It holds a file `outside.txt` that no step is given.
 - `{port}` is a listening port.
 - `{case}` is the case folder.
