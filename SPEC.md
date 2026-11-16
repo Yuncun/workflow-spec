@@ -8,7 +8,7 @@ This specification defines a text format for jobs built from published steps. It
 
 *This section is informative.*
 
-A **step** is a published, versioned unit of work with typed inputs and outputs. It can be a program (one that runs an agent, for example), a tool on a remote server, or another workflow. A **workflow** connects steps. Each input of a step gets either a literal value or a reference to a workflow input or to another step's output. All computation, including decisions, lives inside steps.
+A **step** is a published, versioned unit of work with typed inputs and outputs. It can be a program (one that runs an agent, for example) or another workflow. A **workflow** connects steps. Each input of a step gets either a literal value or a reference to a workflow input or to another step's output. All computation, including decisions, lives inside steps.
 
 Systems that run workflows are built in layers. This specification covers the format layer, which includes what a run must produce. Each other layer has its own document or is left to platforms:
 

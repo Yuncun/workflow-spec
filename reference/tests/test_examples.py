@@ -49,7 +49,7 @@ def test_workflow_published_as_step(catalog):
     assert manifest["effects"] == "writes"
     assert manifest["deterministic"] is False
     assert "idempotent" not in manifest and "destructive" not in manifest
-    assert manifest["secrets"] == ["GITHUB_TOKEN"]
+    assert manifest["secrets"] == ["GITHUB_TOKEN", "MODEL_API_KEY"]
     assert manifest["outputSchema"]["required"] == ["report", "issue"]
 
 
