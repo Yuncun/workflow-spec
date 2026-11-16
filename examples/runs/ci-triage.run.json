@@ -42,7 +42,7 @@
     },
     "triage": {
       "uses": "acme/triage-logs@0.4.1",
-      "digest": "sha256:4956ced3ce40e6b08d4a1b6b495f90060c889882252955ca01c36ca92f757d26",
+      "digest": "sha256:fff91e9a2cab8ca4b09723de52521c7a4d81050890306719ccafd3b4330bf811",
       "status": "succeeded",
       "inputs": {
         "logs": {

@@ -18,5 +18,6 @@ outputSchema:
   required: [summary, risk]
 effects: reads
 deterministic: false
+secrets: [MODEL_API_KEY]
 runtime:
   container: { image: ghcr.io/acme/summarize-diff:1.0.0 }

@@ -48,7 +48,7 @@ A proposal joins the specification only through a new version of SPEC.md, with r
 ## P20. A shared step kind for asking a person
 
 - **Status:** open.
-- **Problem:** a step can already wait for a person's answer, as a program, a remote tool or a platform's own runtime kind. But each platform names its own kind, so a step that asks a person on one platform doesn't run on another.
+- **Problem:** a step can already wait for a person's answer, as a program or a platform's own runtime kind. But each platform names its own kind, so a step that asks a person on one platform doesn't run on another.
 - **Idea:** a runtime kind in [drafts/runtime.md](drafts/runtime.md) that shows a person the step's inputs and takes their answer as its outputs. Approval before a step that writes is separate, and a runner can already ask for it (SPEC.md, [run.effects]).
 - **Settled by:** two platforms that want to share steps that ask a person.
 

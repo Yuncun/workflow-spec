@@ -31,6 +31,7 @@ outputSchema:
   required: [title, report, category]
 effects: reads
 deterministic: false
+secrets: [MODEL_API_KEY]
 runtime:
   container:
     image: ghcr.io/acme/triage-logs:0.4.1
