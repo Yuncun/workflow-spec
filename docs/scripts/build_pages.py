@@ -35,7 +35,6 @@ SECTIONS = [
         ("SPEC.md", "spec.md"),
         ("Drafts", [
             ("drafts/runtime.md", "drafts/runtime.md"),
-            ("drafts/mcp.md", "drafts/mcp.md"),
         ]),
         ("proposals.md", "proposals.md"),
         ("CHANGELOG.md", "changelog.md"),
@@ -305,7 +304,7 @@ def copy_page(source: str, page: str, text: str, page_of: dict[str, str], anchor
 
     def change(part: str) -> str:
         part = LINK.sub(link, part)
-        # "drafts/mcp.md: steps as MCP tools" would read "Steps as MCP tools: steps as MCP tools".
+        # "drafts/runtime.md: step runtimes" would read "Step runtimes: step runtimes".
         part = part if not titles else re.sub(r"(\[([^\]]+)\]\([^)\s]+\)): ([^|\n]+?)(?=\s*(\||$))",
                       lambda m: m.group(1) if m.group(3).strip().lower() == m.group(2).lower() else m.group(0),
                       part, flags=re.M)

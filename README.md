@@ -1,9 +1,7 @@
 # Workflow format for shared jobs
 
 A text format for jobs built from published steps. A step can be:
-- a program
-- an agent
-- a tool on a remote MCP server
+- a program, which may run an agent
 - another workflow
 
 The package also gives the rules for:
@@ -47,7 +45,6 @@ To write a workflow, start with [guides/write-a-workflow.md](guides/write-a-work
 |---|---|
 | [SPEC.md](SPEC.md): the format layer | normative; draft |
 | [drafts/runtime.md](drafts/runtime.md): how a runner starts a step | draft, not normative |
-| [drafts/mcp.md](drafts/mcp.md): steps as MCP tools | draft, not normative |
 | [proposals.md](proposals.md): features left out, open questions | not normative |
 | [CHANGELOG.md](CHANGELOG.md): changes and the versioning policy | |
 | [CONTRIBUTING.md](CONTRIBUTING.md): how to change the spec | |

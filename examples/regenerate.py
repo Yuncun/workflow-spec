@@ -1,6 +1,6 @@
 """Recompute every digest in the examples from the current step manifests and workflows.
 
-It rewrites, in each run record, the workflow digest and each step's and each call's digest.
+It rewrites, in each run record, the workflow digest and each step's digest.
 Other fields are left as they are.
 Run it after changing an example step or workflow:  .venv/bin/python examples/regenerate.py
 """
@@ -23,8 +23,6 @@ def main() -> None:
         run["workflow"]["digest"] = digest(workflow)
         for step in run["steps"].values():
             step["digest"] = digest(catalog.steps[step["uses"]])
-            for call in step.get("calls", []):
-                call["digest"] = digest(catalog.steps[call["uses"]])
         path.write_text(json.dumps(run, indent=2) + "\n")
 
 

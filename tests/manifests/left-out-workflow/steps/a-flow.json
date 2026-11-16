@@ -10,7 +10,8 @@
     "type": "object",
     "properties": {
       "done": {
-        "type": "boolean"
+        "type": "string",
+        "format": "uri"
       }
     },
     "required": [

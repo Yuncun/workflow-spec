@@ -5,7 +5,7 @@ It reads the files in ../schemas, so it runs from a checkout of this repository.
 
 from .check import Result, check
 from .documents import Catalog, Issue, ParseError, load_catalog, load_document
-from .publish import as_step, digest, mcp_tool
+from .publish import as_step, digest
 
 __all__ = [
     "Catalog",
@@ -17,5 +17,4 @@ __all__ = [
     "digest",
     "load_catalog",
     "load_document",
-    "mcp_tool",
 ]

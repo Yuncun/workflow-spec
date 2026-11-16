@@ -1,18 +1,14 @@
 """Publishing helpers: digests and the manifest a workflow gets when it is published as a step
-(SPEC.md, section 10), and MCP tool definitions (drafts/mcp.md)."""
+(SPEC.md, section 10)."""
 
 from __future__ import annotations
 
 from pathlib import Path
 
 from .check import check, closure
-from .documents import _DATA_KEYWORDS, EFFECT_ORDER, FILE_REF, REGISTRY, Catalog, Issue, ParseError, canonical_json, digest, load_document, pointer
-from .documents import mcp_name as tool_name
+from .documents import _DATA_KEYWORDS, EFFECT_ORDER, Catalog, Issue, ParseError, canonical_json, digest, load_document, pointer
 
 __all__ = ["canonical_json", "digest"]  # re-exported from documents, where the checker also needs them
-
-_FILE_SCHEMA = {k: v for k, v in REGISTRY.contents(FILE_REF).items() if k not in ("$schema", "$id", "title", "description")}
-
 
 def pinned_workflow(path: Path, pinned: str) -> dict | None:
     """The workflow in `path` when it still has the digest its manifest pins, otherwise None."""
@@ -100,35 +96,32 @@ def _required_sorted(node):
 
 
 def self_reach_issues(ref: str, manifest: dict, catalog: Catalog, file: str | None) -> list[Issue]:
-    """A step may not be able to run itself, through calls or the workflow it runs (SPEC.md, [manifest.no-self])."""
-    issues = []
-    for i, callee in enumerate(manifest.get("calls", [])):
-        if callee == ref or ref in _reachable(callee, catalog):
-            issues.append(Issue("invalid_manifest", pointer("calls", i), f"{callee} can lead back to {ref}, so the step could run itself", file=file))
+    """A workflow step may not be able to run itself through the workflow it runs (SPEC.md, [manifest.no-self])."""
     runtime = manifest["runtime"].get("workflow")
-    if runtime and file is not None:
-        inner = load_document(Path(file).parent / runtime["path"])
-        starts = [step["uses"] for step in inner.get("steps", {}).values()]
-        if any(uses == ref or ref in _reachable(uses, catalog) for uses in starts):
-            issues.append(Issue("invalid_manifest", pointer("runtime", "workflow", "path"), f"the workflow can run {ref} itself", file=file))
-    return issues
+    if not runtime or file is None:
+        return []
+    inner = load_document(Path(file).parent / runtime["path"])
+    starts = [step["uses"] for step in inner.get("steps", {}).values()]
+    if any(uses == ref or ref in _reachable(uses, catalog) for uses in starts):
+        return [Issue("invalid_manifest", pointer("runtime", "workflow", "path"), f"the workflow can run {ref} itself", file=file)]
+    return []
 
 
 def _reachable(start: str, catalog: Catalog) -> set[str]:
-    """Every step version `start` can run, through calls and workflow steps, not counting itself."""
+    """Every step version `start` can run, through workflow steps, not counting itself."""
     seen: set[str] = set()
     stack = [start]
     while stack:
         manifest = catalog.steps.get(stack.pop())
         if manifest is None:
             continue
-        nexts = list(manifest.get("calls", []))
+        nexts = []
         runtime = manifest["runtime"].get("workflow")
         if runtime:
             ref = f"{manifest['name']}@{manifest['version']}"
             try:
                 inner = load_document(Path(catalog.files[ref]).parent / runtime["path"])
-                nexts += [step["uses"] for step in inner.get("steps", {}).values()]
+                nexts = [step["uses"] for step in inner.get("steps", {}).values()]
             except (KeyError, OSError, ParseError):
                 pass
         for n in nexts:
@@ -163,39 +156,3 @@ def workflow_step_issues(manifest: dict, catalog: Catalog, file: str | None) -> 
     if missing:
         issues.append(Issue("invalid_manifest", pointer("secrets"), f"the workflow's steps need {', '.join(missing)}, so the step's secrets must include them", file=file))
     return issues
-
-
-def mcp_name(manifest: dict) -> str:
-    """The MCP tool name of a step (drafts/mcp.md, section 1)."""
-    return tool_name(manifest["name"], manifest["version"])
-
-
-def mcp_tool(manifest: dict) -> dict:
-    """The MCP tool definition for a step (drafts/mcp.md, section 1).
-
-    For steps that write, destructiveHint and idempotentHint are left to MCP's defaults:
-    destructive, and not idempotent."""
-    effects = manifest["effects"]
-    hints = {"readOnlyHint": effects != "writes", "openWorldHint": effects != "none"}
-    tool = {"name": mcp_name(manifest)}
-    for key in ("title", "description"):
-        if key in manifest:
-            tool[key] = manifest[key]
-    tool.update({
-        "inputSchema": _inline_files(manifest["inputSchema"]),
-        "outputSchema": _inline_files(manifest["outputSchema"]),
-        "annotations": hints,
-    })
-    return tool
-
-
-def _inline_files(schema):
-    """Replace {"$ref": "urn:wfspec:file"} with the file schema itself, for clients that can't resolve it."""
-    if isinstance(schema, dict):
-        if schema.get("$ref") == FILE_REF:
-            rest = {k: v for k, v in schema.items() if k != "$ref"}
-            return {**_FILE_SCHEMA, **rest}
-        return {k: _inline_files(v) for k, v in schema.items()}
-    if isinstance(schema, list):
-        return [_inline_files(v) for v in schema]
-    return schema

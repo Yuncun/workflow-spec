@@ -1,4 +1,4 @@
-"""Command line: wfspec check | check-step | run | as-step | mcp-tool."""
+"""Command line: wfspec check | check-step | run | as-step."""
 
 from __future__ import annotations
 
@@ -19,9 +19,8 @@ from .documents import (
     manifest_issues,
     schema_issues,
 )
-from .publish import as_step, mcp_tool
+from .publish import as_step
 from .run import Options, Runner
-from .runtimes import Model
 from .store import Store
 
 
@@ -38,7 +37,7 @@ def main(argv: list[str] | None = None) -> int:
     p = sub.add_parser("check-step", help="check one step manifest")
     p.add_argument("manifest", type=Path)
     p.add_argument("--catalog", type=Path, action="append", default=[],
-                   help="folder of the step manifests it calls or runs (repeatable); by default, the folder it's in")
+                   help="folder of the step manifests its workflow runs (repeatable); by default, the folder it's in")
     p.add_argument("--json", action="store_true", help="print the result as JSON")
 
     p = sub.add_parser("run", help="run a workflow with the reference runner")
@@ -51,8 +50,6 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--secret", action="append", default=[], metavar="NAME", help="give the run the environment variable NAME as a secret")
     p.add_argument("--store", type=Path, default=Path(".wfspec"), help="where files and run records go")
     p.add_argument("--timeout", type=float, default=300, help="seconds a program may run")
-    p.add_argument("--model-url", default="http://127.0.0.1:1234/v1", help="OpenAI-compatible API for agent steps")
-    p.add_argument("--model", help="use this model for every agent step")
     p.add_argument("--no-sandbox", action="store_true", help="don't enforce effects with the macOS sandbox")
     p.add_argument("--allow-read", type=Path, action="append", default=[], metavar="FOLDER",
                    help="let programs that don't write read this folder under your home folder (repeatable)")
@@ -61,9 +58,6 @@ def main(argv: list[str] | None = None) -> int:
     p = sub.add_parser("as-step", help="print the manifest a workflow gets when it is published")
     p.add_argument("workflow", type=Path)
     p.add_argument("--catalog", type=Path, action="append", required=True, help="folder of step manifests (repeatable)")
-
-    p = sub.add_parser("mcp-tool", help="print the MCP tool definition for a step manifest")
-    p.add_argument("manifest", type=Path)
 
     args = parser.parse_args(argv)
     args.restart_argv = sys.argv[1:] if argv is None else None  # only a program started from the command line restarts
@@ -140,7 +134,6 @@ def _run(args) -> int:
         policy=_policy(args.policy) if args.policy else None,
         secrets=secrets,
         timeout=args.timeout,
-        model=Model(url=args.model_url, name=args.model),
         sandbox=not args.no_sandbox,
         readable=args.allow_read,
     )
@@ -168,8 +161,6 @@ def _input_value(raw: str, schema) -> object:
 def _print_run(record: dict, store: Store) -> None:
     for sid, entry in record["steps"].items():
         notes = []
-        if entry.get("calls"):
-            notes.append("called " + ", ".join(c["uses"] for c in entry["calls"]))
         if entry.get("reason"):
             notes.append(entry["reason"])
         if entry.get("error"):
@@ -200,15 +191,6 @@ def _as_step(args) -> int:
     print(json.dumps(manifest, indent=2, ensure_ascii=False))
     return 0
 
-
-def _mcp_tool(args) -> int:
-    manifest = load_document(args.manifest)
-    issues = manifest_issues(manifest)
-    if issues:
-        _report([i.to_dict() for i in issues], "error")
-        return 1
-    print(json.dumps(mcp_tool(manifest), indent=2, ensure_ascii=False))
-    return 0
 
 
 def _policy(path: Path) -> dict:
@@ -263,7 +245,6 @@ _COMMANDS = {
     "check-step": _check_step,
     "run": _run,
     "as-step": _as_step,
-    "mcp-tool": _mcp_tool,
 }
 
 if __name__ == "__main__":

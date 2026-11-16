@@ -1,5 +1,0 @@
-replies:
-  - tool_calls:
-      - { name: finish, arguments: { answer: 5 } }
-  - tool_calls:
-      - { name: finish, arguments: { answer: ok } }

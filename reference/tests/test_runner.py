@@ -9,7 +9,6 @@ import os
 import shutil
 import socket
 import threading
-from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
 import pytest
@@ -17,53 +16,16 @@ import pytest
 from wfspec import load_catalog, load_document
 from wfspec.documents import schema_issues
 from wfspec.run import Options, Runner
-from wfspec.runtimes import SANDBOX, Model, home_installation
+from wfspec.runtimes import SANDBOX, home_installation
 from wfspec.store import Store
 
 ROOT = Path(__file__).resolve().parents[2]
 CASES = sorted(p for p in (ROOT / "tests" / "run").iterdir() if p.is_dir())
 # The optional features of SPEC.md, section 3, and the runtime kinds a case can need. The reference runner has them all.
-NEEDS = {"calls", "workflow-step", "file-inputs", "run-record", "agent"}
+NEEDS = {"workflow-step", "file-inputs", "run-record"}
 # The test programs run python3. When it's installed under a home folder, as on GitHub's macOS
 # runners, the sandbox lets programs read it only when granted, as a person would grant it.
 PYTHON = [p for p in [home_installation(["python3"], os.environ.get("PATH", ""))] if p]
-
-
-class FakeModel:
-    """An OpenAI-compatible chat completions endpoint that gives scripted replies in order."""
-
-    def __init__(self, replies: list[dict]):
-        self.replies, self.requests = list(replies), []
-        model = self
-
-        class Handler(BaseHTTPRequestHandler):
-            def do_POST(self):
-                body = json.loads(self.rfile.read(int(self.headers["Content-Length"])))
-                model.requests.append(body)
-                reply = model.replies.pop(0) if model.replies else {"content": ""}
-                message = {"role": "assistant", "content": reply.get("content", "")}
-                if "tool_calls" in reply:
-                    message["tool_calls"] = [
-                        {"id": f"call_{i}", "type": "function",
-                         "function": {"name": c["name"], "arguments": json.dumps(c["arguments"])}}
-                        for i, c in enumerate(reply["tool_calls"])
-                    ]
-                data = json.dumps({"choices": [{"message": message}]}).encode()
-                self.send_response(200)
-                self.send_header("Content-Type", "application/json")
-                self.send_header("Content-Length", str(len(data)))
-                self.end_headers()
-                self.wfile.write(data)
-
-            def log_message(self, *args):
-                pass
-
-        self.server = ThreadingHTTPServer(("127.0.0.1", 0), Handler)
-        self.url = f"http://127.0.0.1:{self.server.server_port}/v1"
-        threading.Thread(target=self.server.serve_forever, daemon=True).start()
-
-    def close(self):
-        self.server.shutdown()
 
 
 def matches(actual, expected) -> bool:
@@ -117,7 +79,6 @@ def test_run_case(case: Path, tmp_path: Path):
     places = {"{tmp}": str(tmp_path), "{port}": listener.getsockname()[1], "{case}": str(case)}
     workflow = substitute(load_document(case / "workflow.yaml"), places)
     inputs = substitute(optional(case, "inputs.yaml", {}), places)
-    model = FakeModel(optional(case, "model.yaml", {}).get("replies", []))
     store = Store(tmp_path / "store")
     try:
         options = Options(
@@ -125,12 +86,10 @@ def test_run_case(case: Path, tmp_path: Path):
             policy=optional(case, "policy.yaml", None),
             secrets=optional(case, "secrets.yaml", {}),
             sandbox=opts.get("sandbox", True),
-            model=Model(url=model.url),
             readable=PYTHON,
         )
         record = Runner(catalog, options).run(workflow, inputs)
     finally:
-        model.close()
         listener.close()
 
     expected = load_document(case / "expected.yaml")
@@ -144,12 +103,6 @@ def test_run_case(case: Path, tmp_path: Path):
         assert matches(record["steps"][sid], want), f"{sid}: {json.dumps(record['steps'][sid])[:600]}"
     if expected.get("steps") == {}:
         assert record["steps"] == {}
-    for sid, calls in (expected.get("calls") or {}).items():
-        got = record["steps"][sid].get("calls", [])
-        want = [{"uses": c} if isinstance(c, str) else c for c in calls]
-        assert matches(got, want), f"{sid} calls: {json.dumps(got)[:600]}"
-    if "model_saw_tools" in expected:
-        assert [t["function"]["name"] for t in model.requests[0]["tools"]] == expected["model_saw_tools"]
     for hidden in expected.get("logs_hide", []):
         for stored in (tmp_path / "store").rglob("*"):
             if stored.is_file():
@@ -206,31 +159,6 @@ def test_a_write_that_isnt_approved_is_left_out(tmp_path: Path):
 
     record = run(True)
     assert record["steps"]["save"]["status"] == "succeeded" and (tmp_path / "saved.txt").read_text() == "HI"
-
-
-def test_an_agent_step_without_a_model_uses_the_runners_default(tmp_path: Path):
-    """An agent step whose manifest names no model runs with the model the runner chooses
-    (drafts/runtime.md, section 2)."""
-    (tmp_path / "steps").mkdir()
-    (tmp_path / "steps" / "notes.md").write_text("Answer briefly.")
-    (tmp_path / "steps" / "ask.yaml").write_text("""\
-name: test/ask
-version: 1.0.0
-description: An agent step that names no model.
-inputSchema: { type: object, properties: { text: { type: string } }, required: [text] }
-outputSchema: { type: object, properties: { answer: { type: string } }, required: [answer] }
-effects: reads
-runtime: { agent: { instructions: notes.md } }
-""")
-    workflow = {"outputs": {"answer": {"from": "steps.ask.outputs.answer"}}, "steps": {"ask": {"uses": "test/ask@1.0.0", "with": {"text": "hi"}}}}
-    model = FakeModel([{"content": json.dumps({"outputs": {"answer": "hello"}})}])
-    try:
-        options = Options(store=Store(tmp_path / "store"), model=Model(url=model.url))
-        record = Runner(load_catalog([tmp_path / "steps"]), options).run(workflow, {})
-    finally:
-        model.close()
-    assert record["steps"]["ask"]["outputs"] == {"answer": "hello"}
-    assert model.requests[0]["model"] == Model().default
 
 
 # ---- a runner that another program drives: an id of its choice, the record so far, cancelling ----

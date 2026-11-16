@@ -5,15 +5,14 @@ from pathlib import Path
 
 import pytest
 
-from wfspec import as_step, check, digest, load_catalog, load_document, mcp_tool
+from wfspec import as_step, check, digest, load_catalog, load_document
 from wfspec.cli import main
 from wfspec.documents import schema_issues
-from wfspec.publish import mcp_name
 
 ROOT = Path(__file__).resolve().parents[2]
 EXAMPLES = ROOT / "examples"
-WORKFLOWS = ["ci-triage", "investigate", "pr-summary"]
-RUNS = ["ci-triage", "investigate"]
+WORKFLOWS = ["ci-triage", "pr-summary"]
+RUNS = ["ci-triage"]
 
 
 @pytest.fixture(scope="module")
@@ -42,15 +41,6 @@ def test_run_records_are_valid_and_pinned(catalog, name):
     assert run["workflow"]["digest"] == digest(workflow(name))
     for step in run["steps"].values():
         assert step["digest"] == digest(catalog.steps[step["uses"]])
-        for call in step.get("calls", []):
-            assert call["digest"] == digest(catalog.steps[call["uses"]])
-
-
-def test_fixed_workflow_uses_the_steps_the_agent_called():
-    agent_run = load_document(EXAMPLES / "runs" / "investigate.run.json")
-    called = {call["uses"] for call in agent_run["steps"]["investigate"]["calls"]}
-    fixed = {step["uses"] for step in workflow("ci-triage")["steps"].values()}
-    assert called <= fixed
 
 
 def test_workflow_published_as_step(catalog):
@@ -68,34 +58,14 @@ def test_workflow_published_without_description(catalog):
     manifest = as_step(flow, catalog, "workflows/ci-triage.yaml")
     assert schema_issues(manifest, "urn:wfspec:schema:step", "invalid") == []
     assert "description" not in manifest
-    assert "description" not in mcp_tool(manifest)
-
-
-def test_mcp_tool_definitions(catalog):
-    issue = mcp_tool(catalog.steps["acme/open-issue@1.0.3"])
-    assert issue["name"] == "acme_open-issue_v1"
-    assert issue["annotations"] == {"readOnlyHint": False, "openWorldHint": True}
-    logs = mcp_tool(catalog.steps["acme/fetch-ci-logs@2.1.0"])
-    assert logs["annotations"] == {"readOnlyHint": True, "openWorldHint": True}
-    assert "$ref" not in json.dumps(logs)
-    assert logs["outputSchema"]["properties"]["logs"]["required"] == ["digest", "mediaType"]
-
-
-def test_mcp_names_stay_short_and_distinct():
-    long_a = {"name": "acme/" + "a" * 70, "version": "2.0.0"}
-    long_b = {"name": "acme/" + "a" * 69 + "b", "version": "2.0.0"}
-    assert len(mcp_name(long_a)) == 64
-    assert mcp_name(long_a) != mcp_name(long_b)
-    # Only an owner can contain _, so the name reads back from the right: version, step, owner (drafts/mcp.md).
-    assert mcp_name({"name": "mona-cat_octo/open-issue", "version": "1.2.0"}) == "mona-cat_octo_open-issue_v1"
 
 
 def test_a_platform_can_add_its_own_fields_and_error_codes():
     """Run records and policies take fields that start with x-, and an error takes a code that starts
     with x- (SPEC.md, [run.extensions], [run.error-codes], [check.policy])."""
-    record = json.loads((EXAMPLES / "runs" / "investigate.run.json").read_text())
-    step = next(s for s in record["steps"].values() if s.get("calls"))
-    record["x-queue"], step["x-machine"], step["calls"][0]["x-cost"] = "fast", "m1", 0.01
+    record = json.loads((EXAMPLES / "runs" / "ci-triage.run.json").read_text())
+    step = record["steps"]["triage"]
+    record["x-queue"], step["x-machine"] = "fast", "m1"
     assert schema_issues(record, "urn:wfspec:schema:run", "invalid") == []
     record.update(status="failed", error={"code": "x-quota", "message": "the caller is over its quota"})
     step.update(status="failed", error={"code": "x-quota", "message": "the caller is over its quota"})
@@ -130,7 +100,7 @@ def test_cli_exit_codes(capsys):
 
 def test_a_wrong_name_gets_the_close_one_or_all_of_them(catalog):
     """A message suggests a close name. When none is close it lists the names there are, so an
-    agent can fix the name from the message alone (SPEC.md, principle 3)."""
+    agent can fix the name from the message alone (SPEC.md, section 1)."""
     steps = {"logs": {"uses": "acme/fetch-ci-logs@2.1.0", "with": {"repo": "acme/app", "run_id": 7, "branch": "main", "repos": "x"}}}
     result = check({"outputs": {"out": {"from": "steps.logs.outputs.text"}}, "steps": steps}, catalog)
     messages = {error.path: error.message for error in result.errors}

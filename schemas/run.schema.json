@@ -175,13 +175,6 @@
           },
           "additionalProperties": false
         },
-        "calls": {
-          "description": "The steps this step called while it ran, in order (SPEC.md, section 9.7).",
-          "type": "array",
-          "items": {
-            "$ref": "#/$defs/call"
-          }
-        },
         "steps": {
           "description": "For a step whose runtime is a workflow: how the steps inside it ran.",
           "type": "object",
@@ -192,83 +185,6 @@
       },
       "patternProperties": { "^x-": {} },
       "additionalProperties": false
-    },
-    "call": {
-      "type": "object",
-      "required": [
-        "uses",
-        "digest",
-        "inputs",
-        "status"
-      ],
-      "if": {
-        "properties": {
-          "status": {
-            "const": "succeeded"
-          }
-        }
-      },
-      "then": {
-        "required": [
-          "outputs"
-        ]
-      },
-      "properties": {
-        "uses": {
-          "$ref": "urn:wfspec:schema:step#/$defs/stepRef"
-        },
-        "digest": {
-          "$ref": "urn:wfspec:schema:step#/$defs/digest"
-        },
-        "inputs": {
-          "type": "object"
-        },
-        "outputs": {
-          "type": "object"
-        },
-        "status": {
-          "enum": [
-            "succeeded",
-            "failed",
-            "skipped"
-          ]
-        },
-        "reason": {
-          "description": "Why the call was skipped.",
-          "type": "string"
-        },
-        "started": {
-          "type": "string",
-          "format": "date-time"
-        },
-        "ended": {
-          "type": "string",
-          "format": "date-time"
-        },
-        "error": {
-          "$ref": "#/$defs/stepRun/properties/error"
-        },
-        "logs": {
-          "$ref": "urn:wfspec:file"
-        },
-        "calls": {
-          "description": "The steps this call called while it ran, in order.",
-          "type": "array",
-          "items": {
-            "$ref": "#/$defs/call"
-          }
-        },
-        "steps": {
-          "description": "For a call to a workflow step: how the steps inside it ran.",
-          "type": "object",
-          "additionalProperties": {
-            "$ref": "#/$defs/stepRun"
-          }
-        }
-      },
-      "patternProperties": { "^x-": {} },
-      "additionalProperties": false,
-      "description": "A step another step called while it ran. It ran as a step, so it records the same facts."
     }
   }
 }

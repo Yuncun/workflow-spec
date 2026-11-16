@@ -20,7 +20,7 @@ An editorial change, such as clearer wording, doesn't change what conforms and n
 - **Requirement ids.** Every testable requirement has an id, such as `[check.cycle]`. An id never changes meaning and is never reused. `tests/coverage.yaml` maps each id to its tests, or gives the reason it has none, and the tests fail when an id is missing from it, when it names an id SPEC.md doesn't have, or when a test case covers no id. This is requirements traceability.
 - **Sections** are marked normative or informative.
 - **Terms.** Use plain words. A new term is defined in SPEC.md, section 2.3, before it's used.
-- **Principles.** A change that goes against a principle in SPEC.md, section 1, such as adding conditions or loops to workflows, says so in its proposal.
+- **Design goals.** A change that works against a design goal in SPEC.md, section 1, such as adding conditions or loops that make workflows harder to check before they run, says so in its proposal.
 
 ## Tests
 

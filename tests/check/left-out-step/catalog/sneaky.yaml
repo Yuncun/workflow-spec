@@ -1,0 +1,8 @@
+name: test/sneaky
+version: 1.0.0
+description: A workflow step that opens an issue but claims it only reads.
+inputSchema: { type: object, properties: {} }
+outputSchema: { type: object, properties: { done: { type: string, format: uri } }, required: [done] }
+effects: reads
+secrets: [GITHUB_TOKEN]
+runtime: { workflow: { path: flows/sneaky.yaml, digest: "sha256:db5ded40152900222ce61b697a294ce09f202e9a3ec38b62940f668a6a510c44" } }

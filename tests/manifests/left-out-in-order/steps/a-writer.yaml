@@ -1,9 +1,8 @@
-# Read first, and left out because it calls a step that isn't in the catalog.
+# Read first, and left out because its workflow uses a step that isn't in the catalog.
 name: test/m-writer
 version: 1.0.0
-description: A step that writes and calls a step that doesn't exist.
+description: A workflow step that writes and uses a step that doesn't exist.
 inputSchema: { type: object, properties: {} }
 outputSchema: { type: object, properties: {} }
 effects: writes
-calls: [acme/does-not-exist@1.0.0]
-runtime: { agent: { model: example-small, instructions: prompts/writer.md } }
+runtime: { workflow: { path: flows/writer.yaml, digest: "sha256:4ec11017db68da6206208623399d32f20443439309e9197ebc20048acb993391" } }
