@@ -27,7 +27,7 @@ A proposal joins the specification only through a new version of SPEC.md, with r
 ## P7. Running a step once per item
 
 - **Status:** open.
-- **Problem:** handling each item of a list needs a step that takes the whole list, or an agent step that makes one call per item.
+- **Problem:** handling each item of a list needs a step that takes the whole list.
 - **Idea:** a mapping form in `with` that runs the step once per item and collects the outputs into a list. ComfyUI has `INPUT_IS_LIST` and `OUTPUT_IS_LIST`.
 - **Settled by:** real workflows that need it, and how each item would be recorded.
 

@@ -58,14 +58,6 @@
       },
       "uniqueItems": true
     },
-    "calls": {
-      "description": "The exact step versions this step may call while it runs (SPEC.md, section 5.4).",
-      "type": "array",
-      "items": {
-        "$ref": "#/$defs/stepRef"
-      },
-      "uniqueItems": true
-    },
     "runtime": {
       "$ref": "#/$defs/runtime"
     },
@@ -141,7 +133,7 @@
       }
     },
     "runtime": {
-      "description": "How the step runs: an object with exactly one key, the runtime kind. The kind is workflow, defined in SPEC.md, section 5.3, whose fields are fixed here; process, container or agent, described in drafts/runtime.md, whose fields are open, so a change to a draft doesn't make manifests invalid; or a platform's own kind, whose name starts with x-.",
+      "description": "How the step runs: an object with exactly one key, the runtime kind. The kind is workflow, defined in SPEC.md, section 5.3, whose fields are fixed here; process or container, described in drafts/runtime.md, whose fields are open, so a change to a draft doesn't make manifests invalid; or a platform's own kind, whose name starts with x-.",
       "type": "object",
       "minProperties": 1,
       "maxProperties": 1,
@@ -169,7 +161,7 @@
         "type": "object"
       },
       "propertyNames": {
-        "pattern": "^(process|container|agent|workflow|x-.+)$"
+        "pattern": "^(process|container|workflow|x-.+)$"
       }
     }
   }

@@ -1,0 +1,6 @@
+# The workflow inside test/m-sneaky. It opens an issue, so test/m-sneaky's effects must be writes
+# (SPEC.md, [manifest.workflow-derived]).
+steps:
+  file: { uses: acme/open-issue@1.0.3, with: { repo: acme/web, title: Found a problem, body: Seen while reading the logs. } }
+outputs:
+  done: { from: steps.file.outputs.url }

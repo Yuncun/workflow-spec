@@ -1,6 +1,6 @@
 # Step runtimes
 
-Draft, 2026-11-10. **Not normative.** The reference runner follows sections 1 and 2 for `process` and `agent` steps, and the cases in `tests/run/` exercise them. This document becomes a normative companion to [SPEC.md](../SPEC.md) once a second runner, or a platform, confirms it in practice. Until then, a runner may follow it or not.
+Draft, 2026-11-10. **Not normative.** The reference runner follows section 1 for `process` steps, and the cases in `tests/run/` exercise them. This document becomes a normative companion to [SPEC.md](../SPEC.md) once a second runner, or a platform, confirms it in practice. Until then, a runner may follow it or not.
 
 SPEC.md says what a run must produce. This document says how a runner starts one step, for each runtime kind a manifest can name in `runtime`. SPEC.md, section 5.3 defines the `workflow` kind.
 
@@ -8,7 +8,8 @@ SPEC.md says what a run must produce. This document says how a runner starts one
 |---|---|---|
 | `process` | a program started on the runner's machine | `command` |
 | `container` | a program in a container image | `image`, `command` |
-| `agent` | a model that answers, and may call steps | `model`, `instructions`, `maxTurns` |
+
+A step that runs an agent is a program of either kind that asks a model.
 
 ## 1. Programs: `process` and `container`
 
@@ -35,8 +36,6 @@ The contract:
 
   A runner checks each digest before the step runs, and fails the step with `pinned_mismatch` when a file differs or isn't inside the manifest's folder (SPEC.md, [run.pinned]).
 
-A program can't call steps under this draft.
-
 *Informative.* The reference runner (`reference/wfspec/runtimes.py`) enforces `effects` for programs on macOS with the system sandbox (`sandbox-exec`):
 - A `none` step gets no network, and can't read the shared temporary folders (`/private/tmp` and `/private/var/folders`) or other volumes, apart from its work folder.
 - Neither a `none` nor a `reads` step may write outside its work folder.
@@ -48,31 +47,7 @@ The sandbox can't stop a program from reading the environment that another progr
 
 Where `sandbox-exec` isn't available, the runner refuses programs that don't write, unless the caller passes `--no-sandbox`. The test case `tests/run/effects/` and `reference/tests/test_isolation.py` check the sandbox.
 
-## 2. Agents: `agent`
-
-- `model`, when given, names a model the runner can serve; when it's left out, the runner chooses. How the runner maps names to models and providers is its choice.
-- `instructions` is the path of a text file inside the manifest's folder, relative to it. A publisher may write the SHA-256 of the file's bytes into the runtime object as `instructionsDigest`. A runner then checks it before the step runs, and fails the step with `pinned_mismatch` when the file differs or isn't inside the manifest's folder ([run.pinned]).
-- `maxTurns` limits the number of model responses. When it's left out, the runner chooses the limit.
-
-The runner:
-1. **Starts the model.** The instructions become the system prompt, and the input values, as JSON, the first user message. Every file input must be readable by the agent. Whether the runner puts the text in the message, attaches it, or relies on a step in `calls` that reads files is its choice. *Informative:* the reference runner puts the text of `text/*` files in the message, up to 200,000 characters, with `textCut: true` when it cuts one short. It gives other files only as their digest, media type and size, so an agent step that needs one must call a step that reads it.
-2. **Offers tools:**
-   - each step in `calls`, under its tool name, with its `inputSchema` as the parameters. The name is `<owner>_<name>_v<major>`, such as `acme_open-issue_v1`. Only an owner can contain `_`, so a name reads back from the right. A name over 64 characters is cut, and 8 hex characters of the full name's SHA-256 are appended. A step lists only one version per major version in `calls`, because two would get the same name.
-   - `finish`, whose parameters are the step's `outputSchema`
-   - `skip`, with one text parameter `reason`, when the manifest has `maySkip`
-3. **Runs each tool call as a step** ([run.calls-listed]) and returns the step's outputs, or its error, as the tool result. A response can contain several calls; the runner runs all of them in order and records each one ([run.calls-recorded]).
-4. **Finishes** when the model calls `finish` or `skip`.
-   - The runner checks the arguments of `finish` against `outputSchema`. When they don't fit, it returns the problems as the result of that call, and gives the model another turn.
-   - It allows a limited number of such retries; 2 is a sensible default.
-   - When the retries or `maxTurns` run out, the step fails with `invalid_output` or `failed`.
-5. **Handles models without tool calls.** A runner MAY run an agent step that has no `calls` by asking for one typed answer instead.
-   - The answer's JSON Schema wraps the outputs as `{"outputs": <outputSchema>}`.
-   - With `maySkip`, the answer may instead be `{"skip": "<reason>"}`.
-   - Wrapping the outputs keeps an output named `skip` unambiguous.
-
-*Informative.* Some model servers don't hold tool-call arguments to their schema, which is why step 4 checks them.
-
-## 3. Open questions
+## 2. Open questions
 
 - What resource limits does a step declare (proposals.md, P4)?
 - How does a runner report a step's progress while it runs?

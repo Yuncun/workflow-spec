@@ -1,6 +1,5 @@
-"""How the reference runner starts one step, for the runtime kinds in drafts/runtime.md:
-`process` (a program on this machine) and `agent` (a model behind an OpenAI-compatible
-chat completions API).
+"""How the reference runner starts one step, for the `process` runtime kind in drafts/runtime.md:
+a program on this machine.
 """
 
 from __future__ import annotations
@@ -13,18 +12,14 @@ import signal
 import stat
 import subprocess
 import tempfile
-import urllib.error
-import urllib.request
 from dataclasses import dataclass
 from pathlib import Path, PurePosixPath
 from typing import Callable
 
-from .documents import FILE_REF, mcp_name, value_problem
-from .publish import _inline_files
+from .documents import FILE_REF
 from .store import Store
 
 SANDBOX = shutil.which("sandbox-exec")  # macOS; elsewhere the runner can't enforce effects for programs
-TEXT_LIMIT = 200_000  # characters of a text file an agent gets inline
 
 
 class StepFailed(Exception):
@@ -285,136 +280,3 @@ def _finish_process(manifest: dict, argv: list[str], folder: Path, env: dict, wo
 
     outputs = map_files(outputs, manifest["outputSchema"], stored)
     return Outcome(outputs=outputs, logs=logs)
-
-
-# ---- agent ----------------------------------------------------------------------------------
-
-
-@dataclass
-class Model:
-    """A model behind an OpenAI-compatible chat completions API."""
-
-    url: str = "http://127.0.0.1:1234/v1"
-    name: str | None = None  # overrides the manifest's `model` when set
-    default: str = "default"  # the model for a step whose manifest names none
-    finish_retries: int = 2  # how many times a final answer that doesn't fit may be retried
-
-    def chat(self, body: dict) -> dict:
-        request = urllib.request.Request(
-            self.url.rstrip("/") + "/chat/completions",
-            json.dumps({"temperature": 0, **body}).encode(),
-            {"Content-Type": "application/json"},
-        )
-        try:
-            with urllib.request.urlopen(request, timeout=900) as response:
-                reply = json.load(response)
-        except (urllib.error.URLError, TimeoutError, json.JSONDecodeError) as exc:
-            raise StepFailed("failed", f"the model at {self.url} didn't answer: {exc}")
-        if not reply.get("choices"):
-            raise StepFailed("failed", f"the model's reply has no choices: {json.dumps(reply)[:300]}")
-        return reply["choices"][0]["message"]
-
-
-def readable(inputs: dict, schema: dict, store: Store) -> dict:
-    """Input values for an agent, with the text of each text file inline (drafts/runtime.md, section 2)."""
-
-    def text(value: dict, _schema: dict):
-        if not str(value.get("mediaType", "")).startswith("text/"):
-            return value
-        try:
-            content = store.path_of(value).read_text(errors="replace")
-        except KeyError:
-            return value
-        return {**value, "text": content[:TEXT_LIMIT], **({"textCut": True} if len(content) > TEXT_LIMIT else {})}
-
-    return map_files(inputs, schema, text)
-
-
-def run_agent(manifest: dict, folder: Path, inputs: dict, store: Store, model: Model,
-              lookup: Callable[[str], dict], call: Callable[[str, dict], dict]) -> Outcome:
-    """drafts/runtime.md, section 2. `lookup(ref)` gives a called step's manifest; `call(ref, inputs)` runs it
-    as a step and returns the tool result."""
-    spec = manifest["runtime"]["agent"]
-    path = folder / spec["instructions"]
-    code = "pinned_mismatch" if "instructionsDigest" in spec else "failed"  # pinned content: SPEC.md, [run.pinned]
-    if not inside(path, folder):
-        raise StepFailed(code, f"the instructions file {spec['instructions']} isn't in the step's folder")
-    if not path.is_file():
-        raise StepFailed(code, f"the instructions file {spec['instructions']} doesn't exist")
-    if "instructionsDigest" in spec:
-        check_pinned(folder, {spec["instructions"]: spec["instructionsDigest"]})
-    out_schema = manifest["outputSchema"]
-    messages = [
-        {"role": "system", "content": path.read_text()},
-        {"role": "user", "content": json.dumps(readable(inputs, manifest["inputSchema"], store), ensure_ascii=False)},
-    ]
-    name = model.name or spec.get("model") or model.default
-    calls = manifest.get("calls", [])
-
-    if not calls and not manifest.get("maySkip"):
-        # One typed answer, with the outputs wrapped so no output name can clash with the wrapper.
-        wrapper = {"type": "object", "properties": {"outputs": _inline_files(out_schema)}, "required": ["outputs"], "additionalProperties": False}
-        problem = "no answer"
-        for _ in range(model.finish_retries + 1):
-            reply = model.chat({"model": name, "messages": messages,
-                                "response_format": {"type": "json_schema", "json_schema": {"name": "answer", "strict": True, "schema": wrapper}}})
-            content = reply.get("content") or ""
-            try:
-                outputs = json.loads(content).get("outputs")
-            except (json.JSONDecodeError, AttributeError):
-                outputs, problem = None, "the answer isn't JSON"
-            else:
-                problem = value_problem(out_schema, outputs) if isinstance(outputs, dict) else "the answer has no outputs object"
-            if problem is None:
-                return Outcome(outputs=outputs)
-            messages += [{"role": "assistant", "content": content},
-                         {"role": "user", "content": f"That answer doesn't fit the output schema: {problem}. Answer again."}]
-        raise StepFailed("invalid_output", f"the agent's answer doesn't fit outputSchema: {problem}")
-
-    offered = {mcp_name(*ref.split("@")): ref for ref in calls}
-    tools = [_tool(mcp, lookup(ref).get("description"), _inline_files(lookup(ref)["inputSchema"])) for mcp, ref in offered.items()]
-    tools.append(_tool("finish", "Give your final answer. Call this once, last.", _inline_files(out_schema)))
-    if manifest.get("maySkip"):
-        tools.append(_tool("skip", "Finish without outputs because there is nothing to do.",
-                           {"type": "object", "properties": {"reason": {"type": "string"}}, "required": ["reason"]}))
-    retries = 0
-    for _ in range(spec.get("maxTurns", 20)):
-        reply = model.chat({"model": name, "messages": messages, "tools": tools})
-        tool_calls = reply.get("tool_calls") or []
-        if not tool_calls:
-            messages += [{"role": "assistant", "content": reply.get("content") or ""},
-                         {"role": "user", "content": "Call one of your tools, or call finish with your answer."}]
-            continue
-        messages.append({"role": "assistant", "content": reply.get("content") or "", "tool_calls": tool_calls})
-        outcome = None
-        for tc in tool_calls:
-            fn = tc.get("function", {})
-            try:
-                args = json.loads(fn.get("arguments") or "{}")
-            except json.JSONDecodeError:
-                result = {"error": "the arguments aren't JSON"}
-            else:
-                if fn.get("name") == "finish":
-                    problem = value_problem(out_schema, args)
-                    if problem is None:
-                        outcome, result = Outcome(outputs=args), {"accepted": True}
-                    else:
-                        retries += 1
-                        if retries > model.finish_retries:
-                            raise StepFailed("invalid_output", f"the agent's answer doesn't fit outputSchema: {problem}")
-                        result = {"accepted": False, "problem": problem}
-                elif fn.get("name") == "skip" and manifest.get("maySkip"):
-                    outcome, result = Outcome(skipped=str(args.get("reason") or "nothing to do")), {"accepted": True}
-                elif fn.get("name") in offered:
-                    result = call(offered[fn["name"]], args)
-                else:
-                    result = {"error": f"there is no tool named {fn.get('name')!r}"}
-            messages.append({"role": "tool", "tool_call_id": tc.get("id", ""), "content": json.dumps(result, ensure_ascii=False)})
-        if outcome is not None:
-            return outcome
-    raise StepFailed("failed", f"the agent didn't finish within {spec.get('maxTurns', 20)} turns")
-
-
-def _tool(name: str, description: str | None, parameters: dict) -> dict:
-    function = {"name": name, **({"description": description} if description is not None else {}), "parameters": parameters}
-    return {"type": "function", "function": function}

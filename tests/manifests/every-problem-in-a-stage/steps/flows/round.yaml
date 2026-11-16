@@ -1,0 +1,3 @@
+steps:
+  again: { uses: test/m-round@1.0.0 }
+  file: { uses: acme/open-issue@1.0.3, with: { repo: acme/web, title: Round again, body: Once more. } }

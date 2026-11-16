@@ -1,0 +1,2 @@
+steps:
+  missing: { uses: acme/does-not-exist@1.0.0 }

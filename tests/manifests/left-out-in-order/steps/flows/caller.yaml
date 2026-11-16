@@ -1,0 +1,2 @@
+steps:
+  write: { uses: test/m-writer@1.0.0 }

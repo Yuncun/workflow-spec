@@ -17,19 +17,17 @@ A checker must pass every checker case to conform, and a runner every runner cas
 | `inputs.yaml` | the run's inputs |
 | `secrets.yaml` | the caller's secrets, by name |
 | `policy.yaml` | the caller's policy |
-| `model.yaml` | scripted model replies for agent steps |
 | `options.yaml` | how to run the case |
 | `catalog/` | steps only this case uses |
 
 - The shared steps are in `run-catalog/`. They are programs (`process` steps, drafts/runtime.md).
-- Agent cases give their model replies as a script, served as an OpenAI-compatible API, so they need no model.
-- The cases rely on the `process` and `agent` contracts and the tool names in drafts/runtime.md. A runner that starts steps another way passes them by giving these steps the same behaviour in its own runtime.
+- The cases rely on the `process` contract in drafts/runtime.md. A runner that starts steps another way passes them by giving these steps the same behaviour in its own runtime.
 
 `options.yaml` can set:
 
 | Key | Means |
 |---|---|
-| `needs` | the optional features (SPEC.md, section 3: `calls`, `workflow-step`, `file-inputs`, `run-record`) and runtime kinds other than `process` (so far, `agent`) that the case needs; a runner that lacks one doesn't have to pass the case |
+| `needs` | the optional features (SPEC.md, section 3: `workflow-step`, `file-inputs`, `run-record`) and runtime kinds other than `process` that the case needs; a runner that lacks one doesn't have to pass the case |
 | `sandbox` | `false` runs programs without a sandbox |
 | `macos_only` | the case checks how the reference runner enforces effects, with the macOS sandbox. How a runner enforces effects is its choice ([run.effects]), so no other runner has to pass it |
 
@@ -41,8 +39,6 @@ A checker must pass every checker case to conform, and a runner every runner cas
 | `error` | the run's error code |
 | `outputs` | the run's outputs |
 | `steps` | for chosen steps, fields of their records, such as `status`, `error`, `reason` or `outputs` |
-| `calls` | for a step id, the records of the calls it made, in order |
-| `model_saw_tools` | the tool names the model was offered in its first request |
 | `logs_hide` | values that nothing the runner stored may contain |
 
 A record matches when every field the expectation gives matches. Other fields are free. A runner with the `run-record` feature must also make every run record fit `schemas/run.schema.json`.

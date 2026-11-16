@@ -8,7 +8,7 @@ This specification defines a text format for jobs built from published steps. It
 
 *This section is informative.*
 
-A **step** is a published, versioned unit of work with typed inputs and outputs. It can be a program, an agent, a tool on a remote server, or another workflow. A **workflow** connects steps. Each input of a step gets either a literal value or a reference to a workflow input or to another step's output. All computation, including decisions, lives inside steps.
+A **step** is a published, versioned unit of work with typed inputs and outputs. It can be a program (one that runs an agent, for example), a tool on a remote server, or another workflow. A **workflow** connects steps. Each input of a step gets either a literal value or a reference to a workflow input or to another step's output. All computation, including decisions, lives inside steps.
 
 Systems that run workflows are built in layers. This specification covers the format layer, which includes what a run must produce. Each other layer has its own document or is left to platforms:
 
@@ -67,12 +67,11 @@ Each testable requirement begins with an id in bold brackets, such as `[check.cy
 | step id | the key of a step entry in a workflow's `steps` |
 | literal | a value written in a workflow |
 | reference | `{from: ...}`: a value taken from a workflow input or from a step's output |
-| call | a step run by another step while that step runs (section 5.4) |
 | caller | the person or program that asks for a check or a run |
 | policy | what a caller may do (section 8.4) |
 | run | one execution of a workflow |
 | run record | the document a run produces (section 9.8) |
-| run order | the order in which a run's steps started, with each step's calls in the order it made them |
+| run order | the order in which a run's steps started |
 | checker, runner, publisher | the conformance classes (section 3) |
 | platform | a system that offers a catalog, a publisher and a runner to its callers |
 
@@ -92,7 +91,6 @@ A runner can also support any of these optional features. A runner that supports
 
 | Feature | What the runner does | Rules |
 |---|---|---|
-| `calls` | runs the steps a step calls while it runs | [run.calls-listed], [run.calls-recorded] |
 | `workflow-step` | runs a `workflow` step | section 5.3 |
 | `file-inputs` | takes files among a run's input values | [types.media-type] for a run's inputs |
 | `run-record` | writes run records | [run.record] |
@@ -155,11 +153,10 @@ Manifests, workflows and run records are JSON documents. Manifests and workflows
 | `deterministic` | no, default false | the same input values always give the same outputs |
 | `maySkip` | no, default false | the step can finish by skipping when it has nothing to do (section 9.4) |
 | `secrets` | no | the names of secrets the step needs, such as `GITHUB_TOKEN` |
-| `calls` | no | the steps this step may call while it runs (section 5.4) |
 | `runtime` | yes | how the step runs (section 5.3) |
 | `examples` | no | sample inputs, and optionally outputs |
 
-- **[manifest.schema]** A manifest MUST conform to `schemas/step.schema.json`. A runtime kind is one of the four in section 5.3, or a platform's own whose name starts with `x-`. The schema fixes the fields of the `workflow` kind only; the other kinds are objects whose fields their documents define.
+- **[manifest.schema]** A manifest MUST conform to `schemas/step.schema.json`. A runtime kind is one of the three in section 5.3, or a platform's own whose name starts with `x-`. The schema fixes the fields of the `workflow` kind only; the other kinds are objects whose fields their documents define.
 - **[manifest.extensions]** Fields whose names start with `x-` are reserved for platforms. A checker MUST ignore them.
 
 *Informative.* `name`, `title`, `description`, `inputSchema` and `outputSchema` are the fields of an MCP tool definition, so a platform can offer any step to an agent as a tool.
@@ -186,8 +183,10 @@ Manifests, workflows and run records are JSON documents. Manifests and workflows
 | Kind | Defined in |
 |---|---|
 | `workflow` | this section |
-| `process`, `container`, `agent` | [drafts/runtime.md](drafts/runtime.md) |
+| `process`, `container` | [drafts/runtime.md](drafts/runtime.md) |
 | `x-...` | the platform that defines it |
+
+*Informative.* There is no kind for agents. A step that runs an agent is a program, a `process` or `container` step, that asks a model.
 
 For `workflow`, `path` names a workflow file relative to the folder of the manifest, and `digest` is that file's digest (section 10.1). Section 10.3 says how a published workflow's manifest is derived.
 
@@ -196,32 +195,20 @@ For `workflow`, `path` names a workflow file relative to the folder of the manif
   - be a valid workflow (section 7) that passes checking against the catalog (section 8)
   - have the digest in `digest`
 - **[manifest.workflow-derived]** A `workflow` step's manifest MUST declare the `inputSchema` and `outputSchema` that [publish.as-step] derives from its workflow, compared as JSON with the order of each `required` list ignored. Its `effects` MUST be at least the derived effects, its `secrets` MUST include the derived secrets, and it MUST NOT set `deterministic: true` unless the derived value is true.
+- **[manifest.no-self]** A `workflow` step MUST NOT be able to run itself. Its own name and version MUST NOT appear among the steps in its workflow, or among the steps those can run in turn.
 
-### 5.4 Steps that call steps
-
-A step can call other steps while it runs. An agent step that uses steps as tools is the usual case. `calls` lists the exact step versions it may call.
-
-- **[manifest.calls-known]** Each entry in `calls` MUST name a step in the catalog.
-- **[manifest.calls-effects]** A step's `effects` MUST be at least the effects of every step in its `calls`, in the order `none`, `reads`, `writes`.
-- **[manifest.calls-secrets]** A step's `secrets` MUST include every secret named by the steps in its `calls`.
-- **[manifest.no-self]** A step MUST NOT be able to run itself. Its own name and version MUST NOT appear among the steps it can run: the steps in its `calls`, the steps in its workflow if it is a `workflow` step, and the steps those can run in turn.
-
-*Informative.*
-- Without the effects and secrets rules, a step could do more than its manifest says.
-- Section 9.7 says what a runner does with calls.
-
-### 5.5 When a manifest is invalid
+### 5.4 When a manifest is invalid
 
 - **[manifest.json-schema]** `inputSchema` and `outputSchema` MUST be valid JSON Schemas (2020-12).
 - **[manifest.required-declared]** Every name listed in a schema's top-level `required` MUST be declared in its `properties`.
 - **[manifest.default-fits]** An input's `default` MUST fit that input's schema.
 - **[manifest.examples-fit]** An example's `inputs` and `outputs` MUST fit the manifest's schemas.
 - **[manifest.refs]** A schema MUST NOT use `$ref` for anything but `urn:wfspec:file`, and MUST NOT use `$defs`, `definitions`, `$id`, `$anchor`, `$dynamicRef` or `$dynamicAnchor` (section 6.1). A file MUST be declared as the schema of a property or of `items`, at any depth, and not under another keyword such as `additionalProperties` or `anyOf`.
-- **[manifest.invalid]** A checker MUST report a manifest that breaks a rule in section 5 as `invalid_manifest`, except that an unknown entry in `calls` is reported as `unknown_step` at that entry. It MUST leave the manifest out of the catalog. Annex A.3 says what to do after one is left out.
-- **[manifest.left-out]** A workflow that names a manifest left out of the catalog MUST get `unknown_step`, and the message SHOULD say why the manifest was left out. A manifest that calls a left-out manifest, or whose workflow uses one, is left out too (Annex A.3).
+- **[manifest.invalid]** A checker MUST report a manifest that breaks a rule in section 5 as `invalid_manifest`. It MUST leave the manifest out of the catalog. Annex A.3 says what to do after one is left out.
+- **[manifest.left-out]** A workflow that names a manifest left out of the catalog MUST get `unknown_step`, and the message SHOULD say why the manifest was left out. A manifest whose workflow uses a left-out manifest is left out too (Annex A.3).
 - **[manifest.duplicate]** When two manifests in one catalog have the same name and version, a checker MUST report `duplicate_step` for the later one and check it no further. It keeps the first one it read, whether that one is valid or not. Annex A.3 gives the order in which a checker reads a catalog.
 
-### 5.6 Example
+### 5.5 Example
 
 *This section is informative.*
 
@@ -249,8 +236,7 @@ runtime:
 
 More examples are in `examples/steps/`:
 - `open-issue.yaml`: a step that writes
-- `triage-logs.yaml`: an agent step without calls
-- `investigate-failure.yaml`: an agent step with calls
+- `triage-logs.yaml`: a container step whose program asks a model
 
 ## 6. Values and types
 
@@ -359,9 +345,9 @@ steps:
 
 A workflow has no conditions, loops or expressions, so it can be checked completely before it runs and every runner reads it the same way. This follows the [Rule of Least Power](https://www.w3.org/2001/tag/doc/leastPower.html). Where one is needed:
 - **A fixed rule** goes in a small step that computes it.
-- **A judgment** goes in an agent step with a typed output, such as `category: { enum: [test, build, infrastructure, flaky] }`.
+- **A judgment** goes in a step that asks a model, with a typed output, such as `category: { enum: [test, build, infrastructure, flaky] }`.
 - **"Only if there's something to do"** is a step with `maySkip`. When it skips, the steps after it are skipped too (section 9.4).
-- **A sequence that varies from run to run** goes in a step that calls other steps (section 5.4).
+- **A sequence that varies from run to run** goes inside one step, such as a program that runs an agent.
 
 ## 8. Checking
 
@@ -470,17 +456,15 @@ How a step says it skips or fails depends on its runtime kind ([drafts/runtime.m
 - **[run.secrets-named]** A runner MUST give a step only the secrets its manifest names.
 - **[run.secrets-hidden]** A runner MUST NOT write secret values into run records, logs or anything else it stores.
 
-### 9.7 Effects, policy and calls
+### 9.7 Effects and policy
 
 - **[run.effects]** A runner MUST NOT let a step act beyond its declared effects or the caller's policy. How it enforces this is its choice. It can, for example, deny network access to a `none` step, or ask for approval before a `writes` step when the platform requires it.
-- **[run.writes-once]** A runner MUST NOT run a step that writes a second time in one run unless the run or its caller asks for it, for example by calling it twice or by choosing to retry it. So it doesn't retry such a step on its own, and doesn't reuse an earlier run's outputs in place of running it. It may reuse or retry other steps as it likes; `deterministic` says when reusing outputs for the same inputs is safe.
-- **[run.calls-listed]** A runner with the `calls` feature MUST let a step call only the steps in its `calls`. It MUST run each call as a step, under the same caller policy and with the same input, output, effects and secrets rules.
-- **[run.calls-recorded]** A runner MUST record every call, in order, under the calling step's `calls` in the run record, with its inputs, outputs and step digest.
+- **[run.writes-once]** A runner MUST NOT run a step that writes a second time in one run unless the run or its caller asks for it, for example by using it twice in the workflow or by choosing to retry it. So it doesn't retry such a step on its own, and doesn't reuse an earlier run's outputs in place of running it. It may reuse or retry other steps as it likes; `deterministic` says when reusing outputs for the same inputs is safe.
 
 ### 9.8 Run record
 
 - **[run.record]** A runner with the `run-record` feature MUST write a run record that fits `schemas/run.schema.json`. Any runner reports each run's and step's status, error and outputs.
-- **[run.extensions]** Fields whose names start with `x-` are reserved for platforms, in the run record and in the record of each step and call. A program that reads run records MUST ignore the ones it doesn't know.
+- **[run.extensions]** Fields whose names start with `x-` are reserved for platforms, in the run record and in the record of each step. A program that reads run records MUST ignore the ones it doesn't know.
 
 A run record holds:
 - the workflow's digest
@@ -489,7 +473,6 @@ A run record holds:
 - an OpenTelemetry trace id, so logs and traces can be found
 - for a run that failed or never started, an `error` with a message and a code
 - for each step: its version and digest, inputs, outputs and error
-- for each call a step made: the same facts as for a step
 
 Examples are in `examples/runs/`.
 
@@ -534,9 +517,8 @@ A version follows Semantic Versioning: a change that can break a workflow using 
 
 *This section is informative.*
 
-- **Steps are other people's code.** `effects`, `secrets` and `calls` are claims made by a manifest's author. A platform enforces them ([run.effects], [run.secrets-named], [run.calls-listed]), typically by running each step in its own container or virtual machine. A runner on a person's own computer can't isolate as well, because a program runs as that person. Run only steps you trust on your own computer.
-- **Steps that call steps can be steered by what they read.** An agent step that reads untrusted text, such as an issue or a log, can be led to call its steps in ways its author didn't intend. Its `calls`, its effects and the caller's policy bound what it can do, and every call is recorded. Give such a step only the calls it needs, and prefer calls that only read.
-- **Secrets** reach only the steps that name them, and never records or logs ([run.secrets-named], [run.secrets-hidden]). A runner can hide only the values it recognizes: a step given a secret can still pass it on in another form, such as encoded, so give secrets only to steps you trust. A step's secrets include those of its calls ([manifest.calls-secrets]), and a workflow step's include those of its workflow ([manifest.workflow-derived]), so the manifest shows every secret the step can reach.
+- **Steps are other people's code.** `effects` and `secrets` are claims made by a manifest's author. A platform enforces them ([run.effects], [run.secrets-named]), typically by running each step in its own container or virtual machine. A runner on a person's own computer can't isolate as well, because a program runs as that person. Run only steps you trust on your own computer.
+- **Secrets** reach only the steps that name them, and never records or logs ([run.secrets-named], [run.secrets-hidden]). A runner can hide only the values it recognizes: a step given a secret can still pass it on in another form, such as encoded, so give secrets only to steps you trust. A workflow step's secrets include those of its workflow ([manifest.workflow-derived]), so the manifest shows every secret the step can reach.
 - **Reused outputs can cross callers.** A runner that reuses outputs computed for one caller can serve them to another with the same inputs. A platform should decide how far that goes, because outputs can contain private data.
 - **YAML aliases can expand without limit**, an attack known as the "billion laughs". Readers should limit document size and alias expansion.
 - **Pinning protects shared workflows.** Versions that never change ([publish.immutable]) and pinned content ([run.pinned]) stop a shared workflow from silently running different code.
@@ -648,7 +630,7 @@ These apply to a manifest's schemas and to a workflow's `inputSchema`:
 
 **Reading a catalog** ([manifest.duplicate]). A catalog's manifests are the files in its folders whose names end in `.yaml`, `.yml` or `.json`. A checker reads a catalog's folders in the order given, and each folder's files in the order of their names, compared by Unicode code point.
 
-**After a manifest is left out** ([manifest.left-out]). Leaving a manifest out can break another manifest that calls it or whose workflow uses it. A checker MUST then apply the rules that need the catalog again to the remaining manifests, one at a time in reading order, and leave out each one that fails. It repeats this until no more manifests are left out.
+**After a manifest is left out** ([manifest.left-out]). Leaving a manifest out can break another manifest whose workflow uses it. A checker MUST then apply the rules that need the catalog again to the remaining manifests, one at a time in reading order, and leave out each one that fails. It repeats this until no more manifests are left out.
 
 ### A.4 Workflows
 

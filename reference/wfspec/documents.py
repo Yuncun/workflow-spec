@@ -244,22 +244,6 @@ def value_problem(schema: dict, value) -> str | None:
     return None if error is None else error.message
 
 
-MCP_NAME_LIMIT = 64
-
-
-def mcp_name(name: str, version: str) -> str:
-    """owner_name_v<major>: letters, digits, _ and -, which MCP and model tool APIs all accept.
-
-    Only an owner can contain _, so the parts read back from the right: the version, then the
-    step's name, and what is left is the owner. Names over 64 characters
-    are cut and given 8 hex characters of the full name's SHA-256, so they stay unique."""
-    owner, short = name.split("/")
-    full = f"{owner}_{short}_v{version.split('.')[0]}"
-    if len(full) <= MCP_NAME_LIMIT:
-        return full
-    return full[: MCP_NAME_LIMIT - 9] + "_" + hashlib.sha256(full.encode()).hexdigest()[:8]
-
-
 _DATA_KEYWORDS = ("default", "const", "enum", "examples")  # their values are data, not schemas
 _NAMED_SCHEMAS = ("properties", "patternProperties", "dependentSchemas")  # names map to schemas
 
@@ -428,33 +412,6 @@ def workflow_runtime_issues(manifest: dict, file: str | None) -> list[Issue]:
     return []
 
 
-def calls_issues(manifest: dict, catalog: Catalog, file: str | None = None) -> list[Issue]:
-    """A step may call only catalog steps, and declares at least their effects and secrets (SPEC.md, section 5.4)."""
-    issues = []
-    secrets = set(manifest.get("secrets", []))
-    for i, callee in enumerate(manifest.get("calls", [])):
-        target = catalog.steps.get(callee)
-        if target is None:
-            issues.append(Issue("unknown_step", pointer("calls", i), f"{callee}, which this step can call, isn't in the catalog", file=file))
-            continue
-        if EFFECT_ORDER[target["effects"]] > EFFECT_ORDER[manifest["effects"]]:
-            issues.append(Issue(
-                "invalid_manifest",
-                pointer("effects"),
-                f"this step can call {callee}, whose effects are {target['effects']!r}, so its own effects must be at least that",
-                file=file,
-            ))
-        missing = sorted(set(target.get("secrets", [])) - secrets)
-        if missing:
-            issues.append(Issue(
-                "invalid_manifest",
-                pointer("secrets"),
-                f"this step can call {callee}, which needs {', '.join(missing)}, so its secrets must include them",
-                file=file,
-            ))
-    return issues
-
-
 def load_catalog(dirs: list[Path], also: Path | None = None) -> Catalog:
     """Load every *.yaml, *.yml and *.json manifest in the given folders (not recursive), and after
     them the manifest in `also`, unless it is one of those already. A path in `dirs` that is a file
@@ -490,8 +447,8 @@ def load_catalog(dirs: list[Path], also: Path | None = None) -> Catalog:
             continue
         catalog.steps[ref] = doc
         catalog.files[ref] = file
-    # Rules that need the catalog: calls, and the workflows inside workflow steps. Leaving one step
-    # out can break another, so repeat until nothing changes ([manifest.left-out]).
+    # Rules that need the catalog: the workflows inside workflow steps. Leaving one step out can
+    # break another, so repeat until nothing changes ([manifest.left-out]).
     changed = True
     while changed:
         changed = False
@@ -504,11 +461,11 @@ def load_catalog(dirs: list[Path], also: Path | None = None) -> Catalog:
 
 
 def catalog_issues(ref: str, manifest: dict, catalog: Catalog, file: str | None) -> list[Issue]:
-    """The rules for one manifest that need the rest of its catalog: what it calls, whether it can
-    run itself, and the workflow a workflow step runs (SPEC.md, [manifest.invalid])."""
+    """The rules for one manifest that need the rest of its catalog: whether a workflow step can
+    run itself, and the workflow it runs (SPEC.md, [manifest.invalid])."""
     from .publish import self_reach_issues, workflow_step_issues  # publish imports check, which imports this module
 
-    return (calls_issues(manifest, catalog, file) + self_reach_issues(ref, manifest, catalog, file)
+    return (self_reach_issues(ref, manifest, catalog, file)
             + workflow_step_issues(manifest, catalog, file))  # every problem of the stage (SPEC.md, Annex A.3)
 
 

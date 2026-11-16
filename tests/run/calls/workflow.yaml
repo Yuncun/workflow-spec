@@ -1,5 +1,0 @@
-# A step may call only the steps in its calls, and each call is recorded (SPEC.md, section 9.7).
-steps:
-  helper: { uses: test/helper-agent@1.0.0, with: { task: shout hi } }
-outputs:
-  answer: { from: steps.helper.outputs.answer }

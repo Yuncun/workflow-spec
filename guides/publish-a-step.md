@@ -87,7 +87,7 @@ with open(os.environ["WF_OUTPUTS"], "w") as f:
 
 ```bash
 wfspec check-step step.yaml
-wfspec check-step step.yaml --catalog <catalog folder>   # when the steps it calls or runs are in another folder
+wfspec check-step step.yaml --catalog <catalog folder>   # when the steps its workflow runs are in another folder
 ```
 
 ## 5. Publish
@@ -99,21 +99,6 @@ The platform does four things when you publish:
 - adds `your-team/diff-stats@1.0.0` to the catalog
 
 After a change that breaks callers, publish under a new major version (SPEC.md, section 10.4). Old versions stay available, so published workflows keep working.
-
-## Agent steps
-
-An agent step has the same manifest with `runtime.agent` instead of `runtime.container`:
-- **`instructions`:** a file next to the manifest, used as the agent's system prompt.
-- **`model`:** the model to run.
-- **`maxTurns`:** an optional limit on the agent's responses.
-
-To let the agent use other steps as tools, list their exact versions in **`calls`**. Two rules make the manifest declare what the step's calls can do. They apply to any step with `calls`, not only agents:
-- Its `effects` must be at least those of each step it can call.
-- Its `secrets` must include each of those steps' secrets.
-
-The runner offers each step in `calls` as a tool, plus a `finish` tool whose parameters are your `outputSchema`. It checks the agent's final answer against the schema and hands any problem back for another try (drafts/runtime.md, section 2).
-
-`examples/steps/` has an agent without calls (`summarize-diff.yaml`) and one with calls (`investigate-failure.yaml`).
 
 ## Let an agent draft it
 

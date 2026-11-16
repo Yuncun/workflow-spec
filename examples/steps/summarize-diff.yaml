@@ -1,4 +1,4 @@
-# A narrow agent step without tools: it only reads its inputs and calls a model.
+# A narrow step whose program only reads its inputs and asks a model.
 name: acme/summarize-diff
 version: 1.0.0
 title: Summarize a diff
@@ -19,4 +19,4 @@ outputSchema:
 effects: reads
 deterministic: false
 runtime:
-  agent: { model: example-small, instructions: prompts/summarize-diff.md, maxTurns: 10 }
+  container: { image: ghcr.io/acme/summarize-diff:1.0.0 }

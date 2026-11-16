@@ -1,5 +1,5 @@
-"""The reference runner: the running rules in SPEC.md, section 9, with the step runtimes in
-drafts/runtime.md (`process`, `agent`) and SPEC.md's `workflow` kind.
+"""The reference runner: the running rules in SPEC.md, section 9, with the `process` runtime in
+drafts/runtime.md and SPEC.md's `workflow` kind.
 
 It runs on one machine, one step at a time. On macOS it enforces `effects` for programs with the
 system sandbox: a `none` step gets no network, and neither a `none` nor a `reads` step may write
@@ -23,11 +23,10 @@ from typing import Callable
 from .check import INPUT_REF, OUTPUT_REF, check, split_value
 from .documents import Catalog, json_problem, load_document, media_type_problems, value_problem
 from .publish import digest, pinned_workflow
-from .runtimes import Model, Outcome, StepFailed, inside, readable, run_agent, run_process
+from .runtimes import Outcome, StepFailed, inside, run_process
 from .store import Store
 
-CALL_FIELDS = ("uses", "digest", "inputs", "outputs", "status", "reason", "started", "ended", "error", "logs", "calls", "steps")
-MAX_DEPTH = 32  # how deeply steps may nest, through calls and workflow steps
+MAX_DEPTH = 32  # how deeply workflow steps may nest
 
 
 class RunCancelled(BaseException):
@@ -60,7 +59,6 @@ class Options:
     policy: dict | None = None
     secrets: dict[str, str] = field(default_factory=dict)  # the caller's secrets, by name
     timeout: float = 300  # seconds, per program
-    model: Model = field(default_factory=Model)
     sandbox: bool = True
     caller: str = field(default_factory=getpass.getuser)
     readable: list[Path] = field(default_factory=list)  # folders programs may read under the home folder
@@ -206,15 +204,12 @@ class Runner:
 
     # ---- one step -------------------------------------------------------------------------
 
-    def run_step(self, ref: str, given, depth: int = 0) -> dict:
+    def run_step(self, ref: str, given: dict, depth: int = 0) -> dict:
         """Run one step version with the given input values, and return its record (SPEC.md, sections 9.3 to 9.7)."""
         manifest = self.catalog.steps[ref]
-        entry: dict = {"uses": ref, "digest": digest(manifest), "status": "running", "started": now(),
-                       "inputs": given if isinstance(given, dict) else {}}
+        entry: dict = {"uses": ref, "digest": digest(manifest), "status": "running", "started": now(), "inputs": given}
         began = False  # whether the step itself has started, so cancelling can't have left it half done
         try:
-            if not isinstance(given, dict):  # a model can send anything as a call's arguments
-                raise StepFailed("invalid_input", f"the input values aren't a JSON object: {json.dumps(given)[:200]}")
             if depth > MAX_DEPTH:
                 raise StepFailed("failed", f"steps nest more than {MAX_DEPTH} levels deep")
             inputs = with_defaults(manifest["inputSchema"], given)
@@ -223,8 +218,8 @@ class Runner:
                        or next(iter(media_type_problems(inputs, manifest["inputSchema"])), None))
             if problem:  # [run.input-check], [types.media-type], [doc.numbers]
                 raise StepFailed("invalid_input", problem)
-            # An agent or a workflow writes only through the steps it runs, and each of those is asked about in turn.
-            asks = manifest["effects"] == "writes" and next(iter(manifest["runtime"])) not in ("agent", "workflow")
+            # A workflow writes only through the steps it runs, and each of those is asked about in turn.
+            asks = manifest["effects"] == "writes" and next(iter(manifest["runtime"])) != "workflow"
             if asks and self.options.approve is not None and not self.options.approve(ref, self._scrub(inputs)):
                 entry.update(status="skipped", reason="not approved", ended=now())
                 return entry
@@ -273,21 +268,6 @@ class Runner:
         if kind == "process":
             return run_process(manifest, folder, inputs, named, self.store, self.options.timeout, self.options.sandbox,
                                self.options.readable, tuple(self._secret_values()))
-        if kind == "agent":
-            calls = entry.setdefault("calls", [])
-
-            def call(callee: str, args: dict) -> dict:  # [run.calls-listed], [run.calls-recorded]
-                child = self.run_step(callee, args, depth + 1)
-                calls.append({k: child[k] for k in CALL_FIELDS if k in child})
-                if self._cancelled:
-                    raise RunCancelled
-                if child["status"] == "succeeded":
-                    return {"outputs": readable(child["outputs"], self.catalog.steps[callee]["outputSchema"], self.store)}
-                if child["status"] == "skipped":
-                    return {"skipped": child.get("reason", "")}
-                return {"error": child["error"]}
-
-            return run_agent(manifest, folder, inputs, self.store, self.options.model, self.catalog.steps.__getitem__, call)
         if kind == "workflow":
             runtime = manifest["runtime"]["workflow"]
             path = folder / runtime["path"]

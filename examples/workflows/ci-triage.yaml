@@ -1,4 +1,4 @@
-# Fetch a failed run's logs, have an agent write a report, and file it as an issue.
+# Fetch a failed run's logs, have a model write a report, and file it as an issue.
 # Check it with:
 #   wfspec check examples/workflows/ci-triage.yaml --catalog examples/steps
 name: acme/ci-triage

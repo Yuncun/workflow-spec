@@ -1,8 +1,7 @@
 # Workflow format for shared jobs
 
 A text format for jobs built from published steps. A step can be:
-- a program
-- an agent
+- a program, which may run an agent
 - another workflow
 
 The package also gives the rules for:

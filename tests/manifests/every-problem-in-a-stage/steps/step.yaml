@@ -1,10 +1,10 @@
-# Two problems that need the catalog: a call to a step that isn't there, and a call to itself.
-# A checker reports both, not only the first (SPEC.md, Annex A.3).
+# Two problems that need the catalog: the step's workflow runs the step itself, and it opens an
+# issue while the step claims no effects. A checker reports both, not only the first (SPEC.md, Annex A.3).
 name: test/m-round
 version: 1.0.0
-description: Calls a step that doesn't exist, and itself.
+description: A workflow step whose workflow runs itself and opens an issue.
 inputSchema: { type: object, properties: {} }
-outputSchema: { type: object, properties: {} }
+outputSchema: { type: object, properties: {}, required: [] }
 effects: none
-calls: [test/m-nowhere@1.0.0, test/m-round@1.0.0]
-runtime: { agent: { model: example-small, instructions: prompts/round.md } }
+secrets: [GITHUB_TOKEN]
+runtime: { workflow: { path: flows/round.yaml, digest: "sha256:8f4d6d39f7690742da21299c94794f5fff6a828bd8d38fee5de1508619a9abe6" } }

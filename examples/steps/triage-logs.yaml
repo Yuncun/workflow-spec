@@ -1,6 +1,6 @@
-# An agent step. It calls a model, so it reads outside data and is not deterministic:
-# the same inputs can give other outputs. Its outputs are still typed, so later steps
-# can be checked.
+# A container step whose program asks a model. Calling a model counts as reading outside data,
+# and the step is not deterministic: the same inputs can give other outputs. Its outputs are
+# still typed, so later steps can be checked.
 name: acme/triage-logs
 version: 0.4.1
 title: Triage CI logs
@@ -32,7 +32,6 @@ outputSchema:
 effects: reads
 deterministic: false
 runtime:
-  agent:
-    model: example-small
-    instructions: prompts/triage.md
-    maxTurns: 20
+  container:
+    image: ghcr.io/acme/triage-logs:0.4.1
+    command: [triage-logs]

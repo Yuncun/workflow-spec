@@ -21,7 +21,6 @@ from .documents import (
 )
 from .publish import as_step
 from .run import Options, Runner
-from .runtimes import Model
 from .store import Store
 
 
@@ -38,7 +37,7 @@ def main(argv: list[str] | None = None) -> int:
     p = sub.add_parser("check-step", help="check one step manifest")
     p.add_argument("manifest", type=Path)
     p.add_argument("--catalog", type=Path, action="append", default=[],
-                   help="folder of the step manifests it calls or runs (repeatable); by default, the folder it's in")
+                   help="folder of the step manifests its workflow runs (repeatable); by default, the folder it's in")
     p.add_argument("--json", action="store_true", help="print the result as JSON")
 
     p = sub.add_parser("run", help="run a workflow with the reference runner")
@@ -51,8 +50,6 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--secret", action="append", default=[], metavar="NAME", help="give the run the environment variable NAME as a secret")
     p.add_argument("--store", type=Path, default=Path(".wfspec"), help="where files and run records go")
     p.add_argument("--timeout", type=float, default=300, help="seconds a program may run")
-    p.add_argument("--model-url", default="http://127.0.0.1:1234/v1", help="OpenAI-compatible API for agent steps")
-    p.add_argument("--model", help="use this model for every agent step")
     p.add_argument("--no-sandbox", action="store_true", help="don't enforce effects with the macOS sandbox")
     p.add_argument("--allow-read", type=Path, action="append", default=[], metavar="FOLDER",
                    help="let programs that don't write read this folder under your home folder (repeatable)")
@@ -137,7 +134,6 @@ def _run(args) -> int:
         policy=_policy(args.policy) if args.policy else None,
         secrets=secrets,
         timeout=args.timeout,
-        model=Model(url=args.model_url, name=args.model),
         sandbox=not args.no_sandbox,
         readable=args.allow_read,
     )
@@ -165,8 +161,6 @@ def _input_value(raw: str, schema) -> object:
 def _print_run(record: dict, store: Store) -> None:
     for sid, entry in record["steps"].items():
         notes = []
-        if entry.get("calls"):
-            notes.append("called " + ", ".join(c["uses"] for c in entry["calls"]))
         if entry.get("reason"):
             notes.append(entry["reason"])
         if entry.get("error"):

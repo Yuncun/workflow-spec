@@ -51,7 +51,7 @@ steps:
 **There are no conditions or loops.** Put a decision in a step:
 - **A fixed rule** goes in a small code step. Some steps already decide for themselves; for example, one might open an issue only if there are failures. Read step descriptions for that.
 - **A lookup** goes in a step that maps one value to another.
-- **A judgment** goes in an agent step with a typed output.
+- **A judgment** goes in a step that asks a model, with a typed output.
 - **"Only if there's something to do"** is a step with `maySkip`. When it skips, the steps after it are skipped too.
 
 **Converting between types.** When types don't line up, add a step that converts. For example, put a step that reads a file into text between a step that gives a file and one that takes text.
