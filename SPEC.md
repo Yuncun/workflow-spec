@@ -196,6 +196,10 @@ For `workflow`, `path` names a workflow file relative to the folder of the manif
   - have the digest in `digest`
 - **[manifest.workflow-derived]** A `workflow` step's manifest MUST declare the `inputSchema` and `outputSchema` that [publish.as-step] derives from its workflow, compared as JSON with the order of each `required` list ignored. Its `effects` MUST be at least the derived effects, its `secrets` MUST include the derived secrets, and it MUST NOT set `deterministic: true` unless the derived value is true.
 - **[manifest.no-self]** A `workflow` step MUST NOT be able to run itself. Its own name and version MUST NOT appear among the steps in its workflow, or among the steps those can run in turn.
+- **[run.workflow-step]** A runner with the `workflow-step` feature MUST run a `workflow` step as one step:
+  - it waits for all its inputs before any step inside it starts
+  - it fails if a step inside it fails
+  - when a step inside it skips, the outputs that come from that step are missing
 
 ### 5.4 When a manifest is invalid
 

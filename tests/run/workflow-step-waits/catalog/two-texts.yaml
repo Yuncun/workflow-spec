@@ -1,0 +1,8 @@
+name: test/two-texts
+version: 1.0.0
+description: Give back two texts, the second in capitals, as a workflow.
+inputSchema: { type: object, properties: { first: { type: string }, second: { type: string } }, required: [first, second] }
+outputSchema: { type: object, properties: { loud: { type: string }, same: { type: string } }, required: [loud, same] }
+effects: none
+deterministic: true
+runtime: { workflow: { path: workflows/two-texts.yaml, digest: "sha256:475a7cdf1097bc81313422a30dd318381bf735a439205719a95f71c6fb617a1e" } }

@@ -36,6 +36,9 @@ These changes ask less of a runner. The specification covers the format and what
 - `description` is optional in a manifest (section 5.1).
 - drafts/runtime.md: a runner may add environment variables.
 
+**Clarified**
+- [run.workflow-step] (section 5.3) says how a `workflow` step runs: it waits for all its inputs, it fails if a step inside it fails, and a skip inside it leaves that step's outputs missing. The reference runner already did this. New run cases: `run/workflow-step-waits`, `run/workflow-step-fails` and `run/workflow-step-skips`.
+
 **Fixed**
 - The reference checker treated an empty `properties` or `required` as declaring some, where Annex A.1 says it counts as none (`check/empty-properties`).
 

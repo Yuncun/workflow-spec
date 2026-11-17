@@ -1,0 +1,5 @@
+inputSchema: { type: object, properties: { items: { type: array, items: { type: string } } }, required: [items] }
+steps:
+  first: { uses: test/first-item@1.0.0, with: { items: { from: inputs.items } } }
+outputs:
+  item: { from: steps.first.outputs.item }

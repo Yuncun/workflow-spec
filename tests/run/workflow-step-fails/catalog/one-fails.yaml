@@ -1,0 +1,7 @@
+name: test/one-fails
+version: 1.0.0
+description: Give back the text in capitals, and run a step that fails, as a workflow.
+inputSchema: { type: object, properties: { text: { type: string } }, required: [text] }
+outputSchema: { type: object, properties: { loud: { type: string }, broken: { type: string } }, required: [loud, broken] }
+effects: reads
+runtime: { workflow: { path: workflows/one-fails.yaml, digest: "sha256:87ad5319161cfe6c9a45b16f36a539b7417dc5285716f2dc334ae0c6622df69f" } }

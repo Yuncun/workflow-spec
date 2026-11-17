@@ -1,0 +1,6 @@
+status: failed
+error: failed
+outputs: {}
+steps:
+  part: { status: failed, error: failed }
+  after: { status: skipped }

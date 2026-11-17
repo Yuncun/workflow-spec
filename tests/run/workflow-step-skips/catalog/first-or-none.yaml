@@ -1,0 +1,8 @@
+name: test/first-or-none
+version: 1.0.0
+description: Give the first item of a list, or no item when the list is empty, as a workflow.
+inputSchema: { type: object, properties: { items: { type: array, items: { type: string } } }, required: [items] }
+outputSchema: { type: object, properties: { item: { type: string } }, required: [] }
+effects: none
+deterministic: true
+runtime: { workflow: { path: workflows/first-or-none.yaml, digest: "sha256:ae55d32a1b27c34ab9196e7335f2bab096b1f13f46d863090e48532a8ba60a03" } }

@@ -1,0 +1,7 @@
+# A workflow step waits for all its inputs, so no step inside it starts when one of them fails (SPEC.md, [run.workflow-step]).
+steps:
+  broken: { uses: test/fail@1.0.0, with: { text: x } }
+  both: { uses: test/two-texts@1.0.0, with: { first: { from: steps.broken.outputs.text }, second: hi } }
+outputs:
+  loud: { from: steps.both.outputs.loud }
+  same: { from: steps.both.outputs.same }

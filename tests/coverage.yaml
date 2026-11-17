@@ -71,6 +71,7 @@ check.paths: [test_conformance.py::test_check_case, test_conformance.py::test_ma
 check.output: [test_examples.py::test_cli_exit_codes]
 check.policy: [check/policy, test_examples.py::test_a_platform_can_add_its_own_fields_and_error_codes]
 
+run.workflow-step: [run/workflow-step-waits, run/workflow-step-fails, run/workflow-step-skips]
 run.check-first: [run/check-first, run/invalid-inputs, run/media-type]
 run.needed: [run/needed]
 run.order: [run/order-and-values, run/workflow-step]
