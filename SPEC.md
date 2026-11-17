@@ -91,7 +91,7 @@ A runner can also support any of these optional features. A runner that supports
 
 | Feature | What the runner does | Rules |
 |---|---|---|
-| `workflow-step` | runs a `workflow` step | section 5.3 |
+| `workflow-step` | runs a `workflow` step | sections 5.3 and 7.5 |
 | `file-inputs` | takes files among a run's input values | [types.media-type] for a run's inputs |
 | `run-record` | writes run records | [run.record] |
 
@@ -288,8 +288,9 @@ When a reference connects an output, or a workflow input, to a step's input, the
 | `inputSchema` | no | the workflow's own inputs, which a form, an API call or a parent workflow fills in |
 | `outputs` | no | output name to reference |
 | `steps` | yes | step id to `{uses, with}` |
+| `subgraphs` | no | name to subgraph: a workflow kept in this file that its steps can use (section 7.5) |
 
-- **[workflow.schema]** A workflow MUST conform to `schemas/workflow.schema.json`. A step id matches `^[a-z][a-z0-9_-]*$`. `uses` names an exact version, such as `acme/fetch-ci-logs@1.2.0`. Ranges such as `1.x` aren't allowed, so every runner runs the same step code for the same file.
+- **[workflow.schema]** A workflow MUST conform to `schemas/workflow.schema.json`. A step id matches `^[a-z][a-z0-9_-]*$`. `uses` names an exact version, such as `acme/fetch-ci-logs@1.2.0`. Ranges such as `1.x` aren't allowed, so every runner runs the same step code for the same file. `uses` may instead name a subgraph in the file (section 7.5).
 - **[workflow.input-schema]** A workflow's `inputSchema` MUST follow [manifest.json-schema], [manifest.refs] and [manifest.required-declared], as a manifest's schemas do.
 - **[workflow.input-default]** The `default` of each workflow input MUST fit that input's schema.
 - **[workflow.extensions]** Fields whose names start with `x-`, at the top level or in a step entry, are reserved for platforms. A checker MUST ignore them.
@@ -353,6 +354,41 @@ A workflow has no conditions, loops or expressions, so it can be checked complet
 - **"Only if there's something to do"** is a step with `maySkip`. When it skips, the steps after it are skipped too (section 9.4).
 - **A sequence that varies from run to run** goes inside one step, such as a program that runs an agent.
 
+### 7.5 Subgraphs
+
+A workflow can keep subgraphs: workflows inside its own file, which its steps use like published steps.
+
+```yaml
+steps:
+  review:
+    uses: subgraphs.review
+    with: { repo: acme/app, pr: 42 }
+outputs:
+  summary: { from: steps.review.outputs.summary }
+subgraphs:
+  review:
+    inputSchema:
+      type: object
+      properties:
+        repo: { type: string, pattern: "^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$" }
+        pr: { type: integer, minimum: 1 }
+      required: [repo, pr]
+    outputs:
+      summary: { from: steps.summary.outputs.summary }
+    steps:
+      diff:
+        uses: acme/fetch-pr-diff@1.2.0
+        with: { repo: { from: inputs.repo }, pr: { from: inputs.pr } }
+      summary:
+        uses: acme/summarize-diff@1.0.0
+        with: { diff: { from: steps.diff.outputs.diff } }
+```
+
+- **[workflow.subgraphs]** Each subgraph MUST be a workflow without `name`, `version` or `subgraphs` of its own. A checker checks each one as any workflow (section 8), used or not, with its problems' paths inside it. Its steps may use the file's other subgraphs.
+- **[workflow.subgraph-use]** `uses: subgraphs.<name>` uses the file's subgraph of that name. That step is a `workflow` step: its manifest, apart from `runtime`, is derived from the subgraph as [publish.as-step] derives one, and it runs by [run.workflow-step]. A checker MUST report a name the file doesn't have as `unknown_step`, and a subgraph that uses itself, directly or through other subgraphs, as `cycle`.
+
+*Informative.* A subgraph is pinned with the file that holds it. To let other workflows use one, publish it as a workflow of its own (section 10.3). ComfyUI keeps subgraphs in the workflow file the same way.
+
 ## 8. Checking
 
 *This section is normative.*
@@ -367,7 +403,7 @@ A workflow has no conditions, loops or expressions, so it can be checked complet
 |---|---|---|
 | **[check.invalid-workflow]** | `invalid_workflow` | the workflow breaks [workflow.schema] or [workflow.input-schema] |
 | **[check.invalid-value]** | `invalid_value` | a literal in `with`, or a workflow input's default, doesn't fit its input or its media type ([types.media-type]) |
-| **[check.unknown-step]** | `unknown_step` | `uses` isn't in the catalog; the message SHOULD list the versions it has, or why the manifest was left out. A platform that knows why a version isn't in its catalog, such as a source the caller may not use, MAY report a code of its own instead ([check.platform-codes]) |
+| **[check.unknown-step]** | `unknown_step` | `uses` isn't in the catalog, or names a subgraph the file doesn't have; the message SHOULD list the versions it has, or why the manifest was left out. A platform that knows why a version isn't in its catalog, such as a source the caller may not use, MAY report a code of its own instead ([check.platform-codes]) |
 | **[check.unknown-input]** | `unknown_input` | `with` names an input the step doesn't have; the message SHOULD suggest a close name |
 | **[check.missing-input]** | `missing_input` | a required input has no value and no default |
 | **[check.bad-reference]** | `bad_reference` | a reference isn't `inputs.<name>` or `steps.<id>.outputs.<name>` |
@@ -375,7 +411,7 @@ A workflow has no conditions, loops or expressions, so it can be checked complet
 | **[check.type-mismatch]** | `type_mismatch` | [types.fits-error] or [types.maybe-missing] |
 | **[check.type-unchecked]** | `type_unchecked`, a warning, optional | [types.fits-warning] |
 | **[check.outputs-resolve]** | `bad_reference` or `unknown_reference` | a workflow output doesn't resolve the way a reference must |
-| **[check.cycle]** | `cycle` | references form a loop |
+| **[check.cycle]** | `cycle` | references form a loop, or a subgraph uses itself ([workflow.subgraph-use]) |
 | **[check.no-outputs]** | `no_outputs` | the workflow has no outputs and no step that writes, and every step is known |
 | **[check.effects-not-allowed]** | `effects_not_allowed` | a step's effects are above the policy's `maxEffects` |
 | **[check.secret-not-granted]** | `secret_not_granted` | a step needs a secret the policy doesn't grant |

@@ -1,0 +1,21 @@
+# A step uses a subgraph kept in the file, whose step uses another one, as it would use a
+# published workflow (SPEC.md, section 7.5).
+steps:
+  twice: { uses: subgraphs.twice, with: { text: hi } }
+  take: { uses: test/take-values@1.0.0, with: { text: { from: steps.twice.outputs.text } } }
+outputs:
+  done: { from: steps.take.outputs.done }
+subgraphs:
+  twice:
+    inputSchema: { type: object, properties: { text: { type: string } }, required: [text] }
+    steps:
+      first: { uses: subgraphs.once, with: { text: { from: inputs.text } } }
+      second: { uses: test/echo@1.0.0, with: { text: { from: steps.first.outputs.text } } }
+    outputs:
+      text: { from: steps.second.outputs.text }
+  once:
+    inputSchema: { type: object, properties: { text: { type: string } }, required: [text] }
+    steps:
+      echo: { uses: test/echo@1.0.0, with: { text: { from: inputs.text } } }
+    outputs:
+      text: { from: steps.echo.outputs.text }

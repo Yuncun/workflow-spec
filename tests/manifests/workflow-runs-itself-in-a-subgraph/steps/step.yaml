@@ -1,0 +1,8 @@
+# A workflow step whose workflow keeps a subgraph that runs this same step (SPEC.md, [manifest.no-self]).
+name: test/m-loop-inside
+version: 1.0.0
+description: A workflow step whose subgraph runs it.
+inputSchema: { type: object, properties: {} }
+outputSchema: { type: object, properties: { done: { type: boolean } }, required: [done] }
+effects: none
+runtime: { workflow: { path: flows/loop.yaml, digest: "sha256:e51384b5a4bed8fb558942d7e1a6d17fc1a4355664af82451af2731b2479d752" } }

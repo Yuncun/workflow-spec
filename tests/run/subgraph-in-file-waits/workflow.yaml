@@ -1,0 +1,17 @@
+# A step that uses a subgraph waits for all its inputs, so no step inside it starts when one of them
+# fails, not even one that needs none of them (SPEC.md, [workflow.subgraph-use], [run.workflow-step]).
+steps:
+  broken: { uses: test/fail@1.0.0, with: { text: x } }
+  both: { uses: subgraphs.two-texts, with: { first: { from: steps.broken.outputs.text } } }
+outputs:
+  loud: { from: steps.both.outputs.loud }
+  same: { from: steps.both.outputs.same }
+subgraphs:
+  two-texts:
+    inputSchema: { type: object, properties: { first: { type: string } }, required: [first] }
+    steps:
+      loud: { uses: test/upper@1.0.0, with: { text: inside-ran } }
+      same: { uses: test/echo@1.0.0, with: { text: { from: inputs.first } } }
+    outputs:
+      loud: { from: steps.loud.outputs.text }
+      same: { from: steps.same.outputs.text }

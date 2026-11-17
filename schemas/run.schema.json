@@ -114,7 +114,7 @@
       ],
       "properties": {
         "uses": {
-          "$ref": "urn:wfspec:schema:step#/$defs/stepRef"
+          "$ref": "urn:wfspec:schema:workflow#/$defs/uses"
         },
         "digest": {
           "$ref": "urn:wfspec:schema:step#/$defs/digest"

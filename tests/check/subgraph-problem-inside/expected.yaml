@@ -1,0 +1,4 @@
+ok: false
+errors:
+  - { code: unknown_input, path: "/subgraphs/unused/steps/take/with/txt" }
+warnings: []

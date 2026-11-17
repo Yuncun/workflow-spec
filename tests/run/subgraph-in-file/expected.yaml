@@ -1,0 +1,4 @@
+status: succeeded
+outputs: { loud: HI }
+steps:
+  shout: { status: succeeded, outputs: { loud: HI } }

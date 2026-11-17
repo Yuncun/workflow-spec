@@ -1,0 +1,12 @@
+# A subgraph is checked even when no step uses it, and its problems are reported inside it
+# (SPEC.md, [workflow.subgraphs]).
+steps:
+  echo: { uses: test/echo@1.0.0, with: { text: hi } }
+outputs:
+  text: { from: steps.echo.outputs.text }
+subgraphs:
+  unused:
+    steps:
+      take: { uses: test/take-values@1.0.0, with: { text: hi, txt: hello } }
+    outputs:
+      done: { from: steps.take.outputs.done }

@@ -22,6 +22,11 @@
       "minProperties": 1,
       "propertyNames": { "pattern": "^[a-z][a-z0-9_-]*$" },
       "additionalProperties": { "$ref": "#/$defs/step" }
+    },
+    "subgraphs": {
+      "type": "object",
+      "propertyNames": { "pattern": "^[a-z][a-z0-9_-]*$" },
+      "additionalProperties": { "$ref": "#/$defs/subgraph" }
     }
   },
   "patternProperties": { "^x-": {} },
@@ -38,11 +43,32 @@
       "type": "object",
       "required": ["uses"],
       "properties": {
-        "uses": { "$ref": "urn:wfspec:schema:step#/$defs/stepRef" },
+        "uses": { "$ref": "#/$defs/uses" },
         "with": {
           "description": "Input name to value. A value is a literal, a reference ({from: ...}), or a wrapped literal ({literal: ...}).",
           "type": "object"
         }
+      },
+      "patternProperties": { "^x-": {} },
+      "additionalProperties": false
+    },
+    "uses": {
+      "description": "A published step's owner/name@version, or subgraphs.<name> for a subgraph in this file.",
+      "anyOf": [
+        { "$ref": "urn:wfspec:schema:step#/$defs/stepRef" },
+        { "type": "string", "pattern": "^subgraphs\\.[a-z][a-z0-9_-]*$" }
+      ]
+    },
+    "subgraph": {
+      "description": "A workflow kept in this file, without a name, version or subgraphs of its own. See SPEC.md, section 7.5.",
+      "type": "object",
+      "required": ["steps"],
+      "properties": {
+        "title": { "$ref": "#/properties/title" },
+        "description": { "$ref": "#/properties/description" },
+        "inputSchema": { "$ref": "#/properties/inputSchema" },
+        "outputs": { "$ref": "#/properties/outputs" },
+        "steps": { "$ref": "#/properties/steps" }
       },
       "patternProperties": { "^x-": {} },
       "additionalProperties": false

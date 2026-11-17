@@ -36,6 +36,7 @@ steps:
 **Naming steps:**
 - `uses` is the step's `name` and `version`, exactly as its manifest gives them. Find steps through your platform's catalog.
 - When a step has several versions, use the newest, unless your workflow needs an older one's interface. Older versions stay so that published workflows keep working.
+- `uses: subgraphs.<name>` uses a subgraph kept in the same file (SPEC.md, section 7.5), to group steps without publishing them.
 
 **Writing values in `with`:**
 - A literal is any YAML value: `audience: everyone`, `max_words: 150`, a list, or an object such as a lookup table.

@@ -47,6 +47,9 @@ These changes ask less of a runner. The specification covers the format and what
 - `load_catalog` reads a path that is a file as one manifest.
 - When a workflow names an input, an output or a step that doesn't exist and no name is close, the checker's message lists the names there are.
 
+**Added**
+- Subgraphs kept in the workflow file (section 7.5). A workflow's `subgraphs` holds workflows that its steps use with `uses: subgraphs.<name>`, as `workflow` steps, so a workflow can group its own steps without publishing them, as ComfyUI does. A run record names such a step the same way. New ids: [workflow.subgraphs] and [workflow.subgraph-use]. New cases: `check/subgraph-in-file`, `check/subgraph-missing`, `check/subgraph-cycle`, `check/subgraph-uses-itself`, `check/subgraph-problem-inside`, `check/subgraph-type-mismatch`, `manifests/workflow-runs-itself-in-a-subgraph`, `run/subgraph-in-file` and `run/subgraph-in-file-waits`.
+
 Sections 5.5 and 5.6 are now 5.4 and 5.5, 9.6 to 9.10 are now 9.4 to 9.8, and 10.4 and 10.5 are now 10.3 and 10.4.
 
 ## 0.4, 2026-11-10 (draft)

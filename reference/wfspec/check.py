@@ -5,7 +5,7 @@ from __future__ import annotations
 import difflib
 import re
 import sys
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 
 from jsonschema import Draft202012Validator
 from jsonschema.exceptions import SchemaError
@@ -16,6 +16,7 @@ from .types import Finding, assignable
 INPUT_REF = re.compile(r"^inputs\.([A-Za-z_][A-Za-z0-9_-]*)\Z")  # \Z: Python's $ would allow a final newline
 OUTPUT_REF = re.compile(r"^steps\.([a-z][a-z0-9_-]*)\.outputs\.([A-Za-z_][A-Za-z0-9_-]*)\Z")
 NO_INPUTS = {"type": "object", "properties": {}}
+SUBGRAPH = "subgraphs."  # how `uses` names a subgraph in the file (SPEC.md, section 7.5)
 _EFFECT_WORDS = {
     "none": "touches nothing outside its inputs",
     "reads": "reads outside data",
@@ -46,6 +47,8 @@ class Result:
     order: list[str] = field(default_factory=list)  # the needed steps, each after what it references
     outputs: dict[str, Source] = field(default_factory=dict)  # the workflow's outputs, resolved
     deps: dict[str, set[str]] = field(default_factory=dict)  # step -> steps it references
+    manifests: dict[str, dict] = field(default_factory=dict)  # step -> the manifest it was checked against, when known
+    subgraphs: dict[str, Subgraph] = field(default_factory=dict)  # the file's subgraphs, by name
 
     @property
     def ok(self) -> bool:
@@ -57,6 +60,15 @@ class Result:
             "errors": [i.to_dict() for i in self.errors],
             "warnings": [i.to_dict() for i in self.warnings],
         }
+
+
+@dataclass
+class Subgraph:
+    """A subgraph the file keeps (SPEC.md, section 7.5), checked as a workflow."""
+
+    workflow: dict
+    result: Result
+    manifest: dict | None  # what a step that uses it is checked against; None when it fails checking or is in a loop
 
 
 def split_value(value) -> tuple[str, object]:
@@ -77,11 +89,39 @@ def check(workflow, catalog: Catalog, policy: dict | None = None) -> Result:
     return _Checker(workflow, catalog, policy).run()
 
 
+class _File:
+    """The subgraphs a workflow file keeps, each checked once, as a workflow (SPEC.md, [workflow.subgraphs])."""
+
+    def __init__(self, subgraphs: dict, catalog: Catalog, policy: dict | None):
+        self.workflows, self.catalog, self.policy = subgraphs, catalog, policy
+        uses = {name: {s["uses"].removeprefix(SUBGRAPH) for s in sub["steps"].values() if s["uses"].startswith(SUBGRAPH)} & set(subgraphs)
+                for name, sub in subgraphs.items()}
+        self.loops = _cycles(uses, list(subgraphs))  # [workflow.subgraph-use]
+        self.looped = {name for group in self.loops for name in group}
+        self.checked: dict[str, Subgraph] = {}
+
+    def get(self, name: str) -> Subgraph:
+        """The subgraph, checked. One outside a loop uses only others outside it, so this always ends."""
+        if name not in self.checked:
+            from .publish import _derived  # publish imports this module
+
+            workflow = self.workflows[name]
+            result = _Checker(workflow, self.catalog, self.policy, self).run()
+            manifest = None
+            if result.ok and name not in self.looped:
+                # [workflow.subgraph-use]: a `workflow` step's manifest, as [publish.as-step] derives it, pinned with its file
+                kept = {k: workflow[k] for k in ("title", "description") if k in workflow}
+                manifest = kept | _derived(workflow, result) | {"runtime": {"workflow": {}}}
+            self.checked[name] = Subgraph(workflow, result, manifest)
+        return self.checked[name]
+
+
 class _Checker:
-    def __init__(self, workflow, catalog: Catalog, policy: dict | None):
+    def __init__(self, workflow, catalog: Catalog, policy: dict | None, file: _File | None = None):
         self.wf = workflow
         self.catalog = catalog
         self.policy = policy
+        self.file = file  # set for a subgraph: the file that keeps it
         self.result = Result()
         self.used_inputs: set[str] = set()
 
@@ -96,6 +136,9 @@ class _Checker:
         if issues:
             self.result.errors = issues
             return self.result
+        top = self.file is None
+        if top:
+            self.file = _File(self.wf.get("subgraphs", {}), self.catalog, self.policy)
         self.inputs = self.wf.get("inputSchema", NO_INPUTS)
         self.steps = self.wf["steps"]
         self.deps: dict[str, set[str]] = {sid: set() for sid in self.steps}
@@ -105,6 +148,10 @@ class _Checker:
             self._check_step(sid)
         self._check_outputs()
         self._check_graph()
+        if top:
+            self._check_subgraphs()
+        self.result.manifests = {sid: m for sid, m in self.manifests.items() if m is not None}
+        self.result.subgraphs = self.file.checked
         self.result.errors.sort(key=_order)
         self.result.warnings.sort(key=_order)
         return self.result
@@ -138,6 +185,14 @@ class _Checker:
 
     def _manifest(self, sid: str, step: dict) -> dict | None:
         uses = step["uses"]
+        if uses.startswith(SUBGRAPH):
+            name = uses.removeprefix(SUBGRAPH)
+            if name not in self.file.workflows:
+                message = f"the file has no subgraph {name!r}" + _suggest(name, self.file.workflows)
+                self.error("unknown_step", pointer("steps", sid, "uses"), message, step=sid)
+                return None
+            # A subgraph in a loop, or one that fails checking, is reported where it is, not again here.
+            return None if name in self.file.looped else self.file.get(name).manifest
         manifest = self.catalog.steps.get(uses)
         if manifest is None:
             name, version = uses.split("@", 1)
@@ -260,6 +315,16 @@ class _Checker:
             source = self._resolve(ref["from"], pointer("outputs", name))
             if source is not None:
                 self.result.outputs[name] = source
+
+    def _check_subgraphs(self):
+        """Every subgraph in the file is checked, used or not, with its problems' paths inside it ([workflow.subgraphs])."""
+        for group in self.file.loops:
+            message = "these subgraphs use each other in a loop: " + ", ".join(group) if len(group) > 1 else "this subgraph uses itself"
+            self.error("cycle", pointer("subgraphs", group[0]), message)
+        for name in self.file.workflows:
+            result, inside = self.file.get(name).result, pointer("subgraphs", name)
+            self.result.errors += [replace(i, path=inside + i.path) for i in result.errors]
+            self.result.warnings += [replace(i, path=inside + i.path) for i in result.warnings]
 
     def _check_graph(self):
         order = list(self.steps)
