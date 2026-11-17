@@ -1,0 +1,10 @@
+steps:
+  again: { uses: subgraphs.again }
+outputs:
+  done: { from: steps.again.outputs.done }
+subgraphs:
+  again:
+    steps:
+      step: { uses: test/m-loop-inside@1.0.0 }
+    outputs:
+      done: { from: steps.step.outputs.done }

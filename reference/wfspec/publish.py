@@ -5,7 +5,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from .check import check, closure
+from .check import SUBGRAPH, check, closure
 from .documents import _DATA_KEYWORDS, EFFECT_ORDER, Catalog, Issue, ParseError, canonical_json, digest, load_document, pointer
 
 __all__ = ["canonical_json", "digest"]  # re-exported from documents, where the checker also needs them
@@ -34,7 +34,7 @@ def as_step(workflow: dict, catalog: Catalog, path: str) -> dict:
     for key in ("title", "description"):
         if key in workflow:
             manifest[key] = workflow[key]
-    derived = _derived(workflow, catalog, result)
+    derived = _derived(workflow, result)
     manifest.update({k: derived[k] for k in ("inputSchema", "outputSchema", "effects", "deterministic")})
     if derived["secrets"]:
         manifest["secrets"] = derived["secrets"]
@@ -42,10 +42,9 @@ def as_step(workflow: dict, catalog: Catalog, path: str) -> dict:
     return manifest
 
 
-def _derived(workflow: dict, catalog: Catalog, result) -> dict:
+def _derived(workflow: dict, result) -> dict:
     """The interface and behaviour a checked workflow has as a step (SPEC.md, [publish.as-step])."""
-    steps = workflow["steps"]
-    manifests = {sid: catalog.steps[steps[sid]["uses"]] for sid in result.needed}
+    manifests = {sid: result.manifests[sid] for sid in result.needed}
 
     def always_present(source) -> bool:
         # A value is always there when its source always gives it and nothing upstream can skip.
@@ -100,11 +99,16 @@ def self_reach_issues(ref: str, manifest: dict, catalog: Catalog, file: str | No
     runtime = manifest["runtime"].get("workflow")
     if not runtime or file is None:
         return []
-    inner = load_document(Path(file).parent / runtime["path"])
-    starts = [step["uses"] for step in inner.get("steps", {}).values()]
+    starts = _uses(load_document(Path(file).parent / runtime["path"]))
     if any(uses == ref or ref in _reachable(uses, catalog) for uses in starts):
         return [Issue("invalid_manifest", pointer("runtime", "workflow", "path"), f"the workflow can run {ref} itself", file=file)]
     return []
+
+
+def _uses(workflow: dict) -> list[str]:
+    """The published steps a workflow file names, in its steps and in its subgraphs' (SPEC.md, section 7.5)."""
+    graphs = [workflow, *workflow.get("subgraphs", {}).values()]
+    return [s["uses"] for g in graphs for s in g.get("steps", {}).values() if not s["uses"].startswith(SUBGRAPH)]
 
 
 def _reachable(start: str, catalog: Catalog) -> set[str]:
@@ -120,8 +124,7 @@ def _reachable(start: str, catalog: Catalog) -> set[str]:
         if runtime:
             ref = f"{manifest['name']}@{manifest['version']}"
             try:
-                inner = load_document(Path(catalog.files[ref]).parent / runtime["path"])
-                nexts = [step["uses"] for step in inner.get("steps", {}).values()]
+                nexts = _uses(load_document(Path(catalog.files[ref]).parent / runtime["path"]))
             except (KeyError, OSError, ParseError):
                 pass
         for n in nexts:
@@ -144,7 +147,7 @@ def workflow_step_issues(manifest: dict, catalog: Catalog, file: str | None) -> 
     if not result.ok:
         codes = ", ".join(sorted({e.code for e in result.errors}))
         return [Issue("invalid_manifest", pointer("runtime", "workflow", "path"), f"the workflow inside this step fails checking ({codes})", file=file)]
-    derived, issues = _derived(inner, catalog, result), []
+    derived, issues = _derived(inner, result), []
     for key in ("inputSchema", "outputSchema"):
         if _meaning(manifest[key]) != _meaning(derived[key]):
             issues.append(Issue("invalid_manifest", pointer(key), f"{key} isn't the one the workflow derives; see wfspec as-step", file=file))

@@ -20,7 +20,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Callable
 
-from .check import INPUT_REF, OUTPUT_REF, check, split_value
+from .check import INPUT_REF, OUTPUT_REF, SUBGRAPH, Subgraph, check, split_value
 from .documents import Catalog, json_problem, load_document, media_type_problems, value_problem
 from .publish import digest, pinned_workflow
 from .runtimes import Outcome, StepFailed, inside, run_process
@@ -169,7 +169,8 @@ class Runner:
                 if found:  # a missing value leaves the input unset, so its default applies ([run.missing-value])
                     given[name] = v
             self._tell(sid, {"uses": step["uses"], "status": "running"}, depth)
-            done[sid] = self.run_step(step["uses"], given, depth)
+            subgraph = result.subgraphs[step["uses"].removeprefix(SUBGRAPH)] if step["uses"].startswith(SUBGRAPH) else None
+            done[sid] = self.run_step(step["uses"], given, depth, subgraph)
             self._tell(sid, done[sid], depth)
         steps = {sid: done.get(sid, {"uses": workflow["steps"][sid]["uses"], "status": "not_needed"}) for sid in workflow["steps"]}
         return steps, self._outputs(result, values, done), [sid for sid in result.order if done[sid]["status"] == "failed"]
@@ -204,10 +205,13 @@ class Runner:
 
     # ---- one step -------------------------------------------------------------------------
 
-    def run_step(self, ref: str, given: dict, depth: int = 0) -> dict:
-        """Run one step version with the given input values, and return its record (SPEC.md, sections 9.3 to 9.7)."""
-        manifest = self.catalog.steps[ref]
-        entry: dict = {"uses": ref, "digest": digest(manifest), "status": "running", "started": now(), "inputs": given}
+    def run_step(self, ref: str, given: dict, depth: int = 0, subgraph: Subgraph | None = None) -> dict:
+        """Run one step version with the given input values, and return its record (SPEC.md, sections 9.3 to 9.7).
+        `subgraph` is the subgraph in the file that `ref` names (section 7.5); it has no digest of its own."""
+        manifest = self.catalog.steps[ref] if subgraph is None else subgraph.manifest
+        entry: dict = {"uses": ref, "status": "running", "started": now(), "inputs": given}
+        if subgraph is None:
+            entry["digest"] = digest(manifest)
         began = False  # whether the step itself has started, so cancelling can't have left it half done
         try:
             if depth > MAX_DEPTH:
@@ -224,7 +228,7 @@ class Runner:
                 entry.update(status="skipped", reason="not approved", ended=now())
                 return entry
             began = True
-            outcome = self._once(ref, manifest, inputs, entry, depth)
+            outcome = self._once(ref, manifest, inputs, entry, depth, subgraph)
             if outcome.skipped is not None:
                 entry.update(status="skipped", reason=self._redact(outcome.skipped))
             else:
@@ -244,9 +248,9 @@ class Runner:
         entry["ended"] = now()
         return entry
 
-    def _once(self, ref: str, manifest: dict, inputs: dict, entry: dict, depth: int) -> Outcome:
+    def _once(self, ref: str, manifest: dict, inputs: dict, entry: dict, depth: int, subgraph: Subgraph | None) -> Outcome:
         """Run a step once, and check its outputs. The runner retries no step ([run.writes-once])."""
-        outcome = self._execute(ref, manifest, inputs, entry, depth)
+        outcome = self._execute(ref, manifest, inputs, entry, depth, subgraph)
         if outcome.logs:
             entry["logs"] = self.store.put_bytes(self._redact(outcome.logs), "text/plain", f"{ref.split('/')[1]}.log")
         if outcome.skipped is None:
@@ -258,12 +262,14 @@ class Runner:
                 raise StepFailed("failed", "the outputs contain a secret's value", outcome.logs)
         return outcome
 
-    def _execute(self, ref: str, manifest: dict, inputs: dict, entry: dict, depth: int) -> Outcome:
+    def _execute(self, ref: str, manifest: dict, inputs: dict, entry: dict, depth: int, subgraph: Subgraph | None) -> Outcome:
         kind = next(iter(manifest["runtime"]))
-        folder = Path(self.catalog.files[ref]).parent
         missing = [s for s in manifest.get("secrets", []) if s not in self.options.secrets]
         if missing:
             raise StepFailed("failed", f"secrets this run doesn't have: {', '.join(missing)}")
+        if subgraph is not None:  # the run's check and its file's digest cover it ([workflow.subgraph-use])
+            return self._inner(subgraph.workflow, subgraph.result, inputs, entry, depth)
+        folder = Path(self.catalog.files[ref]).parent
         named = {s: self.options.secrets[s] for s in manifest.get("secrets", [])}  # [run.secrets-named]
         if kind == "process":
             return run_process(manifest, folder, inputs, named, self.store, self.options.timeout, self.options.sandbox,
@@ -279,14 +285,18 @@ class Runner:
             result = check(inner, self.catalog, self.options.policy)
             if not result.ok:
                 raise StepFailed("failed", "the workflow inside this step fails checking")
-            steps, outputs, failed = self._steps(inner, result, with_defaults(inner.get("inputSchema", {}), inputs), depth + 1)
-            entry["steps"] = steps
-            if self._cancelled:
-                raise RunCancelled
-            if failed:
-                raise StepFailed("failed", f"step {failed[0]!r} inside the workflow failed")
-            return Outcome(outputs=outputs)
+            return self._inner(inner, result, inputs, entry, depth)
         raise StepFailed("failed", f"this runner doesn't run {kind!r} steps")
+
+    def _inner(self, workflow: dict, result, inputs: dict, entry: dict, depth: int) -> Outcome:
+        """Run a checked workflow as one step ([run.workflow-step])."""
+        steps, outputs, failed = self._steps(workflow, result, with_defaults(workflow.get("inputSchema", {}), inputs), depth + 1)
+        entry["steps"] = steps
+        if self._cancelled:
+            raise RunCancelled
+        if failed:
+            raise StepFailed("failed", f"step {failed[0]!r} inside the workflow failed")
+        return Outcome(outputs=outputs)
 
     # ---- secrets ----------------------------------------------------------------------------
 

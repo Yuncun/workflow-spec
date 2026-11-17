@@ -1,0 +1,18 @@
+# Two subgraphs use each other, so neither can run (SPEC.md, [workflow.subgraph-use]).
+steps:
+  start: { uses: subgraphs.ping, with: { text: hi } }
+outputs:
+  text: { from: steps.start.outputs.text }
+subgraphs:
+  ping:
+    inputSchema: { type: object, properties: { text: { type: string } }, required: [text] }
+    steps:
+      next: { uses: subgraphs.pong, with: { text: { from: inputs.text } } }
+    outputs:
+      text: { from: steps.next.outputs.text }
+  pong:
+    inputSchema: { type: object, properties: { text: { type: string } }, required: [text] }
+    steps:
+      next: { uses: subgraphs.ping, with: { text: { from: inputs.text } } }
+    outputs:
+      text: { from: steps.next.outputs.text }

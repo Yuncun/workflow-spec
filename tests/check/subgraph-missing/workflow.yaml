@@ -1,0 +1,5 @@
+# `uses` names a subgraph the file doesn't have (SPEC.md, [workflow.subgraph-use]).
+steps:
+  review: { uses: subgraphs.missing, with: { text: hi } }
+outputs:
+  text: { from: steps.review.outputs.text }

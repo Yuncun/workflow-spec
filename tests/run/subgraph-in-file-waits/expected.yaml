@@ -1,0 +1,7 @@
+status: failed
+error: failed
+outputs: {}
+steps:
+  broken: { status: failed, error: failed }
+  both: { status: skipped }
+logs_hide: [INSIDE-RAN]  # what the step inside would give, had it run

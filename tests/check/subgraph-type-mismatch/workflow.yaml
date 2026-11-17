@@ -1,0 +1,13 @@
+# A subgraph's output has the type its source gives it, so a whole number can't feed a text input
+# (SPEC.md, [workflow.subgraph-use], [publish.as-step]).
+steps:
+  count: { uses: subgraphs.count }
+  take: { uses: test/take-values@1.0.0, with: { text: { from: steps.count.outputs.count } } }
+outputs:
+  done: { from: steps.take.outputs.done }
+subgraphs:
+  count:
+    steps:
+      emit: { uses: test/emit-values@1.0.0 }
+    outputs:
+      count: { from: steps.emit.outputs.count }
