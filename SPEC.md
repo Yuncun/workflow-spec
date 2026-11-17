@@ -64,6 +64,7 @@ Each testable requirement begins with an id in bold brackets, such as `[check.cy
 | step reference | `owner/name@version`, naming one published step exactly |
 | catalog | the manifests a workflow can use |
 | workflow | a document that connects steps (section 7) |
+| subgraph | a workflow used as a step |
 | step id | the key of a step entry in a workflow's `steps` |
 | literal | a value written in a workflow |
 | reference | `{from: ...}`: a value taken from a workflow input or from a step's output |
@@ -288,7 +289,7 @@ When a reference connects an output, or a workflow input, to a step's input, the
 | `inputSchema` | no | the workflow's own inputs, which a form, an API call or a parent workflow fills in |
 | `outputs` | no | output name to reference |
 | `steps` | yes | step id to `{uses, with}` |
-| `subgraphs` | no | name to subgraph: a workflow kept in this file that its steps can use (section 7.5) |
+| `subgraphs` | no | subgraph name to workflow (section 7.5) |
 
 - **[workflow.schema]** A workflow MUST conform to `schemas/workflow.schema.json`. A step id matches `^[a-z][a-z0-9_-]*$`. `uses` names an exact version, such as `acme/fetch-ci-logs@1.2.0`. Ranges such as `1.x` aren't allowed, so every runner runs the same step code for the same file. `uses` may instead name a subgraph in the file (section 7.5).
 - **[workflow.input-schema]** A workflow's `inputSchema` MUST follow [manifest.json-schema], [manifest.refs] and [manifest.required-declared], as a manifest's schemas do.
@@ -356,38 +357,12 @@ A workflow has no conditions, loops or expressions, so it can be checked complet
 
 ### 7.5 Subgraphs
 
-A workflow can keep subgraphs: workflows inside its own file, which its steps use like published steps.
+A workflow file can define its own subgraphs under `subgraphs`. A step uses one with `uses: subgraphs.<name>`.
 
-```yaml
-steps:
-  review:
-    uses: subgraphs.review
-    with: { repo: acme/app, pr: 42 }
-outputs:
-  summary: { from: steps.review.outputs.summary }
-subgraphs:
-  review:
-    inputSchema:
-      type: object
-      properties:
-        repo: { type: string, pattern: "^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$" }
-        pr: { type: integer, minimum: 1 }
-      required: [repo, pr]
-    outputs:
-      summary: { from: steps.summary.outputs.summary }
-    steps:
-      diff:
-        uses: acme/fetch-pr-diff@1.2.0
-        with: { repo: { from: inputs.repo }, pr: { from: inputs.pr } }
-      summary:
-        uses: acme/summarize-diff@1.0.0
-        with: { diff: { from: steps.diff.outputs.diff } }
-```
-
-- **[workflow.subgraphs]** Each subgraph MUST be a workflow without `name`, `version` or `subgraphs` of its own. A checker checks each one as any workflow (section 8), used or not, with its problems' paths inside it. Its steps may use the file's other subgraphs.
+- **[workflow.subgraphs]** Each entry of `subgraphs` MUST be a workflow without `name`, `version` or `subgraphs` of its own. A checker checks each one as any workflow (section 8), used or not, with its problems' paths inside it. Its steps may use the file's other subgraphs.
 - **[workflow.subgraph-use]** `uses: subgraphs.<name>` uses the file's subgraph of that name. That step is a `workflow` step: its manifest, apart from `runtime`, is derived from the subgraph as [publish.as-step] derives one, and it runs by [run.workflow-step]. A checker MUST report a name the file doesn't have as `unknown_step`, and a subgraph that uses itself, directly or through other subgraphs, as `cycle`.
 
-*Informative.* A subgraph is pinned with the file that holds it. To let other workflows use one, publish it as a workflow of its own (section 10.3). ComfyUI keeps subgraphs in the workflow file the same way.
+*Informative.* A subgraph defined in a file is pinned with that file. To let other workflows use one, publish it (section 10.3).
 
 ## 8. Checking
 
@@ -569,7 +544,7 @@ A version follows Semantic Versioning: a change that can break a workflow using 
 
 | Idea | From |
 |---|---|
-| step descriptions served as data; literals and links; check before running; run only what outputs need; cache by inputs; graphs used as steps | ComfyUI |
+| step descriptions served as data; literals and links; check before running; run only what outputs need; cache by inputs; graphs used as steps; subgraphs defined in the workflow file | ComfyUI |
 | `uses: owner/name@version` and `with` | GitHub Actions |
 | tool interface and effect hints | MCP |
 | versioned, typed components; a determinism flag for reuse | Azure ML pipelines |
