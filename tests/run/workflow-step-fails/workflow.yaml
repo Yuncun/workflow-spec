@@ -1,0 +1,6 @@
+# A workflow step fails when a step inside it fails, so a step that uses any of its outputs is skipped (SPEC.md, [run.workflow-step]).
+steps:
+  part: { uses: test/one-fails@1.0.0, with: { text: hi } }
+  after: { uses: test/echo@1.0.0, with: { text: { from: steps.part.outputs.loud } } }
+outputs:
+  after: { from: steps.after.outputs.text }

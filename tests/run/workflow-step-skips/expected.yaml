@@ -1,0 +1,5 @@
+status: succeeded
+outputs: { greeting: hello world }
+steps:
+  pick: { status: succeeded }
+  hello: { status: succeeded, outputs: { greeting: hello world } }
